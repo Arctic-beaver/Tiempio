@@ -134,7 +134,7 @@ describe('process ownership adapter', () => {
 					return { status: 0, stderr: '', stdout: '' }
 				}
 				inspections += 1
-				const records = inspections === 1 ? [root] : []
+				const records = inspections < 12 ? [root] : []
 				return {
 					status: 0,
 					stderr: '',

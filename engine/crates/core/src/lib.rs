@@ -1,4 +1,18 @@
+mod engine;
+mod scheduler;
+mod tempo;
+
 use std::collections::BTreeSet;
+
+pub use engine::{
+    EngineControlError, EngineHealthSnapshot, EngineKernel, PlanAcknowledgement, TransportState,
+    VoiceBank, VoiceIdentity, VoiceStart,
+};
+pub use scheduler::{
+    MAX_ACTIONS_PER_BLOCK, MAX_PREPARED_ACTIONS, PreparedAction, PreparedActionKind, PreparedPlan,
+    PreparedPlanError,
+};
+pub use tempo::{TempoError, TempoSegment, TempoTimeline};
 
 pub const RENDER_PLAN_VERSION: u32 = 1;
 pub const PATCH_MODEL_VERSION: u32 = 1;

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 const inspectionTimeoutMs = 15_000
 const cleanupTimeoutMs = 15_000
 const cleanupPollMs = 100
-const cleanupExitGraceMs = 500
+const cleanupExitGraceMs = 2_000
 
 const wait = (milliseconds) => new Promise((resolveWait) => setTimeout(resolveWait, milliseconds))
 

@@ -9,5 +9,8 @@ publish.workspace = true
 tiempio-engine-core = { path = "../core" }
 tiempio-engine-dsp = { path = "../dsp" }
 
+[dev-dependencies]
+allocation-counter = "=0.8.1"
+
 [lints]
 workspace = true

@@ -3,6 +3,12 @@
 version = 4
 
 [[package]]
+name = "allocation-counter"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "beb9e990c0a33699f1984d85a6abead615ccc72dd8130bf3e15dcabe2ca149c9"
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -95,6 +101,9 @@ dependencies = [
 [[package]]
 name = "tiempio-engine-core"
 version = "0.1.0"
+dependencies = [
+ "tiempio-engine-dsp",
+]
 
 [[package]]
 name = "tiempio-engine-drums"
@@ -142,6 +151,7 @@ dependencies = [
 name = "tiempio-engine-synth"
 version = "0.1.0"
 dependencies = [
+ "allocation-counter",
  "tiempio-engine-core",
  "tiempio-engine-dsp",
 ]
