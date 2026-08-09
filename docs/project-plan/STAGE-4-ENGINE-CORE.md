@@ -6,6 +6,10 @@ This document is the implementation plan for Stage 4 of
 `APPLICATION_SKELETON.md`. The task integration branch is
 `feature/skeleton-engine-core`.
 
+Implementation status: completed through four reviewed stage branches;
+acceptance evidence is recorded in `docs/evidence/STAGE-4-ENGINE-CORE.md`.
+Merge to `main` remains an explicit follow-up action.
+
 The outcome is a platform-neutral Rust engine that accepts one bounded,
 versioned render-plan contract and renders the reviewed `Deep` Bass patch
 deterministically without Electron, browser APIs, filesystem authority, an

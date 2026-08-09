@@ -67,7 +67,8 @@ describe('closed lifecycle workflow catalog', () => {
 			'toolchain:rust',
 			'toolchain:rust-clippy',
 			'format:rust',
-			'check:rust'
+			'check:rust',
+			'evidence:engine'
 		]) {
 			const steps = workflowSteps(name)
 			assert.ok(

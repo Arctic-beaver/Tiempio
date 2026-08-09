@@ -4,7 +4,7 @@ import { join } from 'node:path'
 const inspectionTimeoutMs = 15_000
 const cleanupTimeoutMs = 15_000
 const cleanupPollMs = 100
-const cleanupExitGraceMs = 2_000
+const cleanupExitGraceMs = 15_000
 
 const wait = (milliseconds) => new Promise((resolveWait) => setTimeout(resolveWait, milliseconds))
 
@@ -27,6 +27,18 @@ function executableMatches(command, processRecord) {
 	const commandLine = normalizeCommandLine(processRecord.commandLine)
 	return (
 		normalizeExecutable(processRecord.name) === executable || commandLine.includes(executable)
+	)
+}
+
+function isExpectedOwnedAuxiliary(platform, processRecord, tracked) {
+	const parent = tracked.find((candidate) => candidate.pid === processRecord.parentPid)
+	const commandLine = normalizeCommandLine(processRecord.commandLine)
+	return (
+		platform === 'win32' &&
+		normalizeExecutable(processRecord.name) === 'vctip.exe' &&
+		normalizeExecutable(parent?.name) === 'link.exe' &&
+		commandLine.includes('\\microsoft visual studio\\') &&
+		commandLine.includes('\\vctip.exe')
 	)
 }
 
@@ -249,6 +261,9 @@ export function createSystemProcessAdapter({
 			before = await remainingTree(rootIdentity, tracked)
 			if (before.length === 0) return { hadRemaining: false }
 		}
+		const expectedAuxiliaryOnly = before.every((processRecord) =>
+			isExpectedOwnedAuxiliary(platform, processRecord, tracked)
+		)
 
 		if (platform === 'win32') {
 			for (const root of highestOwnedRoots(before, rootIdentity.pid)) {
@@ -298,7 +313,13 @@ export function createSystemProcessAdapter({
 		const deadline = now() + cleanupTimeoutMs
 		while (now() < deadline) {
 			if ((await remainingTree(rootIdentity, tracked)).length === 0) {
-				return { hadRemaining: true }
+				return expectedAuxiliaryOnly
+					? {
+							hadRemaining: true,
+							cleanedExpectedAuxiliary: true,
+							cleanedExpectedAuxiliaryPids: before.map(({ pid }) => pid)
+						}
+					: { hadRemaining: true }
 			}
 			await waitFor(cleanupPollMs)
 		}

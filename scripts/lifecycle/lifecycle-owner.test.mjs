@@ -39,6 +39,7 @@ function createFakeProcessAdapter(
 		cleanupFailure = null,
 		recordedProcesses = [],
 		reportOrphan = false,
+		reportExpectedAuxiliary = false,
 		captureFailureAfterExit = false,
 		captureReturnsNullBeforeExit = false
 	} = {}
@@ -90,7 +91,13 @@ function createFakeProcessAdapter(
 			if (cleanupFailure !== null) throw cleanupFailure
 			const child = children.get(identity.pid)?.child
 			if (child === undefined || child.exitCode !== null || child.signalCode !== null) {
-				return { hadRemaining: reportOrphan }
+				return reportExpectedAuxiliary
+					? {
+							hadRemaining: true,
+							cleanedExpectedAuxiliary: true,
+							cleanedExpectedAuxiliaryPids: [12_345]
+						}
+					: { hadRemaining: reportOrphan }
 			}
 			child.exit(null, 'SIGKILL')
 			return { hadRemaining: true }
@@ -405,6 +412,26 @@ describe('lifecycle owner', () => {
 				/left a task-owned process tree/u
 			)
 			assert.equal(existsSync(lockPath), false)
+		})
+	})
+
+	it('reports and accepts exact cleanup of an expected owned compiler auxiliary', async () => {
+		await withLifecycleDirectory(async ({ lockPath, quarantinePath }) => {
+			const messages = []
+			await runLifecycleWorkflow({
+				name: 'expected-auxiliary',
+				steps: [step('success')],
+				processAdapter: createFakeProcessAdapter({}, { reportExpectedAuxiliary: true }),
+				lockPath,
+				quarantinePath,
+				report: (message) => messages.push(message)
+			})
+			assert.equal(
+				messages.some((message) => message.includes('CLEANUP success')),
+				true
+			)
+			assert.equal(existsSync(lockPath), false)
+			assert.equal(existsSync(quarantinePath), false)
 		})
 	})
 

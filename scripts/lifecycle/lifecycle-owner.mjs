@@ -412,10 +412,14 @@ async function executeStep({
 	await observation
 
 	let hadRemaining
+	let cleanedExpectedAuxiliary = false
+	let cleanedExpectedAuxiliaryPids = []
 	try {
 		tracked = await processAdapter.observeTree(identity, tracked)
 		const cleanup = await processAdapter.terminateTree(identity, tracked)
 		hadRemaining = cleanup.hadRemaining
+		cleanedExpectedAuxiliary = cleanup.cleanedExpectedAuxiliary === true
+		cleanedExpectedAuxiliaryPids = cleanup.cleanedExpectedAuxiliaryPids ?? []
 	} catch (cleanupError) {
 		lock.quarantine('process-tree-cleanup-failed', cleanupError, {
 			name: step.name,
@@ -434,9 +438,14 @@ async function executeStep({
 
 	lock.updateActiveStep(null)
 	if (outcome.kind === 'exit' && outcome.code === 0 && outcome.signal === null) {
-		if (hadRemaining) {
+		if (hadRemaining && !cleanedExpectedAuxiliary) {
 			throw new Error(
 				`Step ${step.name} exited successfully but left a task-owned process tree that was terminated.`
+			)
+		}
+		if (cleanedExpectedAuxiliary) {
+			report(
+				`[${workflow} ${String(index + 1)}/${String(total)}] CLEANUP ${step.name}: terminated exact task-owned MSVC VCTIP auxiliary PIDs ${cleanedExpectedAuxiliaryPids.map(String).join(', ')} after their bounded exit grace.`
 			)
 		}
 		report(

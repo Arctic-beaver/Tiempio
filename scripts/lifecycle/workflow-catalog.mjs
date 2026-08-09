@@ -284,6 +284,22 @@ const steps = Object.freeze({
 				'--locked'
 			],
 			5 * minute
+		),
+	engineEvidence: () =>
+		directStep(
+			'Stage 4 engine evidence render',
+			cargo,
+			[
+				'run',
+				'--manifest-path',
+				'engine/Cargo.toml',
+				'--package',
+				'tiempio-engine-offline-render',
+				'--bin',
+				'render-stage-4-evidence',
+				'--locked'
+			],
+			5 * minute
 		)
 })
 
@@ -357,6 +373,7 @@ const workflowFactories = Object.freeze({
 		steps.rustClippy(),
 		steps.rustTest()
 	],
+	'evidence:engine': () => [steps.engineEvidence()],
 	'check:target-boundaries': () => [steps.targetBoundaries()],
 	'check:visual-a11y': () => [
 		steps.uiFoundation(),

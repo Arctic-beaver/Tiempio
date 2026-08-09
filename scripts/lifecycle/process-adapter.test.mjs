@@ -134,7 +134,7 @@ describe('process ownership adapter', () => {
 					return { status: 0, stderr: '', stdout: '' }
 				}
 				inspections += 1
-				const records = inspections < 12 ? [root] : []
+				const records = inspections < 120 ? [root] : []
 				return {
 					status: 0,
 					stderr: '',
@@ -153,5 +153,119 @@ describe('process ownership adapter', () => {
 
 		assert.deepEqual(await adapter.terminateTree(root, [root]), { hadRemaining: false })
 		assert.equal(taskkillCalls, 0)
+	})
+
+	it('classifies only an exact owned Windows VCTIP survivor as an expected auxiliary', async () => {
+		const root = identity(900, 700, '2026-08-09T10:00:00.000Z', 'cargo test')
+		const linker = {
+			...identity(899, 898, '2026-08-09T10:00:00.500Z', 'link.exe'),
+			name: 'link.exe'
+		}
+		const helper = {
+			...identity(
+				901,
+				899,
+				'2026-08-09T10:00:01.000Z',
+				'C:\\Program Files\\Microsoft Visual Studio\\VC\\Tools\\VCTIP.EXE'
+			),
+			name: 'VCTIP.EXE'
+		}
+		let alive = true
+		let taskkillCalls = 0
+		let clock = 0
+		const adapter = createSystemProcessAdapter({
+			platform: 'win32',
+			now: () => (clock += 1_000),
+			waitFor: async () => {},
+			spawnSyncProcess: (command) => {
+				if (command.endsWith('taskkill.exe')) {
+					taskkillCalls += 1
+					alive = false
+					return { status: 0, stderr: '', stdout: '' }
+				}
+				const records = alive ? [helper] : []
+				return {
+					status: 0,
+					stderr: '',
+					stdout: JSON.stringify(
+						records.map((record) => ({
+							ProcessId: record.pid,
+							ParentProcessId: record.parentPid,
+							CreationDate: record.startedAt,
+							NameBase64: Buffer.from(record.name).toString('base64'),
+							CommandLineBase64: Buffer.from(record.commandLine).toString('base64')
+						}))
+					)
+				}
+			}
+		})
+
+		assert.deepEqual(await adapter.terminateTree(root, [linker, helper]), {
+			hadRemaining: true,
+			cleanedExpectedAuxiliary: true,
+			cleanedExpectedAuxiliaryPids: [901]
+		})
+		assert.equal(taskkillCalls, 1)
+	})
+
+	it('fails closed for VCTIP-like survivors without exact linker provenance', async () => {
+		const root = identity(900, 700, '2026-08-09T10:00:00.000Z', 'cargo test')
+		const linker = {
+			...identity(899, 898, '2026-08-09T10:00:00.500Z', 'link.exe'),
+			name: 'link.exe'
+		}
+		const helper = {
+			...identity(
+				901,
+				899,
+				'2026-08-09T10:00:01.000Z',
+				'C:\\Program Files\\Microsoft Visual Studio\\VC\\Tools\\VCTIP.EXE'
+			),
+			name: 'VCTIP.EXE'
+		}
+		const cases = [
+			{
+				tracked: [{ ...linker, name: 'cl.exe' }, helper],
+				survivor: helper
+			},
+			{
+				tracked: [linker, { ...helper, commandLine: 'C:\\Temp\\VCTIP.EXE' }],
+				survivor: { ...helper, commandLine: 'C:\\Temp\\VCTIP.EXE' }
+			}
+		]
+
+		for (const { tracked, survivor } of cases) {
+			let alive = true
+			let clock = 0
+			const adapter = createSystemProcessAdapter({
+				platform: 'win32',
+				now: () => (clock += 1_000),
+				waitFor: async () => {},
+				spawnSyncProcess: (command) => {
+					if (command.endsWith('taskkill.exe')) {
+						alive = false
+						return { status: 0, stderr: '', stdout: '' }
+					}
+					const records = alive ? [survivor] : []
+					return {
+						status: 0,
+						stderr: '',
+						stdout: JSON.stringify(
+							records.map((record) => ({
+								ProcessId: record.pid,
+								ParentProcessId: record.parentPid,
+								CreationDate: record.startedAt,
+								NameBase64: Buffer.from(record.name).toString('base64'),
+								CommandLineBase64: Buffer.from(record.commandLine).toString(
+									'base64'
+								)
+							}))
+						)
+					}
+				}
+			})
+
+			assert.deepEqual(await adapter.terminateTree(root, tracked), { hadRemaining: true })
+		}
 	})
 })

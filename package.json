@@ -32,6 +32,7 @@
 		"typecheck:web": "node scripts/lifecycle-runner.mjs typecheck:web",
 		"typecheck": "node scripts/lifecycle-runner.mjs typecheck",
 		"check:rust": "node scripts/lifecycle-runner.mjs check:rust",
+		"evidence:engine": "node scripts/lifecycle-runner.mjs evidence:engine",
 		"check:target-boundaries": "node scripts/lifecycle-runner.mjs check:target-boundaries",
 		"check:security": "node scripts/lifecycle-runner.mjs check:security",
 		"check:bundle-size": "node scripts/lifecycle-runner.mjs check:bundle-size",

@@ -132,6 +132,7 @@ dependencies = [
 name = "tiempio-engine-offline-render"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "tiempio-engine-core",
  "tiempio-engine-dsp",
  "tiempio-engine-protocol",
