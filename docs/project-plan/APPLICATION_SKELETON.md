@@ -138,6 +138,8 @@ has one fail-fast lifecycle owner before any of those workflows is introduced or
 
 - Port the proven Yinkie lifecycle mechanism as an isolated engineering mechanism, renaming all
   product-specific identifiers to Tiempio.
+- Add a minimal dependency-free root `package.json` and npm lockfile solely to expose and pin the
+  Stage 0 lifecycle entry points. Application dependencies remain Stage 1 scope.
 - Define one closed workflow catalog with direct executable and argument vectors.
 - Launch children with `shell: false`.
 - Add a repository-wide single-run lock containing owner PID, creation identity, workflow token,
@@ -182,8 +184,8 @@ enforced dependency direction.
 
 ### Work
 
-- Add the pinned root `package.json`, npm lockfile, TypeScript project configs, ESLint and Prettier
-  configuration.
+- Expand the pinned root `package.json` and npm lockfile with application dependencies, then add
+  TypeScript project configs plus ESLint and Prettier configuration.
 - Add the root Rust workspace, pinned toolchain declaration and Cargo lockfile.
 - Create `apps/desktop`, `apps/web`, shared `packages` and `engine/crates` topology from the
   architecture document.

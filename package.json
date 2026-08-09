@@ -1,0 +1,23 @@
+{
+	"name": "tiempio",
+	"version": "0.1.0",
+	"description": "A user-friendly electronic music studio",
+	"private": true,
+	"type": "module",
+	"packageManager": "npm@10.9.3",
+	"engines": {
+		"node": ">=22.0.0",
+		"npm": ">=10.0.0"
+	},
+	"scripts": {
+		"dependencies:install": "node scripts/lifecycle-runner.mjs dependencies:install",
+		"dependencies:ci": "node scripts/lifecycle-runner.mjs dependencies:ci",
+		"test": "node scripts/lifecycle-runner.mjs test",
+		"test:lifecycle": "node scripts/lifecycle-runner.mjs test:lifecycle",
+		"check:quick": "node scripts/lifecycle-runner.mjs check:quick",
+		"precommit": "node scripts/lifecycle-runner.mjs precommit",
+		"lifecycle:audit": "node scripts/lifecycle-audit.mjs",
+		"postinstall": "node scripts/reject-unsafe-install.mjs",
+		"prepare": "node scripts/reject-unsafe-install.mjs"
+	}
+}
