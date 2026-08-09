@@ -533,6 +533,7 @@ function validateDrumClip(
 ): void {
 	const pattern = record(clip.pattern, context, `${path}.pattern`)
 	let stepCount: number | null = null
+	let stepsPerQuarter: number | null = null
 	if (pattern !== null) {
 		if (integer(pattern.stepCount, context, `${path}.pattern.stepCount`, 1, 1024))
 			stepCount = pattern.stepCount
@@ -543,7 +544,7 @@ function validateDrumClip(
 				`${path}.pattern.stepsPerQuarter`,
 				'Expected 1, 2, 4 or 8 steps per quarter.'
 			)
-		}
+		} else stepsPerQuarter = pattern.stepsPerQuarter as number
 	}
 	const events = array(clip.events, context, `${path}.events`, projectLimits.maxDrumEventsPerClip)
 	if (events === null) return
@@ -561,13 +562,27 @@ function validateDrumClip(
 			)
 		}
 		integer(event.velocity, context, `${eventPath}.velocity`, 1, 127)
-		integer(
-			event.step,
+		const eventStep = event.step
+		const validStep = integer(
+			eventStep,
 			context,
 			`${eventPath}.step`,
 			0,
 			stepCount === null ? 1023 : stepCount - 1
 		)
+		if (
+			validStep &&
+			stepsPerQuarter !== null &&
+			typeof clip.lengthTicks === 'number' &&
+			eventStep * (defaultTicksPerQuarter / stepsPerQuarter) >= clip.lengthTicks
+		) {
+			issue(
+				context,
+				'INVALID_TIMELINE',
+				`${eventPath}.step`,
+				'A drum event must fit inside its clip.'
+			)
+		}
 	}
 }
 

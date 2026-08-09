@@ -3,6 +3,8 @@ import { describe, it } from 'node:test'
 import {
 	assetId,
 	createLayer,
+	createDrumClip,
+	createDrumEvent,
 	createMidiClip,
 	createMidiNote,
 	createProject,
@@ -119,5 +121,20 @@ describe('project validation', () => {
 				layers: [{ ...layer, clips: [{ ...clip, startTick: 0, lengthTicks: 0 }] }]
 			}).includes('INVALID_VALUE')
 		)
+	})
+
+	it('rejects drum events whose musical offset falls outside the clip', () => {
+		const project = createProject({ projectId: 'project.drum-time', title: 'Drum time' })
+		const clip = createDrumClip({
+			id: 'clip.short',
+			startTick: 0,
+			lengthTicks: 1,
+			events: [createDrumEvent({ id: 'event.late', instrument: 'kick', step: 1 })]
+		})
+		const layer = {
+			...createLayer({ id: 'layer.drums', name: 'Drums', role: 'rhythm' }),
+			clips: [clip]
+		}
+		assert.ok(issueCodes({ ...project, layers: [layer] }).includes('INVALID_TIMELINE'))
 	})
 })

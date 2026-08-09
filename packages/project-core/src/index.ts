@@ -1,4 +1,32 @@
 export {
+	createProjectFromCommand,
+	previewBassMacro,
+	reduceProjectCommand,
+	type AddLayerCommand,
+	type AddNoteCommand,
+	type AddSectionCommand,
+	type CommitMacroCommand,
+	type CreateProjectCommand,
+	type DeleteNoteCommand,
+	type MacroPreviewResult,
+	type MoveNoteCommand,
+	type PlaceClipCommand,
+	type ProjectCommand,
+	type ProjectCommandFailure,
+	type ProjectCommandFailureCode,
+	type ProjectCommandResult,
+	type ResizeNoteCommand,
+	type SelectCharacterCommand,
+	type SetKeyCommand,
+	type SetLayerGainCommand,
+	type SetLayerMuteCommand,
+	type SetLayerSoloCommand,
+	type SetLoopCommand,
+	type SetTempoCommand,
+	type ToggleDrumEventCommand,
+	type TransposeOctaveCommand
+} from './commands.js'
+export {
 	createAssetReference,
 	createDrumClip,
 	createDrumEvent,
@@ -84,6 +112,25 @@ export {
 	resolveDeepBassPatch,
 	updateDeepBassMacro
 } from './presets.js'
+export {
+	compileProjectRenderPlan,
+	renderPlanVersion,
+	type ProjectRenderPlan,
+	type RenderPlanDrumEvent,
+	type RenderPlanEvent,
+	type RenderPlanLayer,
+	type RenderPlanMidiEvent,
+	type RenderPlanResult
+} from './render-plan.js'
+export {
+	defaultProjectHistoryCapacity,
+	maximumProjectHistoryCapacity,
+	ProjectSession,
+	ProjectSessionError,
+	type ProjectSessionErrorCode,
+	type ProjectSessionSnapshot,
+	type RevisionOperation
+} from './session.js'
 export {
 	assertValidProject,
 	ProjectValidationError,
