@@ -72,7 +72,10 @@ const compiledTestFiles = Object.freeze([
 	resolve('.test-out/packages/application/src/shell/layout-model.test.js'),
 	resolve('.test-out/packages/application/src/commands/command-registry.test.js'),
 	resolve('.test-out/packages/design-system/src/theme.test.js'),
-	resolve('.test-out/packages/localization/src/catalogs.test.js')
+	resolve('.test-out/packages/localization/src/catalogs.test.js'),
+	resolve('.test-out/packages/project-core/src/project-model.test.js'),
+	resolve('.test-out/packages/project-core/src/project-validation.test.js'),
+	resolve('.test-out/packages/project-core/src/project-migrations.test.js')
 ])
 
 const prettierInputs = Object.freeze([
