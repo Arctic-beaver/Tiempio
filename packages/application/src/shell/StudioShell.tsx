@@ -38,7 +38,7 @@ export function StudioShell({
 					<TransportBar />
 					<div className="studio-shell__content-grid">
 						<div className="studio-shell__layers">
-							<LayersPanel activeView={activeView} />
+							<LayersPanel />
 						</div>
 						<ScrollSurface
 							className="studio-shell__workspace"
@@ -60,7 +60,7 @@ export function StudioShell({
 			>
 				<div className="studio-drawer__navigation">
 					<ActivityRail activeView={activeView} />
-					<LayersPanel activeView={activeView} />
+					<LayersPanel />
 				</div>
 			</StudioDrawer>
 			<StudioDrawer

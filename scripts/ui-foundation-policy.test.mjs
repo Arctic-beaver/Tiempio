@@ -13,7 +13,7 @@ function validFixture() {
 			'view-arrangement',
 			'view-sound-sculpt'
 		].map((view) => `data-testid="${view}"`),
-		'CommandProvider commandForShortcut runtime.commands.api.onRequested'
+		'CommandProvider commandForShortcut runtime.commands.api.onRequested ProjectSessionProvider useSyncExternalStore projectStudio('
 	].join(' ')
 	const tokens = [
 		'--ti-canvas',
@@ -56,4 +56,10 @@ test('rejects native selects, component scrollbars and fixed pixel geometry', ()
 	assert.match(errors, /native select/u)
 	assert.match(errors, /component-local scrollbar/u)
 	assert.match(errors, /fixed pixel geometry/u)
+})
+
+test('rejects component-local canonical project mutation', () => {
+	const fixture = validFixture()
+	fixture.applicationSource += ' setNotes('
+	assert.match(validateUiFoundation(fixture).join('\n'), /escaped ProjectSession/u)
 })

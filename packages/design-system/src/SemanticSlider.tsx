@@ -1,4 +1,4 @@
-import { useId, type ChangeEvent, type JSX } from 'react'
+import { useId, type ChangeEvent, type FormEvent, type JSX } from 'react'
 
 export interface SemanticSliderProperties {
 	readonly disabled?: boolean
@@ -7,6 +7,7 @@ export interface SemanticSliderProperties {
 	readonly max: number
 	readonly min: number
 	readonly onChange: (value: number) => void
+	readonly onCommit?: (value: number) => void
 	readonly step?: number
 	readonly value: number
 }
@@ -18,6 +19,7 @@ export function SemanticSlider({
 	max,
 	min,
 	onChange,
+	onCommit,
 	step = 1,
 	value
 }: SemanticSliderProperties): JSX.Element {
@@ -25,6 +27,9 @@ export function SemanticSlider({
 	const valueId = useId()
 	const handleChange = (event: ChangeEvent<HTMLInputElement>): void => {
 		onChange(Number(event.currentTarget.value))
+	}
+	const handleCommit = (event: FormEvent<HTMLInputElement>): void => {
+		onCommit?.(Number(event.currentTarget.value))
 	}
 
 	return (
@@ -42,6 +47,9 @@ export function SemanticSlider({
 				max={max}
 				min={min}
 				onChange={handleChange}
+				onBlur={handleCommit}
+				onKeyUp={handleCommit}
+				onPointerUp={handleCommit}
 				step={step}
 				type="range"
 				value={value}

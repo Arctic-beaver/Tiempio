@@ -1,31 +1,21 @@
 import { Plus } from 'lucide-react'
-import { useState, type JSX } from 'react'
+import type { JSX } from 'react'
 import { TextButton } from '../../../../design-system/src/index.js'
 import { useLocalization } from '../../../../localization/src/index.js'
-import { pianoRollViewModel, type PianoRollViewModel } from './view-model.js'
+import type { PianoRollViewModel } from './view-model.js'
 
 export interface PianoRollViewProperties {
-	readonly model?: PianoRollViewModel
+	readonly model: PianoRollViewModel
+	readonly onAddNote: () => void
+	readonly onDeleteNote: (noteId: string) => void
 }
 
 export function PianoRollView({
-	model = pianoRollViewModel
+	model,
+	onAddNote,
+	onDeleteNote
 }: PianoRollViewProperties): JSX.Element {
 	const { t } = useLocalization()
-	const [notes, setNotes] = useState(model.notes)
-	const addNote = (): void => {
-		const noteNumber = notes.length + 1
-		setNotes((current) => [
-			...current,
-			Object.freeze({
-				id: `n${String(noteNumber)}`,
-				pitch: 'C5',
-				row: 0,
-				beat: (noteNumber * 2) % 15,
-				duration: 1
-			})
-		])
-	}
 
 	return (
 		<section className="studio-view editor-view" data-testid="view-piano-roll">
@@ -34,7 +24,7 @@ export function PianoRollView({
 					<p className="studio-eyebrow">{t('pianoRoll.subtitle')}</p>
 					<h1>{t('pianoRoll.title')}</h1>
 				</div>
-				<TextButton icon={<Plus />} onClick={addNote}>
+				<TextButton icon={<Plus />} onClick={onAddNote}>
 					{t('pianoRoll.addNote')}
 				</TextButton>
 			</header>
@@ -46,7 +36,7 @@ export function PianoRollView({
 				</div>
 				<div className="piano-roll__grid">
 					<div aria-hidden="true" className="piano-roll__playhead" />
-					{notes.map((note) => (
+					{model.notes.map((note) => (
 						<button
 							aria-label={t('pianoRoll.noteAtBeat', {
 								pitch: note.pitch,
@@ -54,9 +44,7 @@ export function PianoRollView({
 							})}
 							className="piano-roll__note"
 							key={note.id}
-							onClick={() =>
-								setNotes((current) => current.filter(({ id }) => id !== note.id))
-							}
+							onClick={() => onDeleteNote(note.id)}
 							style={
 								{
 									'--note-beat': note.beat,

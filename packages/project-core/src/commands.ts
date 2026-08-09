@@ -148,6 +148,12 @@ export interface PlaceClipCommand extends RevisionedProjectCommand {
 	readonly type: 'clip.place'
 }
 
+export interface DeleteClipCommand extends RevisionedProjectCommand {
+	readonly clipId: ClipId
+	readonly layerId: LayerId
+	readonly type: 'clip.delete'
+}
+
 export interface ToggleDrumEventCommand extends RevisionedProjectCommand {
 	readonly clipId: ClipId
 	readonly eventWhenAdded: DrumEvent
@@ -172,6 +178,7 @@ export type ProjectCommand =
 	| SetLoopCommand
 	| AddSectionCommand
 	| PlaceClipCommand
+	| DeleteClipCommand
 	| ToggleDrumEventCommand
 
 export type ProjectCommandResult =
@@ -470,6 +477,14 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 					fail('DUPLICATE_ID', `Clip ${command.clip.id} already exists.`)
 				}
 				return { ...layer, clips: [...layer.clips, command.clip] }
+			})
+		case 'clip.delete':
+			return updateLayer(project, command.layerId, (layer) => {
+				const index = layer.clips.findIndex((clip) => clip.id === command.clipId)
+				if (index < 0) fail('NOT_FOUND', `Clip ${command.clipId} was not found.`)
+				const clips = [...layer.clips]
+				clips.splice(index, 1)
+				return { ...layer, clips }
 			})
 		case 'drum-event.toggle':
 			return updateClip(project, command.layerId, command.clipId, (clip) => {

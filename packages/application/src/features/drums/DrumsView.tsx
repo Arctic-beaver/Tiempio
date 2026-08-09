@@ -1,28 +1,22 @@
-import { useState, type JSX } from 'react'
+import type { JSX } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
-import { drumsViewModel, type DrumsViewModel } from './view-model.js'
+import type { DrumInstrument } from '../../../../project-core/src/index.js'
+import type { DrumsViewModel } from './view-model.js'
 
 export interface DrumsViewProperties {
-	readonly model?: DrumsViewModel
+	readonly model: DrumsViewModel
+	readonly onToggleStep: (instrument: DrumInstrument, step: number) => void
 }
 
 function stepKey(rowId: string, step: number): string {
 	return `${rowId}:${String(step)}`
 }
 
-export function DrumsView({ model = drumsViewModel }: DrumsViewProperties): JSX.Element {
+export function DrumsView({ model, onToggleStep }: DrumsViewProperties): JSX.Element {
 	const { t } = useLocalization()
-	const [activeSteps, setActiveSteps] = useState(
-		new Set(model.rows.flatMap((row) => row.activeSteps.map((step) => stepKey(row.id, step))))
+	const activeSteps = new Set(
+		model.rows.flatMap((row) => row.activeSteps.map((step) => stepKey(row.id, step)))
 	)
-	const toggleStep = (key: string): void => {
-		setActiveSteps((current) => {
-			const next = new Set(current)
-			if (next.has(key)) next.delete(key)
-			else next.add(key)
-			return next
-		})
-	}
 
 	return (
 		<section className="studio-view editor-view" data-testid="view-drums">
@@ -52,7 +46,7 @@ export function DrumsView({ model = drumsViewModel }: DrumsViewProperties): JSX.
 										aria-pressed={selected}
 										data-beat={step % 4 === 0 || undefined}
 										key={key}
-										onClick={() => toggleStep(key)}
+										onClick={() => onToggleStep(row.id, step)}
 										type="button"
 									/>
 								)

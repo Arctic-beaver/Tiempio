@@ -1,25 +1,17 @@
 import { useState, type JSX } from 'react'
 import { SemanticSlider } from '../../../../design-system/src/index.js'
 import { useLocalization } from '../../../../localization/src/index.js'
-import {
-	soundSculptViewModel,
-	type SculptDimensionViewModel,
-	type SoundSculptViewModel
-} from './view-model.js'
+import { type SculptDimensionViewModel, type SoundSculptViewModel } from './view-model.js'
 
 export interface SoundSculptViewProperties {
-	readonly model?: SoundSculptViewModel
+	readonly model: SoundSculptViewModel
+	readonly onCommit: (dimensionId: SculptDimensionViewModel['id'], value: number) => void
 }
 
-export function SoundSculptView({
-	model = soundSculptViewModel
-}: SoundSculptViewProperties): JSX.Element {
+export function SoundSculptView({ model, onCommit }: SoundSculptViewProperties): JSX.Element {
 	const { t } = useLocalization()
-	const [values, setValues] = useState(
-		Object.fromEntries(model.dimensions.map(({ id, value }) => [id, value])) as Record<
-			SculptDimensionViewModel['id'],
-			number
-		>
+	const [preview, setPreview] = useState<Partial<Record<SculptDimensionViewModel['id'], number>>>(
+		{}
 	)
 
 	return (
@@ -47,9 +39,13 @@ export function SoundSculptView({
 							max={100}
 							min={0}
 							onChange={(value) =>
-								setValues((current) => ({ ...current, [dimension.id]: value }))
+								setPreview((current) => ({ ...current, [dimension.id]: value }))
 							}
-							value={values[dimension.id]}
+							onCommit={(value) => {
+								onCommit(dimension.id, value)
+								setPreview((current) => ({ ...current, [dimension.id]: undefined }))
+							}}
+							value={preview[dimension.id] ?? dimension.value}
 						/>
 					))}
 				</div>

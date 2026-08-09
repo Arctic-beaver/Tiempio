@@ -1,30 +1,24 @@
-import { useState, type JSX } from 'react'
+import type { JSX } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
-import { arrangementViewModel, type ArrangementViewModel } from './view-model.js'
+import type { ArrangementViewModel } from './view-model.js'
 
 export interface ArrangementViewProperties {
-	readonly model?: ArrangementViewModel
+	readonly model: ArrangementViewModel
+	readonly onToggleCell: (layerId: string, sectionId: string, active: boolean) => void
+	readonly totalBars: number
 }
 
 export function ArrangementView({
-	model = arrangementViewModel
+	model,
+	onToggleCell,
+	totalBars
 }: ArrangementViewProperties): JSX.Element {
 	const { t } = useLocalization()
-	const [activeCells, setActiveCells] = useState(
-		new Set(
-			model.layers.flatMap((layer) =>
-				layer.sections.map((sectionId) => `${layer.id}:${sectionId}`)
-			)
+	const activeCells = new Set(
+		model.layers.flatMap((layer) =>
+			layer.sections.map((sectionId) => `${layer.id}:${sectionId}`)
 		)
 	)
-	const toggleCell = (cell: string): void => {
-		setActiveCells((current) => {
-			const next = new Set(current)
-			if (next.has(cell)) next.delete(cell)
-			else next.add(cell)
-			return next
-		})
-	}
 	return (
 		<section className="studio-view editor-view" data-testid="view-arrangement">
 			<header className="editor-view__heading">
@@ -32,7 +26,9 @@ export function ArrangementView({
 					<p className="studio-eyebrow">{t('arrangement.subtitle')}</p>
 					<h1>{t('arrangement.title')}</h1>
 				</div>
-				<span className="editor-view__meter">{t('arrangement.bars', { count: 40 })}</span>
+				<span className="editor-view__meter">
+					{t('arrangement.bars', { count: totalBars })}
+				</span>
 			</header>
 			<div className="arrangement" role="group" aria-label={t('arrangement.title')}>
 				<div className="arrangement__sections" aria-hidden="true">
@@ -47,15 +43,18 @@ export function ArrangementView({
 				{model.layers.map((layer) => (
 					<div className="arrangement__layer" data-color={layer.color} key={layer.id}>
 						<strong>{t(layer.labelKey)}</strong>
-						{model.sections.map((section) => (
-							<button
-								aria-label={`${t(layer.labelKey)}, ${t(section.labelKey)}`}
-								aria-pressed={activeCells.has(`${layer.id}:${section.id}`)}
-								key={section.id}
-								onClick={() => toggleCell(`${layer.id}:${section.id}`)}
-								type="button"
-							/>
-						))}
+						{model.sections.map((section) => {
+							const active = activeCells.has(`${layer.id}:${section.id}`)
+							return (
+								<button
+									aria-label={`${t(layer.labelKey)}, ${t(section.labelKey)}`}
+									aria-pressed={active}
+									key={section.id}
+									onClick={() => onToggleCell(layer.id, section.id, active)}
+									type="button"
+								/>
+							)
+						})}
 					</div>
 				))}
 			</div>

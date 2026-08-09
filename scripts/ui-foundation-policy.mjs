@@ -89,10 +89,24 @@ export function validateUiFoundation({
 	for (const mechanism of [
 		'CommandProvider',
 		'commandForShortcut',
-		'runtime.commands.api.onRequested'
+		'runtime.commands.api.onRequested',
+		'ProjectSessionProvider',
+		'useSyncExternalStore',
+		'projectStudio('
 	]) {
 		if (!applicationSource.includes(mechanism))
 			errors.push(`command mechanism is missing: ${mechanism}`)
+	}
+	for (const forbidden of [
+		'setNotes(',
+		'setActiveSteps(',
+		'setActiveCells(',
+		'setValues(',
+		'setLooping('
+	]) {
+		if (applicationSource.includes(forbidden)) {
+			errors.push(`canonical project state escaped ProjectSession: ${forbidden}`)
+		}
 	}
 	for (const mechanism of [
 		'I18nextProvider',
@@ -144,7 +158,7 @@ export function auditUiFoundation({ repositoryRoot = resolve('.'), report = cons
 	})
 	if (errors.length > 0) throw new Error(`UI foundation policy failed:\n- ${errors.join('\n- ')}`)
 	const message =
-		'PASS UI foundation: shared themes, controls, scrollbars, commands, EN/RU/ES i18n and seven states are present.'
+		'PASS UI foundation: shared themes, controls, scrollbars, commands, one ProjectSession, EN/RU/ES i18n and seven states are present.'
 	report(message)
 	return message
 }

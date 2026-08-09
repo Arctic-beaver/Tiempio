@@ -7,6 +7,7 @@ export {
 	type AddSectionCommand,
 	type CommitMacroCommand,
 	type CreateProjectCommand,
+	type DeleteClipCommand,
 	type DeleteNoteCommand,
 	type MacroPreviewResult,
 	type MoveNoteCommand,

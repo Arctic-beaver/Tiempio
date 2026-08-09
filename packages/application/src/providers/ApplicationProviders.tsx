@@ -1,5 +1,6 @@
 import type { JSX, ReactNode } from 'react'
 import type { ApplicationRuntime } from '../../../contracts/src/index.js'
+import { ProjectSessionProvider } from '../project/ProjectSessionProvider.js'
 import { PresentationSettingsProvider } from './PresentationSettingsProvider.js'
 import { RuntimeProvider } from './RuntimeProvider.js'
 
@@ -14,7 +15,9 @@ export function ApplicationProviders({
 }: ApplicationProvidersProperties): JSX.Element {
 	return (
 		<RuntimeProvider runtime={runtime}>
-			<PresentationSettingsProvider>{children}</PresentationSettingsProvider>
+			<PresentationSettingsProvider>
+				<ProjectSessionProvider>{children}</ProjectSessionProvider>
+			</PresentationSettingsProvider>
 		</RuntimeProvider>
 	)
 }

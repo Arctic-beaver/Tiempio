@@ -5,6 +5,7 @@ import { IconButton } from '../../../design-system/src/index.js'
 import { useLocalization } from '../../../localization/src/index.js'
 import { useCommands } from '../commands/CommandContext.js'
 import { useApplicationRuntime } from '../providers/RuntimeContext.js'
+import { useProjectSession } from '../project/ProjectSessionContext.js'
 
 export interface TitleBarProperties {
 	readonly target: ApplicationTarget
@@ -14,6 +15,7 @@ export function TitleBar({ target }: TitleBarProperties): JSX.Element {
 	const { t } = useLocalization()
 	const { execute } = useCommands()
 	const runtime = useApplicationRuntime()
+	const { snapshot } = useProjectSession()
 	const [maximized, setMaximized] = useState(false)
 	const customChrome = runtime.windowChrome === 'custom'
 	const minimize = (): void => {
@@ -47,7 +49,7 @@ export function TitleBar({ target }: TitleBarProperties): JSX.Element {
 			<div className="title-bar__identity">
 				<strong>{t('app.name')}</strong>
 				<span aria-hidden="true">/</span>
-				<span>Velvet Morning</span>
+				<span>{snapshot.project.title}</span>
 			</div>
 			<span className="title-bar__target">
 				{target === 'desktop' ? t('app.desktop') : t('app.web')}

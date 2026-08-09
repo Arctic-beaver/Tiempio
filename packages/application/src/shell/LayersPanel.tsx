@@ -1,62 +1,28 @@
 import { AudioWaveform, Drum, Music2, Plus } from 'lucide-react'
 import type { JSX, ReactNode } from 'react'
 import { IconButton, ScrollSurface, Tooltip } from '../../../design-system/src/index.js'
-import { useLocalization, type LocalizationKey } from '../../../localization/src/index.js'
-import type { StudioViewId } from '../app/studio-state.js'
+import { useLocalization } from '../../../localization/src/index.js'
 import { useCommands } from '../commands/CommandContext.js'
 import { commandForView } from '../commands/command-registry.js'
+import { useProjectSession } from '../project/ProjectSessionContext.js'
+import type { ProjectedLayerItem } from '../project/projectors.js'
 
-interface LayerItem {
-	readonly color: 'coral' | 'gold' | 'blue' | 'violet'
-	readonly icon: ReactNode
-	readonly id: string
-	readonly labelKey: LocalizationKey
-	readonly view: StudioViewId
+function layerIcon(layer: ProjectedLayerItem): ReactNode {
+	if (layer.view === 'drums') return <Drum />
+	if (layer.color === 'coral') return <Music2 />
+	return <AudioWaveform />
 }
 
-const layers: readonly LayerItem[] = Object.freeze([
-	Object.freeze({
-		id: 'melody',
-		labelKey: 'layers.melody',
-		view: 'piano-roll',
-		color: 'coral',
-		icon: <Music2 />
-	}),
-	Object.freeze({
-		id: 'chords',
-		labelKey: 'layers.chords',
-		view: 'piano-roll',
-		color: 'gold',
-		icon: <AudioWaveform />
-	}),
-	Object.freeze({
-		id: 'bass',
-		labelKey: 'layers.bass',
-		view: 'piano-roll',
-		color: 'blue',
-		icon: <AudioWaveform />
-	}),
-	Object.freeze({
-		id: 'drums',
-		labelKey: 'layers.drums',
-		view: 'drums',
-		color: 'violet',
-		icon: <Drum />
-	})
-])
-
-export interface LayersPanelProperties {
-	readonly activeView: StudioViewId
-}
-
-export function LayersPanel({ activeView }: LayersPanelProperties): JSX.Element {
+export function LayersPanel(): JSX.Element {
 	const { t } = useLocalization()
 	const { execute } = useCommands()
+	const { projections, selectLayer } = useProjectSession()
+	const model = projections.layers
 	return (
 		<section aria-label={t('layers.title')} className="layers-panel">
 			<header>
 				<div>
-					<span>04</span>
+					<span>{String(model.items.length).padStart(2, '0')}</span>
 					<h2>{t('layers.title')}</h2>
 				</div>
 				<Tooltip content={t('layers.add')} placement="right">
@@ -69,29 +35,34 @@ export function LayersPanel({ activeView }: LayersPanelProperties): JSX.Element 
 				</Tooltip>
 			</header>
 			<ScrollSurface className="layers-panel__list">
-				{layers.map((layer) => (
+				{model.items.map((layer) => (
 					<button
-						aria-current={activeView === layer.view ? 'page' : undefined}
+						aria-current={model.activeLayerId === layer.id ? 'page' : undefined}
 						className="layer-item"
 						data-color={layer.color}
 						key={layer.id}
-						onClick={() => execute(commandForView(layer.view))}
+						onClick={() => {
+							selectLayer(layer.id)
+							execute(commandForView(layer.view))
+						}}
 						type="button"
 					>
 						<span aria-hidden="true" className="layer-item__icon">
-							{layer.icon}
+							{layerIcon(layer)}
 						</span>
 						<span>
 							<strong>{t(layer.labelKey)}</strong>
-							<small>Felt Signal</small>
+							<small>{layer.soundName}</small>
 						</span>
 						<i aria-hidden="true" />
 					</button>
 				))}
 			</ScrollSurface>
 			<footer>
-				<span>Velvet Morning</span>
-				<small>108 BPM · 4/4</small>
+				<span>{model.projectTitle}</span>
+				<small>
+					{String(model.bpm)} BPM · {model.meter}
+				</small>
 			</footer>
 		</section>
 	)

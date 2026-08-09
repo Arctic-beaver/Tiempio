@@ -7,6 +7,7 @@ import {
 	type SupportedLocale
 } from '../../../localization/src/index.js'
 import { useCommands } from '../commands/CommandContext.js'
+import { useProjectSession } from '../project/ProjectSessionContext.js'
 import {
 	usePresentationSettings,
 	type PresentationSettingsContextValue,
@@ -27,6 +28,7 @@ export function TransportBar(): JSX.Element {
 	const { t } = useLocalization()
 	const settings = usePresentationSettings()
 	const { execute, looping, playing } = useCommands()
+	const { projections } = useProjectSession()
 	return (
 		<div aria-label={t('transport.toolbar')} className="transport-bar" role="toolbar">
 			<div className="transport-bar__primary">
@@ -52,7 +54,7 @@ export function TransportBar(): JSX.Element {
 			</div>
 			<button className="transport-bar__tempo" type="button">
 				<span>{t('transport.tempo')}</span>
-				<strong>108</strong>
+				<strong>{projections.transport.bpm}</strong>
 			</button>
 			<Tooltip content={t('transport.loop')}>
 				<IconButton

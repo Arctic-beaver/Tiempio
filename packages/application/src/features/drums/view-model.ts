@@ -1,8 +1,9 @@
 import type { LocalizationKey } from '../../../../localization/src/index.js'
+import type { DrumInstrument } from '../../../../project-core/src/index.js'
 
 export interface DrumRowViewModel {
 	readonly activeSteps: readonly number[]
-	readonly id: string
+	readonly id: DrumInstrument
 	readonly labelKey: LocalizationKey
 }
 
