@@ -44,7 +44,7 @@ export function FirstLayerView({
 							{roleIcons[role.id]}
 						</span>
 						<strong>{t(role.labelKey)}</strong>
-						<small>{role.description}</small>
+						<small>{t(role.descriptionKey)}</small>
 					</button>
 				))}
 			</div>

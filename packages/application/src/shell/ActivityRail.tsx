@@ -1,52 +1,44 @@
 import { AudioWaveform, Drum, Home, ListMusic, SlidersHorizontal } from 'lucide-react'
 import type { JSX, ReactNode } from 'react'
 import { IconButton, Tooltip } from '../../../design-system/src/index.js'
-import { useLocalization, type LocalizationKey } from '../../../localization/src/index.js'
+import { useLocalization } from '../../../localization/src/index.js'
 import type { StudioViewId } from '../app/studio-state.js'
+import { useCommands } from '../commands/CommandContext.js'
+import { activityCommandDefinitions, type CommandId } from '../commands/command-registry.js'
 
-interface ActivityItem {
-	readonly icon: ReactNode
-	readonly id: StudioViewId
-	readonly labelKey: LocalizationKey
-}
-
-const activityItems: readonly ActivityItem[] = Object.freeze([
-	Object.freeze({ id: 'home', labelKey: 'nav.home', icon: <Home /> }),
-	Object.freeze({ id: 'piano-roll', labelKey: 'nav.piano', icon: <AudioWaveform /> }),
-	Object.freeze({ id: 'drums', labelKey: 'nav.drums', icon: <Drum /> }),
-	Object.freeze({ id: 'arrangement', labelKey: 'nav.arrangement', icon: <ListMusic /> }),
-	Object.freeze({ id: 'sound-sculpt', labelKey: 'nav.soundSculpt', icon: <SlidersHorizontal /> })
-])
+const activityIcons: Readonly<Partial<Record<CommandId, ReactNode>>> = Object.freeze({
+	'studio.home': <Home />,
+	'studio.piano-roll': <AudioWaveform />,
+	'studio.drums': <Drum />,
+	'studio.arrangement': <ListMusic />,
+	'studio.sound-sculpt': <SlidersHorizontal />
+})
 
 export interface ActivityRailProperties {
 	readonly activeView: StudioViewId
-	readonly onNavigate: (view: StudioViewId) => void
 }
 
-export function ActivityRail({ activeView, onNavigate }: ActivityRailProperties): JSX.Element {
+export function ActivityRail({ activeView }: ActivityRailProperties): JSX.Element {
 	const { t } = useLocalization()
+	const { execute } = useCommands()
 	return (
-		<nav aria-label="Studio" className="activity-rail">
+		<nav aria-label={t('nav.studio')} className="activity-rail">
 			<div aria-hidden="true" className="activity-rail__mark">
 				T
 			</div>
 			<div className="activity-rail__items">
-				{activityItems.map((item) => (
-					<Tooltip content={t(item.labelKey)} key={item.id} placement="right">
+				{activityCommandDefinitions.map((command) => (
+					<Tooltip content={t(command.labelKey)} key={command.id} placement="right">
 						<IconButton
-							icon={item.icon}
-							label={t(item.labelKey)}
-							onClick={() => onNavigate(item.id)}
-							selected={activeView === item.id}
+							icon={activityIcons[command.id]}
+							label={t(command.labelKey)}
+							onClick={() => execute(command.id)}
+							selected={activeView === command.view}
 						/>
 					</Tooltip>
 				))}
 			</div>
-			<span
-				aria-label="Audio engine status: ready"
-				className="activity-rail__status"
-				role="status"
-			/>
+			<span aria-label={t('engine.ready')} className="activity-rail__status" role="status" />
 		</nav>
 	)
 }

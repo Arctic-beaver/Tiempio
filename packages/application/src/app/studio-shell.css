@@ -68,8 +68,23 @@ body {
 	-webkit-app-region: no-drag;
 }
 
+.title-bar__actions {
+	display: flex;
+	align-items: center;
+	justify-self: end;
+}
+
+.title-bar__window-controls {
+	display: flex;
+	align-items: center;
+}
+
 .title-bar__context-control {
 	justify-self: end;
+}
+
+.title-bar[data-window-chrome="native"] {
+	padding-left: 5rem;
 }
 
 .studio-shell__body {

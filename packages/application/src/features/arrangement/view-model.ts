@@ -10,7 +10,7 @@ export interface ArrangementSectionViewModel {
 export interface ArrangementLayerViewModel {
 	readonly color: string
 	readonly id: string
-	readonly name: string
+	readonly labelKey: LocalizationKey
 	readonly sections: readonly string[]
 }
 
@@ -29,25 +29,25 @@ export const arrangementViewModel: ArrangementViewModel = Object.freeze({
 	layers: Object.freeze([
 		Object.freeze({
 			id: 'melody',
-			name: 'Glass melody',
+			labelKey: 'layers.melody',
 			color: 'coral',
 			sections: ['main', 'break']
 		}),
 		Object.freeze({
 			id: 'chords',
-			name: 'Warm chords',
+			labelKey: 'layers.chords',
 			color: 'gold',
 			sections: ['intro', 'main', 'break', 'outro']
 		}),
 		Object.freeze({
 			id: 'bass',
-			name: 'Low pulse',
+			labelKey: 'layers.bass',
 			color: 'blue',
 			sections: ['main', 'outro']
 		}),
 		Object.freeze({
 			id: 'drums',
-			name: 'Soft drums',
+			labelKey: 'layers.drums',
 			color: 'violet',
 			sections: ['intro', 'main', 'outro']
 		})

@@ -113,6 +113,11 @@ export function Select<Value extends string>({
 				{label}
 			</span>
 			<button
+				aria-activedescendant={
+					!open || activeIndex < 0
+						? undefined
+						: `${listboxId}-option-${String(activeIndex)}`
+				}
 				aria-controls={open ? listboxId : undefined}
 				aria-expanded={open}
 				aria-haspopup="listbox"
@@ -128,29 +133,24 @@ export function Select<Value extends string>({
 			</button>
 			{open ? (
 				<div
-					aria-activedescendant={
-						activeIndex < 0 ? undefined : `${listboxId}-option-${String(activeIndex)}`
-					}
 					aria-labelledby={labelId}
 					className="ti-select__options ti-scroll-surface"
 					id={listboxId}
 					role="listbox"
-					tabIndex={-1}
 				>
 					{options.map((option, index) => (
-						<button
+						<div
 							aria-disabled={option.disabled || undefined}
 							aria-selected={option.value === value}
 							className="ti-select__option"
 							data-active={index === activeIndex || undefined}
-							disabled={option.disabled}
 							id={`${listboxId}-option-${String(index)}`}
 							key={option.value}
 							onClick={() => choose(index)}
-							onPointerMove={() => setActiveIndex(index)}
+							onPointerMove={() => {
+								if (option.disabled !== true) setActiveIndex(index)
+							}}
 							role="option"
-							tabIndex={-1}
-							type="button"
 						>
 							<span>
 								<strong>{option.label}</strong>
@@ -164,7 +164,7 @@ export function Select<Value extends string>({
 								size="1rem"
 								strokeWidth={2}
 							/>
-						</button>
+						</div>
 					))}
 				</div>
 			) : null}

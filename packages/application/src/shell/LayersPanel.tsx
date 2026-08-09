@@ -3,6 +3,8 @@ import type { JSX, ReactNode } from 'react'
 import { IconButton, ScrollSurface, Tooltip } from '../../../design-system/src/index.js'
 import { useLocalization, type LocalizationKey } from '../../../localization/src/index.js'
 import type { StudioViewId } from '../app/studio-state.js'
+import { useCommands } from '../commands/CommandContext.js'
+import { commandForView } from '../commands/command-registry.js'
 
 interface LayerItem {
 	readonly color: 'coral' | 'gold' | 'blue' | 'violet'
@@ -45,12 +47,11 @@ const layers: readonly LayerItem[] = Object.freeze([
 
 export interface LayersPanelProperties {
 	readonly activeView: StudioViewId
-	readonly onAdd: () => void
-	readonly onNavigate: (view: StudioViewId) => void
 }
 
-export function LayersPanel({ activeView, onAdd, onNavigate }: LayersPanelProperties): JSX.Element {
+export function LayersPanel({ activeView }: LayersPanelProperties): JSX.Element {
 	const { t } = useLocalization()
+	const { execute } = useCommands()
 	return (
 		<section aria-label={t('layers.title')} className="layers-panel">
 			<header>
@@ -62,7 +63,7 @@ export function LayersPanel({ activeView, onAdd, onNavigate }: LayersPanelProper
 					<IconButton
 						icon={<Plus />}
 						label={t('layers.add')}
-						onClick={onAdd}
+						onClick={() => execute('studio.first-layer')}
 						size="small"
 					/>
 				</Tooltip>
@@ -74,7 +75,7 @@ export function LayersPanel({ activeView, onAdd, onNavigate }: LayersPanelProper
 						className="layer-item"
 						data-color={layer.color}
 						key={layer.id}
-						onClick={() => onNavigate(layer.view)}
+						onClick={() => execute(commandForView(layer.view))}
 						type="button"
 					>
 						<span aria-hidden="true" className="layer-item__icon">

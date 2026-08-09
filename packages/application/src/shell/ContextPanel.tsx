@@ -4,13 +4,21 @@ import { Select, SemanticSlider } from '../../../design-system/src/index.js'
 import { useLocalization } from '../../../localization/src/index.js'
 
 const soundOptions = Object.freeze([
-	Object.freeze({ value: 'felt-signal', label: 'Felt Signal', description: 'Warm · soft edge' }),
+	Object.freeze({
+		value: 'felt-signal',
+		label: 'Felt Signal',
+		descriptionKey: 'context.feltSignalDescription'
+	}),
 	Object.freeze({
 		value: 'clear-glass',
 		label: 'Clear Glass',
-		description: 'Clear · patient decay'
+		descriptionKey: 'context.clearGlassDescription'
 	}),
-	Object.freeze({ value: 'low-ember', label: 'Low Ember', description: 'Deep · quiet movement' })
+	Object.freeze({
+		value: 'low-ember',
+		label: 'Low Ember',
+		descriptionKey: 'context.lowEmberDescription'
+	})
 ] as const)
 
 export function ContextPanel(): JSX.Element {
@@ -24,7 +32,7 @@ export function ContextPanel(): JSX.Element {
 					<SlidersHorizontal aria-hidden="true" />
 					{t('context.title')}
 				</span>
-				<small>Glass melody</small>
+				<small>{t('layers.melody')}</small>
 			</header>
 			<div className="context-panel__section">
 				<div className="context-panel__section-title">
@@ -34,7 +42,11 @@ export function ContextPanel(): JSX.Element {
 				<Select
 					label={t('context.feel')}
 					onChange={setSound}
-					options={soundOptions}
+					options={soundOptions.map((option) => ({
+						value: option.value,
+						label: option.label,
+						description: t(option.descriptionKey)
+					}))}
 					value={sound}
 				/>
 			</div>
@@ -54,7 +66,7 @@ export function ContextPanel(): JSX.Element {
 			</div>
 			<div className="context-panel__note">
 				<span aria-hidden="true">↗</span>
-				<p>Changes stay gentle until the audio engine is connected.</p>
+				<p>{t('context.enginePending')}</p>
 			</div>
 		</aside>
 	)

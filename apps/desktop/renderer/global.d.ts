@@ -1,8 +1,8 @@
-import type { ApplicationRuntimeHandshake } from '../../../packages/contracts/src/application-runtime.js'
+import type { DesktopRuntimeBridge } from '../../../packages/contracts/src/application-runtime.js'
 
 declare global {
 	interface Window {
-		readonly tiempioRuntime: ApplicationRuntimeHandshake
+		readonly tiempioRuntime: DesktopRuntimeBridge
 	}
 }
 

@@ -1,10 +1,15 @@
 import { join } from 'node:path'
 import { app, BrowserWindow } from 'electron'
+import { registerWindowHandlers } from './window-handlers.js'
+import { windowChromeOptions } from './window-options.js'
 
 function createWindow(): BrowserWindow {
 	const window = new BrowserWindow({
+		...windowChromeOptions(process.platform),
 		width: 1280,
 		height: 800,
+		minWidth: 360,
+		minHeight: 480,
 		show: false,
 		webPreferences: {
 			preload: join(__dirname, '../preload/index.cjs'),
@@ -21,6 +26,7 @@ function createWindow(): BrowserWindow {
 }
 
 void app.whenReady().then(() => {
+	registerWindowHandlers()
 	createWindow()
 	app.on('activate', () => {
 		if (BrowserWindow.getAllWindows().length === 0) createWindow()

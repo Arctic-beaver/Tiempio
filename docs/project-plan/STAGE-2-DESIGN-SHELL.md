@@ -36,7 +36,7 @@ theme families, settings model, or application CSS.
 - `packages/design-system` owns semantic tokens and reusable controls:
   icon/text buttons, tooltip, popover, select, semantic slider, scroll surface,
   focus treatment and motion policy.
-- `packages/localization` owns typed EN/RU base catalogs, locale resolution,
+- `packages/localization` owns typed EN/RU/ES base catalogs, locale resolution,
   interpolation and parity checks. Project names, musical note names, preset
   names and other musical content are never translated.
 - `packages/application` owns providers, the command registry, responsive shell
@@ -61,7 +61,7 @@ theme families, settings model, or application CSS.
 - Add reusable buttons, tooltip, popover, select, slider and scroll-surface
   primitives with keyboard and assistive-technology semantics.
 - Add application runtime, presentation-settings and localization providers.
-- Add complete typed EN/RU catalogs and parity tests.
+- Add complete typed EN/RU/ES catalogs and parity tests.
 - Add the typed command registry, shortcut matching and placement coverage.
 
 ### Stage B — Shared shell and seven states
@@ -95,7 +95,7 @@ theme families, settings model, or application CSS.
 
 - Both targets mount the same `ApplicationRoot` and the same feature components.
 - Initial locale resolves from the system with deterministic English fallback;
-  EN/RU changes are live and never change musical content identifiers.
+  EN/RU/ES changes are live and never change musical content identifiers.
 - System theme follows the operating-system preference while Light and Dark
   remain explicit stable choices.
 - The seven states are reachable by visible controls and keyboard-capable
@@ -144,7 +144,7 @@ The combined task branch must pass:
 - Rust workspace check to prove no cross-stage regression;
 - Desktop and Web production builds;
 - production CSP, package-content and bundle-budget policies;
-- browser inspection for all seven states, EN/RU, Light/Dark, compact,
+- browser inspection for all seven states, EN/RU/ES, Light/Dark, compact,
   standard, ultrawide and constrained-height scenarios;
 - keyboard focus, popover dismissal/restoration, drawer access, select/slider
   semantics, reduced motion and shell-overflow assertions;
@@ -158,7 +158,7 @@ The combined task branch must pass:
   transport.
 - Semantic tokens cover both schemes and every shared control state.
 - Equivalent dropdowns and scrollable surfaces use the shared implementation.
-- EN and RU catalogs have exact key and parameter parity.
+- EN, RU and ES catalogs have exact key and parameter parity.
 - Compact and constrained-height layouts retain labelled access to layers and
   current context with no shell-level horizontal overflow.
 - Keyboard focus, focus restoration, reduced motion and non-color state cues are

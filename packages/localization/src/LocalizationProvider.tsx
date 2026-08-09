@@ -1,8 +1,8 @@
-import { useMemo, type JSX, type ReactNode } from 'react'
-import { catalogs } from './catalogs.js'
-import { LocalizationContext, type LocalizationContextValue } from './LocalizationContext.js'
+import { useEffect, useMemo, useState, type JSX, type ReactNode } from 'react'
+import { I18nextProvider } from 'react-i18next'
+import { createTiempioI18n } from './i18n.js'
+import { LocalizationContext } from './LocalizationContext.js'
 import type { SupportedLocale } from './locales.js'
-import { translate } from './translate.js'
 
 export interface LocalizationProviderProperties {
 	readonly children: ReactNode
@@ -15,14 +15,23 @@ export function LocalizationProvider({
 	locale,
 	onLocaleChange
 }: LocalizationProviderProperties): JSX.Element {
-	const value = useMemo<LocalizationContextValue>(
-		() => ({
-			locale,
-			setLocale: onLocaleChange,
-			t: (key, values) => translate(catalogs[locale], key, values)
-		}),
+	const [instance] = useState(() => createTiempioI18n(locale))
+	const controls = useMemo(
+		() => ({ locale, setLocale: onLocaleChange }),
 		[locale, onLocaleChange]
 	)
 
-	return <LocalizationContext.Provider value={value}>{children}</LocalizationContext.Provider>
+	useEffect(() => {
+		if (instance.resolvedLanguage !== locale) void instance.changeLanguage(locale)
+	}, [instance, locale])
+
+	useEffect(() => {
+		document.documentElement.lang = locale
+	}, [locale])
+
+	return (
+		<I18nextProvider i18n={instance}>
+			<LocalizationContext.Provider value={controls}>{children}</LocalizationContext.Provider>
+		</I18nextProvider>
+	)
 }

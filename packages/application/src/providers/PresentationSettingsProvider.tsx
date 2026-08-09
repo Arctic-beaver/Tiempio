@@ -16,7 +16,10 @@ export interface PresentationSettingsProviderProperties {
 
 function preferredLocale(): SupportedLocale {
 	if (typeof navigator === 'undefined') return 'en'
-	return navigator.language.toLowerCase().startsWith('ru') ? 'ru' : 'en'
+	const language = navigator.language.toLowerCase()
+	if (language.startsWith('ru')) return 'ru'
+	if (language.startsWith('es')) return 'es'
+	return 'en'
 }
 
 export function PresentationSettingsProvider({

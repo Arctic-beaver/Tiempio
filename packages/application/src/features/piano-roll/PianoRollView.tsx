@@ -48,7 +48,10 @@ export function PianoRollView({
 					<div aria-hidden="true" className="piano-roll__playhead" />
 					{notes.map((note) => (
 						<button
-							aria-label={`${note.pitch}, beat ${String(note.beat + 1)}`}
+							aria-label={t('pianoRoll.noteAtBeat', {
+								pitch: note.pitch,
+								beat: note.beat + 1
+							})}
 							className="piano-roll__note"
 							key={note.id}
 							onClick={() =>
@@ -66,9 +69,7 @@ export function PianoRollView({
 					))}
 				</div>
 			</div>
-			<p className="studio-hint">
-				Enter adds a note · Select a note and press Delete to remove it
-			</p>
+			<p className="studio-hint">{t('pianoRoll.hint')}</p>
 		</section>
 	)
 }

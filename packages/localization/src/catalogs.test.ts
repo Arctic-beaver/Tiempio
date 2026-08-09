@@ -1,25 +1,29 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { englishCatalog, russianCatalog } from './catalogs.js'
-import { translate } from './translate.js'
+import { englishCatalog, russianCatalog, spanishCatalog } from './catalogs.js'
+import { createTiempioI18n } from './i18n.js'
 
-test('English and Russian catalogs have identical keys and interpolation tokens', () => {
+test('English, Russian and Spanish catalogs have identical keys and interpolation tokens', () => {
 	const englishKeys = Object.keys(englishCatalog).sort()
-	const russianKeys = Object.keys(russianCatalog).sort()
-	assert.deepEqual(russianKeys, englishKeys)
+	for (const catalog of [russianCatalog, spanishCatalog]) {
+		assert.deepEqual(Object.keys(catalog).sort(), englishKeys)
+	}
 
 	const tokens = (value: string): string[] =>
-		[...value.matchAll(/\{([^{}]+)\}/gu)].map((match) => match[1] ?? '').sort()
+		[...value.matchAll(/\{\{([^{}]+)\}\}/gu)].map((match) => match[1] ?? '').sort()
 	for (const key of englishKeys) {
 		const typedKey = key as keyof typeof englishCatalog
-		assert.deepEqual(tokens(russianCatalog[typedKey]), tokens(englishCatalog[typedKey]), key)
+		for (const catalog of [russianCatalog, spanishCatalog]) {
+			assert.deepEqual(tokens(catalog[typedKey]), tokens(englishCatalog[typedKey]), key)
+		}
 	}
 })
 
-test('translator interpolates known values and preserves unknown placeholders', () => {
-	assert.equal(
-		translate(englishCatalog, 'command.shortcut', { shortcut: 'Ctrl+K' }),
-		'Shortcut: Ctrl+K'
-	)
-	assert.equal(translate(englishCatalog, 'command.shortcut'), 'Shortcut: {shortcut}')
+test('i18next interpolates values and switches the bundled language', async () => {
+	const i18n = createTiempioI18n('en')
+	assert.equal(i18n.t('command.shortcut', { shortcut: 'Ctrl+K' }), 'Shortcut: Ctrl+K')
+	await i18n.changeLanguage('ru')
+	assert.equal(i18n.t('command.shortcut', { shortcut: 'Ctrl+K' }), 'Сочетание клавиш: Ctrl+K')
+	await i18n.changeLanguage('es')
+	assert.equal(i18n.t('command.shortcut', { shortcut: 'Ctrl+K' }), 'Atajo: Ctrl+K')
 })

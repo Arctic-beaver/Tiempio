@@ -1,7 +1,7 @@
 import type { LocalizationKey } from '../../../../localization/src/index.js'
 
 export interface LayerRoleViewModel {
-	readonly description: string
+	readonly descriptionKey: LocalizationKey
 	readonly id: 'melody' | 'chords' | 'bass' | 'drums'
 	readonly labelKey: LocalizationKey
 }
@@ -15,18 +15,22 @@ export const firstLayerViewModel: FirstLayerViewModel = Object.freeze({
 		Object.freeze({
 			id: 'melody',
 			labelKey: 'firstLayer.melody',
-			description: 'A line to remember'
+			descriptionKey: 'firstLayer.melodyDescription'
 		}),
 		Object.freeze({
 			id: 'chords',
 			labelKey: 'firstLayer.chords',
-			description: 'Color and emotional weight'
+			descriptionKey: 'firstLayer.chordsDescription'
 		}),
-		Object.freeze({ id: 'bass', labelKey: 'firstLayer.bass', description: 'A grounded pulse' }),
+		Object.freeze({
+			id: 'bass',
+			labelKey: 'firstLayer.bass',
+			descriptionKey: 'firstLayer.bassDescription'
+		}),
 		Object.freeze({
 			id: 'drums',
 			labelKey: 'firstLayer.drums',
-			description: 'Movement and time'
+			descriptionKey: 'firstLayer.drumsDescription'
 		})
 	])
 })

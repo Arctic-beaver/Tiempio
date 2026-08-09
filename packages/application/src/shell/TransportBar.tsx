@@ -1,27 +1,40 @@
 import { CircleStop, Pause, Play, Repeat2, Settings2, Volume2 } from 'lucide-react'
-import { useState, type JSX } from 'react'
+import type { JSX } from 'react'
 import { IconButton, Popover, Select, Tooltip } from '../../../design-system/src/index.js'
-import { useLocalization, type SupportedLocale } from '../../../localization/src/index.js'
+import {
+	useLocalization,
+	type LocalizationKey,
+	type SupportedLocale
+} from '../../../localization/src/index.js'
+import { useCommands } from '../commands/CommandContext.js'
 import {
 	usePresentationSettings,
-	type PresentationSettingsContextValue
+	type PresentationSettingsContextValue,
+	type SettingsPersistenceState
 } from '../providers/PresentationSettingsContext.js'
 
 const themeValues = Object.freeze(['system', 'light', 'dark'] as const)
-const localeValues = Object.freeze(['en', 'ru'] as const)
+const localeValues = Object.freeze(['en', 'ru', 'es'] as const)
+const persistenceLabelKeys: Readonly<Record<SettingsPersistenceState, LocalizationKey>> =
+	Object.freeze({
+		'session-only': 'settings.sessionOnly',
+		loading: 'settings.loading',
+		saved: 'settings.saved',
+		failed: 'settings.failed'
+	})
 
 export function TransportBar(): JSX.Element {
 	const { t } = useLocalization()
 	const settings = usePresentationSettings()
-	const [playing, setPlaying] = useState(false)
+	const { execute, looping, playing } = useCommands()
 	return (
-		<div aria-label="Transport" className="transport-bar" role="toolbar">
+		<div aria-label={t('transport.toolbar')} className="transport-bar" role="toolbar">
 			<div className="transport-bar__primary">
 				<Tooltip content={playing ? t('transport.pause') : t('transport.play')}>
 					<IconButton
 						icon={playing ? <Pause /> : <Play />}
 						label={playing ? t('transport.pause') : t('transport.play')}
-						onClick={() => setPlaying((current) => !current)}
+						onClick={() => execute('transport.toggle-playback')}
 						tone="accent"
 					/>
 				</Tooltip>
@@ -29,7 +42,7 @@ export function TransportBar(): JSX.Element {
 					<IconButton
 						icon={<CircleStop />}
 						label={t('transport.stop')}
-						onClick={() => setPlaying(false)}
+						onClick={() => execute('transport.stop')}
 					/>
 				</Tooltip>
 			</div>
@@ -42,7 +55,12 @@ export function TransportBar(): JSX.Element {
 				<strong>108</strong>
 			</button>
 			<Tooltip content={t('transport.loop')}>
-				<IconButton icon={<Repeat2 />} label={t('transport.loop')} selected />
+				<IconButton
+					icon={<Repeat2 />}
+					label={t('transport.loop')}
+					onClick={() => execute('transport.toggle-loop')}
+					selected={looping}
+				/>
 			</Tooltip>
 			<div className="transport-bar__spacer" />
 			<div className="transport-bar__audio" role="status">
@@ -65,7 +83,8 @@ export function TransportBar(): JSX.Element {
 						onChange={settings.setLocale}
 						options={localeValues.map((value) => ({
 							value,
-							label: value === 'en' ? 'English' : 'Русский'
+							label:
+								value === 'en' ? 'English' : value === 'ru' ? 'Русский' : 'Español'
 						}))}
 						value={settings.locale}
 					/>
@@ -77,11 +96,10 @@ export function TransportBar(): JSX.Element {
 }
 
 function SettingsStatus({ settings }: { settings: PresentationSettingsContextValue }): JSX.Element {
+	const { t } = useLocalization()
 	return (
 		<small className="settings-popover__status" data-state={settings.persistenceState}>
-			{settings.persistenceState === 'session-only'
-				? 'Saved for this session'
-				: settings.persistenceState}
+			{t(persistenceLabelKeys[settings.persistenceState])}
 		</small>
 	)
 }

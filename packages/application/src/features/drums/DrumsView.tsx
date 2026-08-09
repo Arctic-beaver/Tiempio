@@ -31,7 +31,9 @@ export function DrumsView({ model = drumsViewModel }: DrumsViewProperties): JSX.
 					<p className="studio-eyebrow">{t('drums.subtitle')}</p>
 					<h1>{t('drums.title')}</h1>
 				</div>
-				<span className="editor-view__meter">16 steps</span>
+				<span className="editor-view__meter">
+					{t('drums.steps', { count: model.stepCount })}
+				</span>
 			</header>
 			<div className="drum-grid" role="group" aria-label={t('drums.title')}>
 				{model.rows.map((row) => (
@@ -43,7 +45,10 @@ export function DrumsView({ model = drumsViewModel }: DrumsViewProperties): JSX.
 								const selected = activeSteps.has(key)
 								return (
 									<button
-										aria-label={`${t(row.labelKey)}, step ${String(step + 1)}`}
+										aria-label={t('drums.stepLabel', {
+											instrument: t(row.labelKey),
+											step: step + 1
+										})}
 										aria-pressed={selected}
 										data-beat={step % 4 === 0 || undefined}
 										key={key}
@@ -56,9 +61,7 @@ export function DrumsView({ model = drumsViewModel }: DrumsViewProperties): JSX.
 					</div>
 				))}
 			</div>
-			<p className="studio-hint">
-				Use arrow keys to move through steps · Space toggles a hit
-			</p>
+			<p className="studio-hint">{t('drums.hint')}</p>
 		</section>
 	)
 }

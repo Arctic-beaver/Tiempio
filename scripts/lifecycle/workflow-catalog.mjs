@@ -60,13 +60,17 @@ const repositoryScriptTestFiles = Object.freeze([
 	resolve('scripts/package-content-policy.test.mjs'),
 	resolve('scripts/protocol-generation.test.mjs'),
 	resolve('scripts/security-policy.test.mjs'),
-	resolve('scripts/target-boundary-policy.test.mjs')
+	resolve('scripts/target-boundary-policy.test.mjs'),
+	resolve('scripts/ui-foundation-policy.test.mjs')
 ])
 
 const compiledTestFiles = Object.freeze([
+	resolve('.test-out/apps/desktop/main/window-options.test.js'),
+	resolve('.test-out/apps/desktop/renderer/runtime/desktopRuntime.test.js'),
 	resolve('.test-out/packages/contracts/src/application-runtime.test.js'),
 	resolve('.test-out/packages/contracts/src/engine-protocol.test.js'),
 	resolve('.test-out/packages/application/src/shell/layout-model.test.js'),
+	resolve('.test-out/packages/application/src/commands/command-registry.test.js'),
 	resolve('.test-out/packages/design-system/src/theme.test.js'),
 	resolve('.test-out/packages/localization/src/catalogs.test.js')
 ])
@@ -153,6 +157,8 @@ const steps = Object.freeze({
 		),
 	targetBoundaries: () =>
 		nodeFileStep('target import boundaries', 'scripts/target-boundary-policy.mjs'),
+	uiFoundation: () =>
+		nodeFileStep('shared UI foundation policy', 'scripts/ui-foundation-policy.mjs'),
 	security: (requiredTarget = null) =>
 		nodeFileStep(
 			'production CSP policy',
@@ -175,6 +181,22 @@ const steps = Object.freeze({
 			cli.vite,
 			['build', '--config', 'vite.web.config.ts'],
 			5 * minute
+		),
+	webPreview: () =>
+		nodeFileStep(
+			'Web preview server',
+			cli.vite,
+			[
+				'preview',
+				'--config',
+				'vite.web.config.ts',
+				'--host',
+				'127.0.0.1',
+				'--port',
+				'4173',
+				'--strictPort'
+			],
+			10 * minute
 		),
 	cargoLock: () =>
 		directStep(
@@ -222,6 +244,7 @@ function qualitySteps() {
 		steps.formatCheck(),
 		steps.lint(),
 		steps.targetBoundaries(),
+		steps.uiFoundation(),
 		steps.security(),
 		steps.packageContents(),
 		...testSteps(),
@@ -271,11 +294,18 @@ const workflowFactories = Object.freeze({
 	typecheck: () => [steps.typecheckNode(), steps.typecheckWeb()],
 	'check:rust': () => [steps.rustFormat(), steps.rustCheck()],
 	'check:target-boundaries': () => [steps.targetBoundaries()],
+	'check:visual-a11y': () => [
+		steps.uiFoundation(),
+		steps.typecheckWeb(),
+		steps.webBuild(),
+		steps.security('web')
+	],
 	'check:security': () => [steps.security()],
 	'check:bundle-size': () => [steps.bundleBudget()],
 	'check:packaged-contents': () => [steps.packageContents()],
 	build: desktopBuildSteps,
 	'build:web': webBuildSteps,
+	'preview:web': () => [steps.webPreview()],
 	'check:quick': qualitySteps,
 	quality: qualitySteps,
 	checks: () => [...qualitySteps(), ...desktopBuildSteps(), ...webBuildSteps()],
@@ -285,11 +315,9 @@ const workflowFactories = Object.freeze({
 export const plannedWorkflowNames = Object.freeze([
 	'dev',
 	'dev:web',
-	'preview:web',
 	'build:engine',
 	'package:check',
 	'check:audio',
-	'check:visual-a11y',
 	'release:check'
 ])
 
@@ -300,6 +328,8 @@ const workflowTimeoutOverrides = Object.freeze({
 	'dependencies:ci': 9 * minute,
 	build: 8 * minute,
 	'build:web': 8 * minute,
+	'check:visual-a11y': 8 * minute,
+	'preview:web': 11 * minute,
 	'check:quick': 12 * minute,
 	quality: 12 * minute,
 	checks: 20 * minute,

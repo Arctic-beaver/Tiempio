@@ -11,5 +11,11 @@
 		"skipLibCheck": true,
 		"types": ["node"]
 	},
-	"include": ["packages/**/*.test.ts", "packages/**/*.test.tsx"]
+	"include": [
+		"apps/desktop/main/**/*.test.ts",
+		"apps/desktop/renderer/global.d.ts",
+		"apps/desktop/renderer/**/*.test.ts",
+		"packages/**/*.test.ts",
+		"packages/**/*.test.tsx"
+	]
 }

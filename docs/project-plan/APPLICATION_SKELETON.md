@@ -260,7 +260,7 @@ without embedding a second static prototype implementation.
   Arrangement and Sound Sculpt.
 - Use feature view models rather than hard-coded demo HTML so Stage 3 can attach real project data
   without rewriting components.
-- Add EN and RU typed catalogs. Musical content and project names are never localized.
+- Add EN, RU and ES typed catalogs. Musical content and project names are never localized.
 - Add one command registry used by controls, DOM shortcuts and future native menus.
 
 ### Edge cases

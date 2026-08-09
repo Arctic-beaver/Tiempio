@@ -34,8 +34,10 @@
 		"check:security": "node scripts/lifecycle-runner.mjs check:security",
 		"check:bundle-size": "node scripts/lifecycle-runner.mjs check:bundle-size",
 		"check:packaged-contents": "node scripts/lifecycle-runner.mjs check:packaged-contents",
+		"check:visual-a11y": "node scripts/lifecycle-runner.mjs check:visual-a11y",
 		"build": "node scripts/lifecycle-runner.mjs build",
 		"build:web": "node scripts/lifecycle-runner.mjs build:web",
+		"preview:web": "node scripts/lifecycle-runner.mjs preview:web",
 		"check:quick": "node scripts/lifecycle-runner.mjs check:quick",
 		"quality": "node scripts/lifecycle-runner.mjs quality",
 		"checks": "node scripts/lifecycle-runner.mjs checks",
@@ -46,9 +48,11 @@
 	},
 	"dependencies": {
 		"@electron-toolkit/utils": "4.0.0",
+		"i18next": "26.3.6",
 		"lucide-react": "1.26.0",
 		"react": "19.2.8",
-		"react-dom": "19.2.8"
+		"react-dom": "19.2.8",
+		"react-i18next": "17.0.11"
 	},
 	"devDependencies": {
 		"@electron-toolkit/eslint-config-prettier": "3.0.0",

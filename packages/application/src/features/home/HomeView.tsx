@@ -39,7 +39,12 @@ export function HomeView({ model = homeViewModel, onCreate }: HomeViewProperties
 						<button className="home-view__piece" disabled key={piece.id} type="button">
 							<span>
 								<strong>{piece.name}</strong>
-								<small>{piece.detail}</small>
+								<small>
+									{t('home.recentDetail', {
+										bpm: piece.bpm,
+										count: piece.layerCount
+									})}
+								</small>
 							</span>
 							<ArrowRight aria-hidden="true" />
 						</button>

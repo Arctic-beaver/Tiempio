@@ -23,7 +23,7 @@ export function SoundChooserView({
 					{t('common.back')}
 				</TextButton>
 				<div className="studio-view__intro">
-					<p className="studio-eyebrow">Palette 01</p>
+					<p className="studio-eyebrow">{t('soundChooser.palette')}</p>
 					<h1>{t('soundChooser.title')}</h1>
 					<p className="studio-lede">{t('soundChooser.description')}</p>
 				</div>
@@ -36,7 +36,7 @@ export function SoundChooserView({
 						</div>
 						<span>{t(sound.labelKey)}</span>
 						<h2>{sound.name}</h2>
-						<p>{sound.description}</p>
+						<p>{t(sound.descriptionKey)}</p>
 						<div className="sound-card__actions">
 							<TextButton disabled icon={<Play />} title={t('common.notAvailable')}>
 								{t('soundChooser.preview')}

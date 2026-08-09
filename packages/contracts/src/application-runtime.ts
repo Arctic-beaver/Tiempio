@@ -1,6 +1,8 @@
 export const applicationRuntimeVersion = 1 as const
 export type ApplicationRuntimeVersion = typeof applicationRuntimeVersion
 export type ApplicationTarget = 'desktop' | 'web'
+export type WindowChromeStyle = 'custom' | 'native' | 'none'
+export type DesktopPlatform = 'windows' | 'macos' | 'linux'
 
 export const applicationErrorCodes = Object.freeze([
 	'INTERNAL_ERROR',
@@ -162,9 +164,19 @@ export interface ApplicationRuntimeHandshake {
 	readonly target: ApplicationTarget
 }
 
+export interface DesktopRuntimeBridge extends ApplicationRuntimeHandshake {
+	readonly platform: DesktopPlatform
+	readonly window: {
+		minimize(): Promise<ApplicationResult<null>>
+		toggleMaximize(): Promise<ApplicationResult<{ readonly maximized: boolean }>>
+		requestClose(): Promise<ApplicationResult<'closed' | 'close-deferred'>>
+	}
+}
+
 export interface ApplicationRuntime {
 	readonly version: ApplicationRuntimeVersion
 	readonly target: ApplicationTarget
+	readonly windowChrome: WindowChromeStyle
 	readonly projects: RuntimeCapability<ProjectsRuntime>
 	readonly resources: RuntimeCapability<ResourcesRuntime>
 	readonly engine: RuntimeCapability<EngineRuntime>
@@ -199,6 +211,7 @@ export function createUnavailableRuntime(target: ApplicationTarget): Application
 	return Object.freeze({
 		version: applicationRuntimeVersion,
 		target,
+		windowChrome: target === 'desktop' ? 'custom' : 'none',
 		projects: unavailableCapability<ProjectsRuntime>(
 			'not-implemented',
 			'Project persistence is not connected yet.'

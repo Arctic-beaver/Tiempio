@@ -7,8 +7,10 @@ export {
 	catalogs,
 	englishCatalog,
 	russianCatalog,
+	spanishCatalog,
 	type LocalizationCatalog,
 	type LocalizationKey
 } from './catalogs.js'
-export { translate, type InterpolationValues } from './translate.js'
+export { createTiempioI18n } from './i18n.js'
+export { type InterpolationValues } from './LocalizationContext.js'
 export { supportedLocales, type SupportedLocale } from './locales.js'

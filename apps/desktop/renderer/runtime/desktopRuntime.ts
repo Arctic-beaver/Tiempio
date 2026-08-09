@@ -4,13 +4,13 @@ import {
 	createUnavailableRuntime,
 	type ApplicationResult,
 	type ApplicationRuntime,
-	type ApplicationRuntimeHandshake
+	type DesktopRuntimeBridge
 } from '../../../../packages/contracts/src/application-runtime.js'
 
 export function createDesktopRuntime(
-	handshake: ApplicationRuntimeHandshake = window.tiempioRuntime
+	bridge: DesktopRuntimeBridge = window.tiempioRuntime
 ): ApplicationResult<ApplicationRuntime> {
-	if (handshake.version !== applicationRuntimeVersion || handshake.target !== 'desktop') {
+	if (bridge.version !== applicationRuntimeVersion || bridge.target !== 'desktop') {
 		return Object.freeze({
 			ok: false as const,
 			error: applicationError(
@@ -19,12 +19,34 @@ export function createDesktopRuntime(
 				{
 					details: {
 						expectedVersion: applicationRuntimeVersion,
-						actualVersion: handshake.version,
-						actualTarget: handshake.target
+						actualVersion: bridge.version,
+						actualTarget: bridge.target
 					}
 				}
 			)
 		})
 	}
-	return Object.freeze({ ok: true as const, value: createUnavailableRuntime('desktop') })
+	const unavailable = createUnavailableRuntime('desktop')
+	return Object.freeze({
+		ok: true as const,
+		value: Object.freeze({
+			...unavailable,
+			windowChrome: bridge.platform === 'macos' ? 'native' : 'custom',
+			nativeWindow: Object.freeze({
+				availability: 'available' as const,
+				api: Object.freeze({
+					minimize: bridge.window.minimize,
+					toggleMaximize: bridge.window.toggleMaximize
+				})
+			}),
+			lifecycle: Object.freeze({
+				availability: 'available' as const,
+				api: Object.freeze({
+					ready: async () => Object.freeze({ ok: true as const, value: null }),
+					requestClose: bridge.window.requestClose,
+					onCloseRequested: () => () => undefined
+				})
+			})
+		})
+	})
 }

@@ -2,7 +2,7 @@ import type { LocalizationKey } from '../../../../localization/src/index.js'
 
 export interface SoundCharacterViewModel {
 	readonly color: 'coral' | 'gold' | 'blue' | 'violet'
-	readonly description: string
+	readonly descriptionKey: LocalizationKey
 	readonly id: string
 	readonly labelKey: LocalizationKey
 	readonly name: string
@@ -18,28 +18,28 @@ export const soundChooserViewModel: SoundChooserViewModel = Object.freeze({
 			id: 'felt-signal',
 			name: 'Felt Signal',
 			labelKey: 'soundChooser.warm',
-			description: 'Soft edge · close and human',
+			descriptionKey: 'soundChooser.feltSignalDescription',
 			color: 'coral'
 		}),
 		Object.freeze({
 			id: 'clear-glass',
 			name: 'Clear Glass',
 			labelKey: 'soundChooser.clear',
-			description: 'Open top · patient decay',
+			descriptionKey: 'soundChooser.clearGlassDescription',
 			color: 'blue'
 		}),
 		Object.freeze({
 			id: 'low-ember',
 			name: 'Low Ember',
 			labelKey: 'soundChooser.deep',
-			description: 'Dense center · quiet movement',
+			descriptionKey: 'soundChooser.lowEmberDescription',
 			color: 'gold'
 		}),
 		Object.freeze({
 			id: 'paper-stars',
 			name: 'Paper Stars',
 			labelKey: 'soundChooser.grainy',
-			description: 'Dry texture · uneven glow',
+			descriptionKey: 'soundChooser.paperStarsDescription',
 			color: 'violet'
 		})
 	])
