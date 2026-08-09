@@ -762,4 +762,3 @@ complete first-hour composition loop: production drum synthesis and patterns, ma
 editing, arrangement operations, layer gain/mute/solo, sound sculpt, save/reopen and initial WAV
 export. Exact scope and sequencing must be based on measured engine, UX and bundle results from this
 foundation.
-

@@ -735,4 +735,3 @@ The architecture is proven, rather than merely scaffolded, when:
   deterministic tests;
 - lifecycle workflows leave no owned process tree, lock or cleanup quarantine after success,
   failure, timeout or interruption.
-
