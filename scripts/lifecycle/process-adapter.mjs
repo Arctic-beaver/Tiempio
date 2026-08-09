@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { basename, join } from 'node:path'
+import { join } from 'node:path'
 
 const inspectionTimeoutMs = 15_000
 const cleanupTimeoutMs = 15_000
@@ -16,7 +16,8 @@ function normalizeCommandLine(value) {
 }
 
 function normalizeExecutable(value) {
-	return basename(value).toLowerCase()
+	if (typeof value !== 'string') return ''
+	return value.split(/[\\/]/u).at(-1)?.toLowerCase() ?? ''
 }
 
 function executableMatches(command, processRecord) {

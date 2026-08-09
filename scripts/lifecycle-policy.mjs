@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { relative, resolve } from 'node:path'
+import { extname, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { requireLifecycleOwnership } from './lifecycle/ownership-guard.mjs'
 import { plannedWorkflowNames, workflowNames } from './lifecycle/workflow-catalog.mjs'
@@ -10,13 +10,14 @@ const exactDirectScripts = Object.freeze({
 	postinstall: 'node scripts/reject-unsafe-install.mjs',
 	prepare: 'node scripts/reject-unsafe-install.mjs'
 })
+const processScriptExtensions = new Set(['.cjs', '.cts', '.js', '.mjs', '.mts', '.ts'])
 
 function scriptFiles(directory) {
 	const files = []
 	for (const entry of readdirSync(directory)) {
 		const path = resolve(directory, entry)
 		if (statSync(path).isDirectory()) files.push(...scriptFiles(path))
-		else if (path.endsWith('.mjs')) files.push(path)
+		else if (processScriptExtensions.has(extname(path))) files.push(path)
 	}
 	return files
 }
@@ -72,7 +73,7 @@ export function verifyLifecyclePolicy({
 	for (const path of scriptFiles(scriptsRoot)) {
 		const repositoryPath = relative(repositoryRoot, path).replaceAll('\\', '/')
 		const source = readFile(path, 'utf8')
-		if (!/node:child_process/u.test(source)) continue
+		if (!/(?:node:)?child_process/u.test(source)) continue
 		if (repositoryPath === 'scripts/lifecycle/process-adapter.mjs') continue
 		if (!source.includes('requireLifecycleOwnership')) {
 			errors.push(

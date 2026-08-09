@@ -10,11 +10,11 @@ const repositoryPackage = JSON.parse(
 	readFileSync(resolve(repositoryRoot, 'package.json'), 'utf8')
 )
 
-function withPolicyFixture(packageDocument, scriptSource, run) {
+function withPolicyFixture(packageDocument, scriptSource, run, scriptName = 'fixture.mjs') {
 	const directory = mkdtempSync(join(tmpdir(), 'tiempio-policy-test-'))
 	mkdirSync(join(directory, 'scripts'))
 	writeFileSync(join(directory, 'package.json'), `${JSON.stringify(packageDocument)}\n`, 'utf8')
-	writeFileSync(join(directory, 'scripts', 'fixture.mjs'), scriptSource, 'utf8')
+	writeFileSync(join(directory, 'scripts', scriptName), scriptSource, 'utf8')
 	try {
 		return run(directory)
 	} finally {
@@ -55,6 +55,22 @@ describe('repository lifecycle policy', () => {
 				/creates processes without requireLifecycleOwnership/u
 			)
 		})
+	})
+
+	it('audits future TypeScript process-creating scripts too', () => {
+		const processModule = ['child', 'process'].join('_')
+		const scriptSource = `import { spawn } from '${processModule}'\nspawn('node', [])\n`
+		withPolicyFixture(
+			repositoryPackage,
+			scriptSource,
+			(directory) => {
+				assert.throws(
+					() => verifyLifecyclePolicy({ repositoryRoot: directory, report: () => {} }),
+					/fixture\.ts creates processes without requireLifecycleOwnership/u
+				)
+			},
+			'fixture.ts'
+		)
 	})
 
 	it('keeps unsafe npm lifecycle hooks non-bypassable', async () => {
