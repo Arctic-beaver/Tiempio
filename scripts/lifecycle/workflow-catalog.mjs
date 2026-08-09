@@ -65,7 +65,9 @@ const repositoryScriptTestFiles = Object.freeze([
 
 const compiledTestFiles = Object.freeze([
 	resolve('.test-out/packages/contracts/src/application-runtime.test.js'),
-	resolve('.test-out/packages/contracts/src/engine-protocol.test.js')
+	resolve('.test-out/packages/contracts/src/engine-protocol.test.js'),
+	resolve('.test-out/packages/design-system/src/theme.test.js'),
+	resolve('.test-out/packages/localization/src/catalogs.test.js')
 ])
 
 const prettierInputs = Object.freeze([

@@ -1,0 +1,473 @@
+:root {
+	font-family:
+		Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	--ti-font-display: Georgia, "Times New Roman", serif;
+	--ti-space-1: 0.25rem;
+	--ti-space-2: 0.5rem;
+	--ti-space-3: 0.75rem;
+	--ti-space-4: 1rem;
+	--ti-space-5: 1.5rem;
+	--ti-space-6: 2rem;
+	--ti-radius-sm: 0.4rem;
+	--ti-radius-md: 0.75rem;
+	--ti-radius-lg: 1.15rem;
+	--ti-control-height: 2.25rem;
+	--ti-hairline: 1px;
+	--ti-duration-fast: 120ms;
+	--ti-duration-medium: 220ms;
+	--ti-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+	--ti-accent: #dc674f;
+	--ti-accent-strong: #bd4938;
+	--ti-accent-soft: #f6d7ce;
+	--ti-accent-ink: #3d1712;
+	--ti-danger: #b83f3f;
+	--ti-focus: #296fbb;
+	--ti-selection: rgb(220 103 79 / 24%);
+}
+
+:root,
+:root[data-theme="light"] {
+	--ti-canvas: #eee9df;
+	--ti-surface-1: #f8f4ec;
+	--ti-surface-2: #e8e1d6;
+	--ti-surface-3: #dcd4c8;
+	--ti-surface-raised: #fffaf2;
+	--ti-text: #282521;
+	--ti-text-muted: #6e685f;
+	--ti-text-subtle: #918a80;
+	--ti-border: #cfc6b9;
+	--ti-border-strong: #aaa195;
+	--ti-overlay: rgb(32 28 24 / 22%);
+	--ti-shadow: 0 1rem 2.8rem rgb(59 47 37 / 18%);
+	--ti-scroll-track: #e3dcd1;
+	--ti-scroll-thumb: #aaa094;
+	--ti-scroll-thumb-hover: #82786c;
+	--ti-scroll-thumb-active: #5f574f;
+}
+
+:root[data-theme="dark"] {
+	--ti-canvas: #171717;
+	--ti-surface-1: #20201f;
+	--ti-surface-2: #292826;
+	--ti-surface-3: #33312e;
+	--ti-surface-raised: #2b2927;
+	--ti-text: #f1ece3;
+	--ti-text-muted: #b9b2a9;
+	--ti-text-subtle: #8e8880;
+	--ti-border: #45413c;
+	--ti-border-strong: #625c54;
+	--ti-overlay: rgb(0 0 0 / 42%);
+	--ti-shadow: 0 1rem 3rem rgb(0 0 0 / 42%);
+	--ti-accent: #eb8068;
+	--ti-accent-strong: #ff9a82;
+	--ti-accent-soft: #5d3028;
+	--ti-accent-ink: #fff0eb;
+	--ti-danger: #ef7777;
+	--ti-focus: #79b9ff;
+	--ti-selection: rgb(235 128 104 / 30%);
+	--ti-scroll-track: #242321;
+	--ti-scroll-thumb: #5d5750;
+	--ti-scroll-thumb-hover: #777067;
+	--ti-scroll-thumb-active: #9a9288;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+	scrollbar-color: var(--ti-scroll-thumb) var(--ti-scroll-track);
+	scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+	width: 0.7rem;
+	height: 0.7rem;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+	background: var(--ti-scroll-track);
+}
+
+*::-webkit-scrollbar-thumb {
+	background: var(--ti-scroll-thumb);
+	border: 0.18rem solid var(--ti-scroll-track);
+	border-radius: 999rem;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+	background: var(--ti-scroll-thumb-hover);
+}
+
+*::-webkit-scrollbar-thumb:active {
+	background: var(--ti-scroll-thumb-active);
+}
+
+::selection {
+	background: var(--ti-selection);
+}
+
+body {
+	margin: 0;
+	background: var(--ti-canvas);
+	color: var(--ti-text);
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+}
+
+button {
+	color: inherit;
+}
+
+:where(button, input, select, textarea, [tabindex]):focus-visible {
+	outline: 0.16rem solid var(--ti-focus);
+	outline-offset: 0.16rem;
+}
+
+.ti-icon-button,
+.ti-text-button,
+.ti-popover__trigger,
+.ti-select__trigger {
+	border: var(--ti-hairline) solid transparent;
+	background: transparent;
+	color: var(--ti-text-muted);
+	cursor: pointer;
+	transition:
+		background var(--ti-duration-fast) var(--ti-ease-out),
+		border-color var(--ti-duration-fast) var(--ti-ease-out),
+		color var(--ti-duration-fast) var(--ti-ease-out),
+		transform var(--ti-duration-fast) var(--ti-ease-out);
+}
+
+.ti-icon-button:hover,
+.ti-text-button:hover,
+.ti-popover__trigger:hover,
+.ti-select__trigger:hover {
+	background: var(--ti-surface-2);
+	color: var(--ti-text);
+}
+
+.ti-icon-button:active,
+.ti-text-button:active,
+.ti-popover__trigger:active,
+.ti-select__trigger:active {
+	transform: translateY(0.06rem);
+}
+
+.ti-icon-button:disabled,
+.ti-text-button:disabled,
+.ti-popover__trigger:disabled,
+.ti-select__trigger:disabled {
+	cursor: not-allowed;
+	opacity: 0.46;
+	transform: none;
+}
+
+.ti-control--accent,
+.ti-control--neutral[data-selected="true"] {
+	background: var(--ti-accent-soft);
+	color: var(--ti-accent-ink);
+}
+
+.ti-control--danger {
+	color: var(--ti-danger);
+}
+
+.ti-icon-button {
+	display: inline-grid;
+	place-items: center;
+	flex: 0 0 auto;
+	padding: 0;
+	border-radius: var(--ti-radius-sm);
+}
+
+.ti-icon-button--small {
+	width: 1.85rem;
+	height: 1.85rem;
+}
+
+.ti-icon-button--medium {
+	width: var(--ti-control-height);
+	height: var(--ti-control-height);
+}
+
+.ti-icon-button__glyph,
+.ti-text-button__icon,
+.ti-popover__trigger-icon {
+	display: inline-grid;
+	place-items: center;
+}
+
+.ti-icon-button__glyph > svg,
+.ti-text-button__icon > svg,
+.ti-popover__trigger-icon > svg {
+	width: 1em;
+	height: 1em;
+}
+
+.ti-text-button,
+.ti-popover__trigger {
+	display: inline-flex;
+	min-height: var(--ti-control-height);
+	align-items: center;
+	justify-content: center;
+	gap: var(--ti-space-2);
+	padding: 0 var(--ti-space-3);
+	border-radius: var(--ti-radius-sm);
+	font-size: 0.82rem;
+	font-weight: 650;
+}
+
+.ti-tooltip {
+	position: relative;
+	display: inline-flex;
+}
+
+.ti-tooltip__content {
+	position: absolute;
+	z-index: 100;
+	width: max-content;
+	max-width: 16rem;
+	padding: 0.4rem 0.55rem;
+	border: var(--ti-hairline) solid var(--ti-border);
+	border-radius: var(--ti-radius-sm);
+	background: var(--ti-surface-raised);
+	box-shadow: var(--ti-shadow);
+	color: var(--ti-text);
+	font-size: 0.75rem;
+	line-height: 1.35;
+	opacity: 0;
+	pointer-events: none;
+	transform: translateY(-0.2rem);
+	transition:
+		opacity var(--ti-duration-fast) var(--ti-ease-out),
+		transform var(--ti-duration-fast) var(--ti-ease-out);
+}
+
+.ti-tooltip:hover .ti-tooltip__content,
+.ti-tooltip:focus-within .ti-tooltip__content {
+	opacity: 1;
+	transform: translate(0);
+}
+
+.ti-tooltip[data-placement="bottom"] .ti-tooltip__content {
+	top: calc(100% + var(--ti-space-2));
+	left: 50%;
+	transform: translate(-50%, -0.2rem);
+}
+
+.ti-tooltip[data-placement="bottom"]:hover .ti-tooltip__content,
+.ti-tooltip[data-placement="bottom"]:focus-within .ti-tooltip__content {
+	transform: translate(-50%, 0);
+}
+
+.ti-tooltip[data-placement="top"] .ti-tooltip__content {
+	right: 50%;
+	bottom: calc(100% + var(--ti-space-2));
+	transform: translate(50%, 0.2rem);
+}
+
+.ti-tooltip[data-placement="top"]:hover .ti-tooltip__content,
+.ti-tooltip[data-placement="top"]:focus-within .ti-tooltip__content {
+	transform: translate(50%, 0);
+}
+
+.ti-tooltip[data-placement="right"] .ti-tooltip__content {
+	top: 50%;
+	left: calc(100% + var(--ti-space-2));
+	transform: translate(-0.2rem, -50%);
+}
+
+.ti-tooltip[data-placement="right"]:hover .ti-tooltip__content,
+.ti-tooltip[data-placement="right"]:focus-within .ti-tooltip__content {
+	transform: translate(0, -50%);
+}
+
+.ti-tooltip[data-placement="left"] .ti-tooltip__content {
+	top: 50%;
+	right: calc(100% + var(--ti-space-2));
+	transform: translate(0.2rem, -50%);
+}
+
+.ti-tooltip[data-placement="left"]:hover .ti-tooltip__content,
+.ti-tooltip[data-placement="left"]:focus-within .ti-tooltip__content {
+	transform: translate(0, -50%);
+}
+
+.ti-popover,
+.ti-select {
+	position: relative;
+}
+
+.ti-popover__panel,
+.ti-select__options {
+	position: absolute;
+	z-index: 80;
+	top: calc(100% + var(--ti-space-2));
+	min-width: min(18rem, 85vw);
+	max-height: min(22rem, 65dvh);
+	border: var(--ti-hairline) solid var(--ti-border);
+	border-radius: var(--ti-radius-md);
+	background: var(--ti-surface-raised);
+	box-shadow: var(--ti-shadow);
+}
+
+.ti-popover__panel {
+	padding: var(--ti-space-3);
+}
+
+.ti-popover__panel[data-placement="start"] {
+	left: 0;
+}
+
+.ti-popover__panel[data-placement="end"],
+.ti-select__options {
+	right: 0;
+}
+
+.ti-select {
+	display: grid;
+	gap: var(--ti-space-1);
+}
+
+.ti-select__label,
+.ti-slider__label-row {
+	color: var(--ti-text-muted);
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+}
+
+.ti-select__trigger {
+	display: flex;
+	min-width: 8rem;
+	min-height: var(--ti-control-height);
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--ti-space-3);
+	padding: 0 var(--ti-space-3);
+	border-color: var(--ti-border);
+	border-radius: var(--ti-radius-sm);
+	background: var(--ti-surface-1);
+	color: var(--ti-text);
+	font-size: 0.82rem;
+}
+
+.ti-select__options {
+	overflow: auto;
+	padding: var(--ti-space-1);
+}
+
+.ti-select__option {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--ti-space-3);
+	padding: 0.65rem var(--ti-space-2);
+	border: 0;
+	border-radius: var(--ti-radius-sm);
+	background: transparent;
+	color: var(--ti-text);
+	cursor: pointer;
+	text-align: left;
+}
+
+.ti-select__option[data-active="true"] {
+	background: var(--ti-surface-2);
+}
+
+.ti-select__option[aria-selected="true"] {
+	color: var(--ti-accent-strong);
+}
+
+.ti-select__option:disabled {
+	cursor: not-allowed;
+	opacity: 0.45;
+}
+
+.ti-select__option > span {
+	display: grid;
+	gap: 0.15rem;
+}
+
+.ti-select__option strong {
+	font-size: 0.82rem;
+	font-weight: 650;
+}
+
+.ti-select__option small {
+	color: var(--ti-text-muted);
+	font-size: 0.72rem;
+}
+
+.ti-select__check {
+	opacity: 0;
+}
+
+.ti-select__option[aria-selected="true"] .ti-select__check {
+	opacity: 1;
+}
+
+.ti-slider {
+	display: grid;
+	gap: var(--ti-space-2);
+	min-width: 8rem;
+}
+
+.ti-slider__label-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--ti-space-3);
+}
+
+.ti-slider__value {
+	color: var(--ti-text);
+	font-variant-numeric: tabular-nums;
+}
+
+.ti-slider input[type="range"] {
+	width: 100%;
+	height: 1.25rem;
+	margin: 0;
+	accent-color: var(--ti-accent);
+	cursor: pointer;
+}
+
+.ti-slider input[type="range"]:disabled {
+	cursor: not-allowed;
+	opacity: 0.45;
+}
+
+.ti-scroll-surface--vertical {
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+
+.ti-scroll-surface--horizontal {
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+
+.ti-scroll-surface--both {
+	overflow: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		scroll-behavior: auto !important;
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+	}
+}
