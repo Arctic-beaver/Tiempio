@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tiempio — UX prototype</title>
+<style>
+  :root {
+    --page: #d8d4cd;
+    --page-ink: #25231f;
+    --app: #f2efe9;
+    --surface: #faf8f3;
+    --surface-2: #ebe7df;
+    --surface-3: #ded9d0;
+    --ink: #272522;
+    --muted: #77736c;
+    --line: rgba(52, 47, 42, .13);
+    --line-strong: rgba(52, 47, 42, .22);
+    --accent: #df6848;
+    --accent-2: #b9492f;
+    --accent-soft: #efd5cc;
+    --accent-ghost: rgba(223, 104, 72, .10);
+    --shadow: 0 28px 80px rgba(43, 38, 32, .20);
+    --track-bass: #d85f45;
+    --track-drum: #302e2a;
+    --track-harmony: #8e7b72;
+    --track-lead: #aa4e39;
+    --ok: #4f796f;
+    --radius: 18px;
+    --font: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --serif: Georgia, "Times New Roman", serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--page); color: var(--page-ink); font-family: var(--font); }
+  body { padding: 18px; }
+  button, input { font: inherit; }
+  button { color: inherit; }
+
+  .prototype-shell { max-width: 1800px; margin: 0 auto; }
+  .prototype-bar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) auto auto;
+    align-items: center;
+    gap: 16px;
+    min-height: 54px;
+    padding: 0 4px 14px;
+  }
+  .prototype-title { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+  .prototype-title strong { font-family: var(--serif); font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+  .prototype-title span { color: #69645d; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+  .state-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(255,255,255,.46); border: 1px solid rgba(255,255,255,.46); overflow-x: auto; }
+  .state-tab { border: 0; background: transparent; padding: 8px 12px; border-radius: 999px; cursor: pointer; color: #6c675f; font-size: 12px; white-space: nowrap; transition: .18s ease; }
+  .state-tab:hover { color: #2f2b27; background: rgba(255,255,255,.48); }
+  .state-tab.active { background: #26231f; color: #fff; box-shadow: 0 4px 14px rgba(27,24,21,.18); }
+  .proto-actions { display: flex; gap: 8px; }
+  .proto-button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(42,38,34,.13); background: rgba(255,255,255,.48); display: grid; place-items: center; cursor: pointer; }
+  .proto-button:hover { background: #fff; }
+
+  .presentation { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; align-items: stretch; }
+  .app-window {
+    position: relative;
+    min-width: 0;
+    height: min(850px, calc(100vh - 98px));
+    min-height: 690px;
+    overflow: hidden;
+    border-radius: 22px;
+    background: var(--app);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(255,255,255,.58);
+    transition: background .25s ease, color .25s ease;
+  }
+  .app-window.dark {
+    --app: #1f2024;
+    --surface: #27282e;
+    --surface-2: #222329;
+    --surface-3: #303138;
+    --ink: #f0ece6;
+    --muted: #aaa59e;
+    --line: rgba(255,255,255,.08);
+    --line-strong: rgba(255,255,255,.16);
+    --accent: #ff7454;
+    --accent-2: #ff8c6d;
+    --accent-soft: #57352e;
+    --accent-ghost: rgba(255, 116, 84, .12);
+    --track-bass: #f07252;
+    --track-drum: #e8e3dc;
+    --track-harmony: #aa8e82;
+    --track-lead: #d8583e;
+    --ok: #76b1a1;
+    box-shadow: 0 28px 90px rgba(13,14,17,.38);
+    border-color: rgba(255,255,255,.05);
+  }
+  .app-window * { transition: background-color .22s ease, border-color .22s ease, color .22s ease; }
+  .window-titlebar { height: 44px; display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 0 15px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--app), var(--surface) 22%); color: var(--ink); }
+  .brand-lockup { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -.02em; }
+  .brand-mark { width: 21px; height: 21px; color: var(--accent); }
+  .edition { padding: 4px 9px; border-radius: 999px; background: var(--surface-3); color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .03em; }
+  .window-controls { display: flex; gap: 18px; color: var(--muted); align-items: center; }
+  .window-dot { width: 12px; height: 12px; display: grid; place-items: center; }
+
+  .app-body { height: calc(100% - 44px); display: grid; grid-template-columns: 64px minmax(0,1fr); }
+  .nav-rail { border-right: 1px solid var(--line); background: color-mix(in srgb, var(--app), var(--surface) 28%); display: flex; flex-direction: column; align-items: center; padding: 13px 0; gap: 8px; }
+  .rail-button, .icon-button {
+    position: relative;
+    border: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    background: transparent;
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .rail-button:hover, .icon-button:hover { background: var(--surface-2); color: var(--ink); }
+  .rail-button.active { background: var(--accent-soft); color: var(--accent-2); }
+  .rail-spacer { flex: 1; }
+  .tool-icon { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  [data-tip]::after {
+    content: attr(data-tip);
+    position: absolute;
+    z-index: 100;
+    left: calc(100% + 9px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px);
+    pointer-events: none;
+    opacity: 0;
+    color: #fff;
+    background: #24211f;
+    border-radius: 7px;
+    padding: 6px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+    box-shadow: 0 8px 24px rgba(0,0,0,.2);
+    transition: .14s ease;
+  }
+  [data-tip]:hover::after { opacity: 1; transform: translateY(-50%) translateX(0); }
+
+  .workspace { min-width: 0; min-height: 0; position: relative; color: var(--ink); }
+  .screen { position: absolute; inset: 0; display: none; overflow: hidden; background: var(--app); }
+  .screen.active { display: flex; flex-direction: column; animation: reveal .24s ease; }
+  @keyframes reveal { from { opacity: .2; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .topbar { height: 63px; flex: 0 0 63px; display: grid; grid-template-columns: minmax(230px,1fr) auto minmax(230px,1fr); align-items: center; padding: 0 18px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--app), var(--surface) 18%); }
+  .top-left, .top-right { display: flex; align-items: center; gap: 8px; }
+  .top-right { justify-content: flex-end; }
+  .project-name { font-size: 13px; font-weight: 650; letter-spacing: -.01em; }
+  .subtle-label { color: var(--muted); font-size: 11px; }
+  .transport { display: flex; align-items: center; gap: 6px; padding: 5px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; box-shadow: 0 4px 15px rgba(49,44,39,.05); }
+  .transport .icon-button { width: 34px; height: 34px; border-radius: 50%; }
+  .play-button { background: var(--ink) !important; color: var(--surface) !important; }
+  .play-button.playing { background: var(--accent) !important; color: white !important; }
+  .tempo, .key-control { display: flex; align-items: center; gap: 6px; padding: 0 8px; height: 34px; border-left: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+  .tempo b, .key-control b { color: var(--ink); font-weight: 650; }
+  .audio-chip { position: relative; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 8px 11px; font-size: 11px; color: var(--muted); cursor: pointer; }
+  .audio-chip .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok), transparent 82%); }
+  .audio-chip strong { color: var(--ink); font-weight: 600; }
+  .audio-popover {
+    position: absolute;
+    z-index: 30;
+    right: 18px;
+    top: 56px;
+    width: 322px;
+    padding: 16px;
+    border-radius: 16px;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 22px 60px rgba(35,31,27,.20);
+    display: none;
+  }
+  .audio-popover.open { display: block; animation: pop .18s ease; }
+  @keyframes pop { from { opacity: 0; transform: translateY(-6px) scale(.98);} to { opacity:1; transform:none;} }
+  .popover-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px; }
+  .popover-head .round-symbol { margin-top: 1px; }
+  .popover-title { font-weight: 700; font-size: 13px; }
+  .popover-copy { color: var(--muted); line-height: 1.45; font-size: 11px; margin-top: 3px; }
+  .mode-option { display: grid; grid-template-columns: 22px 1fr auto; gap: 9px; align-items: start; padding: 10px 0; border-top: 1px solid var(--line); }
+  .radio { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--line-strong); margin-top: 1px; display: grid; place-items: center; }
+  .radio.checked::after { content:""; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+  .mode-name { font-size: 12px; font-weight: 650; }
+  .mode-copy { font-size: 10px; color: var(--muted); line-height: 1.45; margin-top: 2px; }
+  .mode-badge { font-size: 9px; padding: 3px 6px; border-radius: 999px; background: var(--accent-ghost); color: var(--accent); font-weight: 700; }
+
+  /* home */
+  .home { height: 100%; display: grid; grid-template-columns: minmax(0,1fr) 390px; }
+  .home-main { padding: clamp(42px, 6vw, 88px); display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
+  .home-main::after { content:""; position:absolute; width: 520px; height:520px; border:1px solid var(--line); border-radius:50%; right:-170px; bottom:-260px; box-shadow: 0 0 0 76px color-mix(in srgb, var(--line), transparent 40%), 0 0 0 152px color-mix(in srgb, var(--line), transparent 65%); opacity:.7; }
+  .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: .16em; font-size: 10px; font-weight: 750; margin-bottom: 18px; }
+  .home h1 { font-family: var(--serif); font-size: clamp(43px, 5vw, 76px); font-weight: 500; letter-spacing: -.045em; line-height: .96; max-width: 770px; margin: 0 0 22px; position: relative; z-index: 1; }
+  .home h1 em { color: var(--accent); font-weight: 500; }
+  .home-intro { max-width: 590px; color: var(--muted); font-size: 15px; line-height: 1.65; margin-bottom: 34px; position:relative; z-index:1; }
+  .start-actions { width: min(580px,100%); border-top: 1px solid var(--line-strong); position:relative; z-index:1; }
+  .start-row { width:100%; display:grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items:center; padding: 15px 4px; border:0; border-bottom:1px solid var(--line); background:transparent; text-align:left; cursor:pointer; }
+  .start-row:hover { color:var(--accent); padding-left:9px; }
+  .start-row strong { display:block; font-size:14px; font-weight:650; }
+  .start-row small { display:block; color:var(--muted); font-size:11px; margin-top:3px; }
+  .arrow { color:var(--muted); }
+  .round-symbol { width:30px; height:30px; border:1px solid var(--line); border-radius:50%; display:grid; place-items:center; color:var(--accent); }
+  .recent-panel { border-left:1px solid var(--line); background:color-mix(in srgb, var(--app), var(--surface) 45%); padding:34px 28px; display:flex; flex-direction:column; }
+  .panel-title { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.11em; margin-bottom:18px; }
+  .recent-list { border-top:1px solid var(--line-strong); }
+  .recent-item { display:grid; grid-template-columns:32px 1fr auto; gap:11px; align-items:center; padding:14px 0; border-bottom:1px solid var(--line); cursor:pointer; }
+  .recent-item:hover .recent-name { color:var(--accent); }
+  .recent-name { font-size:13px; font-weight:620; }
+  .recent-meta { color:var(--muted); font-size:10px; margin-top:3px; }
+  .recent-bpm { color:var(--muted); font-size:10px; }
+  .inspiration-note { margin-top:auto; padding-top:20px; border-top:1px solid var(--line); display:flex; gap:10px; color:var(--muted); font-size:11px; line-height:1.5; }
+
+  /* generic project layout */
+  .project-space { min-height:0; flex:1; display:grid; grid-template-columns: 210px minmax(0,1fr); }
+  .layer-list { border-right:1px solid var(--line); background:color-mix(in srgb,var(--app),var(--surface) 30%); padding:16px 12px; min-height:0; }
+  .layer-title { padding: 2px 8px 13px; display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:10px; letter-spacing:.12em; text-transform:uppercase; }
+  .layer { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:8px; min-height:54px; padding:7px 7px; border-radius:12px; cursor:pointer; margin-bottom:4px; border:1px solid transparent; }
+  .layer:hover { background:var(--surface); }
+  .layer.selected { background:var(--surface); border-color:var(--line); box-shadow:0 6px 18px rgba(45,40,35,.05); }
+  .layer-symbol { width:32px; height:32px; border-radius:10px; display:grid; place-items:center; background:var(--surface-2); color:var(--ink); }
+  .layer-symbol.bass { color:var(--accent); background:var(--accent-ghost); }
+  .layer-name { font-size:12px; font-weight:650; }
+  .layer-sub { font-size:9px; color:var(--muted); margin-top:3px; }
+  .layer-tools { display:flex; gap:3px; }
+  .micro { width:22px; height:22px; border-radius:50%; border:0; background:transparent; color:var(--muted); font-size:9px; cursor:pointer; }
+  .micro:hover, .micro.on { background:var(--surface-2); color:var(--ink); }
+  .add-layer { width:100%; border:1px dashed var(--line-strong); border-radius:12px; background:transparent; min-height:44px; color:var(--muted); display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; margin-top:8px; font-size:11px; }
+  .add-layer:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-ghost); }
+  .canvas { min-width:0; min-height:0; display:flex; flex-direction:column; position:relative; overflow:hidden; }
+
+  /* Empty project */
+  .empty-canvas { flex:1; min-height:0; display:flex; flex-direction:column; }
+  .phrase-head { height:48px; display:grid; grid-template-columns:repeat(8,1fr); border-bottom:1px solid var(--line); padding:0 28px; align-items:end; }
+  .bar-num { color:var(--muted); font-size:9px; padding-bottom:9px; border-left:1px solid var(--line); padding-left:7px; }
+  .first-layer { flex:1; display:grid; place-items:center; padding:30px; position:relative; background-image:linear-gradient(to right, transparent calc(12.5% - 1px), var(--line) 12.5%); background-size:12.5% 100%; }
+  .first-layer-inner { width:min(530px,86%); position:relative; z-index:1; }
+  .first-layer h2 { font-family:var(--serif); font-size:36px; font-weight:500; letter-spacing:-.03em; margin:0 0 10px; }
+  .first-layer p { color:var(--muted); font-size:12px; line-height:1.6; margin:0 0 23px; }
+  .intent-list { border-top:1px solid var(--line-strong); }
+  .intent-row { display:grid; grid-template-columns:34px 1fr auto; align-items:center; gap:12px; width:100%; border:0; border-bottom:1px solid var(--line); background:color-mix(in srgb,var(--app),transparent 9%); padding:12px 2px; text-align:left; cursor:pointer; }
+  .intent-row:hover { color:var(--accent); padding-left:8px; }
+  .intent-row strong { display:block; font-size:13px; font-weight:650; }
+  .intent-row small { display:block; color:var(--muted); font-size:10px; margin-top:3px; }
+  .footer-guidance { height:52px; flex:0 0 52px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding:0 18px; color:var(--muted); font-size:10px; background:color-mix(in srgb,var(--app),var(--surface) 20%); }
+  .key-hint { display:flex; gap:5px; align-items:center; }
+  kbd { font-family:var(--font); min-width:22px; height:22px; border-radius:6px; border:1px solid var(--line-strong); background:var(--surface); display:inline-grid; place-items:center; padding:0 5px; font-size:9px; color:var(--ink); box-shadow:0 1px 0 var(--line-strong); }
+
+  /* Instrument chooser */
+  .chooser-layout { flex:1; min-height:0; display:grid; grid-template-columns:220px minmax(0,1fr) 290px; }
+  .chooser-categories { border-right:1px solid var(--line); padding:28px 16px; }
+  .chooser-kicker { color:var(--muted); font-size:9px; letter-spacing:.12em; text-transform:uppercase; margin:0 8px 12px; }
+  .category-row { width:100%; border:0; background:transparent; padding:12px 8px; border-bottom:1px solid var(--line); display:grid; grid-template-columns:28px 1fr auto; align-items:center; gap:8px; text-align:left; cursor:pointer; }
+  .category-row:hover, .category-row.active { color:var(--accent); padding-left:12px; }
+  .category-row strong { font-size:13px; font-weight:650; }
+  .category-row span { font-size:9px; color:var(--muted); }
+  .sound-stage { min-width:0; padding:36px 40px 22px; display:flex; flex-direction:column; }
+  .sound-title { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; }
+  .sound-title h2 { font-family:var(--serif); font-size:40px; letter-spacing:-.035em; font-weight:500; margin:0; }
+  .sound-title p { color:var(--muted); max-width:390px; line-height:1.55; font-size:11px; margin:7px 0 0; }
+  .audition { margin:32px 0 26px; min-height:160px; border-top:1px solid var(--line-strong); border-bottom:1px solid var(--line); position:relative; display:flex; align-items:center; }
+  .wave { width:100%; height:96px; color:var(--accent); }
+  .wave path { fill:none; stroke:currentColor; stroke-width:2; vector-effect:non-scaling-stroke; }
+  .audition-label { position:absolute; right:0; top:12px; color:var(--muted); font-size:9px; letter-spacing:.08em; text-transform:uppercase; }
+  .preset-lines { display:grid; grid-template-columns:1fr 1fr; gap:0 26px; border-top:1px solid var(--line-strong); }
+  .preset-row { border:0; border-bottom:1px solid var(--line); background:transparent; min-height:48px; display:grid; grid-template-columns:16px 1fr auto; align-items:center; gap:9px; text-align:left; cursor:pointer; }
+  .preset-row:hover, .preset-row.active { color:var(--accent); }
+  .preset-row strong { font-size:12px; font-weight:650; }
+  .preset-row small { color:var(--muted); font-size:9px; }
+  .tone-dot { width:7px; height:7px; border-radius:50%; background:currentColor; opacity:.75; }
+  .keys-preview { margin-top:auto; height:76px; display:grid; grid-template-columns:repeat(14,1fr); gap:2px; align-items:stretch; }
+  .key-white { background:var(--surface); border:1px solid var(--line); border-radius:0 0 6px 6px; position:relative; }
+  .key-white.active { background:var(--accent-soft); border-color:color-mix(in srgb,var(--accent),transparent 60%); }
+  .key-white span { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); color:var(--muted); font-size:8px; }
+  .semantic-panel { border-left:1px solid var(--line); background:color-mix(in srgb,var(--app),var(--surface) 38%); padding:26px 22px; }
+  .semantic-panel h3 { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.11em; margin:0 0 20px; }
+  .semantic-row { margin-bottom:22px; }
+  .semantic-labels { display:flex; justify-content:space-between; color:var(--muted); font-size:9px; margin-bottom:8px; }
+  .semantic-line { height:1px; background:var(--line-strong); position:relative; }
+  .semantic-line::before { content:""; position:absolute; left:0; top:0; height:1px; width:var(--v,50%); background:var(--accent); }
+  .semantic-line::after { content:""; position:absolute; left:var(--v,50%); top:50%; width:9px; height:9px; transform:translate(-50%,-50%); border-radius:50%; background:var(--surface); border:2px solid var(--accent); }
+  .semantic-help { margin-top:30px; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; line-height:1.55; }
+  .primary-action { border:0; border-radius:999px; background:var(--ink); color:var(--surface); padding:11px 16px; font-size:11px; font-weight:650; cursor:pointer; }
+  .primary-action:hover { background:var(--accent); color:white; }
+
+  /* piano roll */
+  .editor-grid { flex:1; min-height:0; display:grid; grid-template-rows:minmax(0,1fr) 52px; }
+  .piano-area { min-height:0; display:grid; grid-template-columns:58px minmax(0,1fr) 248px; }
+  .piano-keys { border-right:1px solid var(--line); padding-top:35px; background:color-mix(in srgb,var(--surface),var(--app) 52%); }
+  .pkey { height:26px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:flex-end; padding-right:7px; color:var(--muted); font-size:8px; position:relative; }
+  .pkey.black::before { content:""; position:absolute; left:0; top:4px; width:34px; height:18px; background:var(--ink); border-radius:0 4px 4px 0; opacity:.86; }
+  .piano-roll { position:relative; overflow:hidden; background-color:var(--surface); background-image:linear-gradient(to right,var(--line) 1px,transparent 1px),linear-gradient(to bottom,var(--line) 1px,transparent 1px); background-size:6.25% 100%,100% 26px; }
+  .piano-roll::before { content:""; position:absolute; inset:35px 0 0 0; background:repeating-linear-gradient(to bottom, transparent 0,transparent 51px,var(--accent-ghost) 51px,var(--accent-ghost) 77px); pointer-events:none; }
+  .roll-ruler { position:absolute; left:0; right:0; top:0; height:35px; border-bottom:1px solid var(--line-strong); display:grid; grid-template-columns:repeat(8,1fr); background:color-mix(in srgb,var(--surface),var(--app) 20%); z-index:2; }
+  .roll-ruler span { border-left:1px solid var(--line); padding:11px 0 0 7px; color:var(--muted); font-size:8px; }
+  .note { position:absolute; height:18px; border-radius:999px; background:var(--accent); box-shadow:0 4px 11px color-mix(in srgb,var(--accent),transparent 70%); z-index:3; }
+  .note.ghost { background:transparent; border:1px dashed color-mix(in srgb,var(--accent),transparent 32%); box-shadow:none; }
+  .note.selected { outline:2px solid color-mix(in srgb,var(--ink),transparent 10%); outline-offset:2px; }
+  .playhead { position:absolute; z-index:5; left:41%; top:0; bottom:0; width:1px; background:var(--accent); box-shadow:0 0 0 1px color-mix(in srgb,var(--accent),transparent 60%); }
+  .playhead::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--accent); position:absolute; top:31px; left:50%; transform:translate(-50%,-50%); }
+  .harmony-panel { border-left:1px solid var(--line); background:color-mix(in srgb,var(--app),var(--surface) 43%); padding:20px 18px; overflow:auto; }
+  .harmony-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .harmony-head h3 { margin:0; font-family:var(--serif); font-size:24px; font-weight:500; letter-spacing:-.025em; }
+  .scale-badge { color:var(--accent); border:1px solid color-mix(in srgb,var(--accent),transparent 65%); background:var(--accent-ghost); border-radius:999px; padding:5px 8px; font-size:9px; }
+  .theory-line { padding:12px 0; border-top:1px solid var(--line); }
+  .theory-label { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.09em; margin-bottom:7px; }
+  .note-set { display:flex; gap:5px; flex-wrap:wrap; }
+  .note-pill { width:27px; height:27px; border-radius:50%; display:grid; place-items:center; border:1px solid var(--line-strong); font-size:9px; background:var(--surface); }
+  .note-pill.root { background:var(--accent); color:white; border-color:var(--accent); }
+  .note-pill.chord { border-color:var(--accent); color:var(--accent); }
+  .theory-copy { color:var(--muted); font-size:10px; line-height:1.5; }
+  .editor-footer { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; border-top:1px solid var(--line); padding:0 16px; background:color-mix(in srgb,var(--app),var(--surface) 25%); }
+  .footer-tools { display:flex; align-items:center; gap:6px; }
+  .footer-tools.right { justify-content:flex-end; }
+  .text-tool { border:0; background:transparent; color:var(--muted); font-size:10px; padding:8px 10px; border-radius:8px; cursor:pointer; }
+  .text-tool:hover { background:var(--surface-2); color:var(--ink); }
+  .cycle-strip { display:flex; align-items:center; gap:7px; color:var(--muted); font-size:9px; }
+  .cycle { display:flex; width:170px; height:22px; border:1px solid var(--line-strong); border-radius:999px; overflow:hidden; background:var(--surface); }
+  .cycle-sound { width:80%; background:var(--accent-soft); position:relative; }
+  .cycle-sound::after { content:"4 такта"; position:absolute; inset:0; display:grid; place-items:center; color:var(--accent-2); font-size:8px; font-weight:650; }
+  .cycle-rest { flex:1; border-left:1px dashed var(--line-strong); position:relative; }
+  .cycle-rest::after { content:"пауза"; position:absolute; inset:0; display:grid; place-items:center; color:var(--muted); font-size:8px; }
+
+  /* drums */
+  .drum-layout { flex:1; min-height:0; display:grid; grid-template-columns:150px minmax(0,1fr) 255px; }
+  .drum-voices { padding-top:46px; border-right:1px solid var(--line); background:color-mix(in srgb,var(--app),var(--surface) 32%); }
+  .voice { height:50px; display:grid; grid-template-columns:28px 1fr auto; align-items:center; gap:8px; padding:0 12px; border-bottom:1px solid var(--line); }
+  .voice-name { font-size:11px; font-weight:650; }
+  .voice-type { color:var(--muted); font-size:8px; margin-top:2px; }
+  .voice-dot { width:16px; height:16px; border-radius:50%; border:1px solid var(--line-strong); position:relative; }
+  .voice-dot::after { content:""; position:absolute; width:4px; height:4px; border-radius:50%; background:var(--accent); left:50%; top:50%; transform:translate(-50%,-50%); }
+  .drum-grid { position:relative; padding-top:46px; background:var(--surface); background-image:linear-gradient(to right,var(--line) 1px,transparent 1px); background-size:6.25% 100%; overflow:hidden; }
+  .drum-ruler { position:absolute; top:0; left:0; right:0; height:46px; border-bottom:1px solid var(--line-strong); display:grid; grid-template-columns:repeat(16,1fr); align-items:end; }
+  .drum-ruler span { color:var(--muted); font-size:7px; padding:0 0 9px 5px; border-left:1px solid var(--line); }
+  .step-row { height:50px; display:grid; grid-template-columns:repeat(16,1fr); border-bottom:1px solid var(--line); align-items:center; }
+  .step { height:100%; border:0; background:transparent; display:grid; place-items:center; cursor:pointer; }
+  .step::before { content:""; width:8px; height:8px; border-radius:50%; border:1px solid var(--line-strong); background:var(--surface); }
+  .step.on::before { width:13px; height:13px; background:var(--accent); border-color:var(--accent); box-shadow:0 4px 10px color-mix(in srgb,var(--accent),transparent 72%); }
+  .step.ghost::before { border-color:var(--accent); background:var(--accent-ghost); }
+  .pattern-panel { border-left:1px solid var(--line); background:color-mix(in srgb,var(--app),var(--surface) 42%); padding:22px 18px; }
+  .pattern-panel h3 { margin:0 0 5px; font-family:var(--serif); font-size:25px; font-weight:500; }
+  .pattern-panel > p { color:var(--muted); margin:0 0 20px; font-size:10px; line-height:1.5; }
+  .pattern-list { border-top:1px solid var(--line-strong); }
+  .pattern-row { width:100%; border:0; border-bottom:1px solid var(--line); background:transparent; padding:12px 2px; display:grid; grid-template-columns:1fr auto; text-align:left; cursor:pointer; }
+  .pattern-row:hover, .pattern-row.active { color:var(--accent); padding-left:7px; }
+  .pattern-row strong { font-size:11px; }
+  .pattern-row small { color:var(--muted); font-size:8px; }
+  .density { margin-top:28px; }
+
+  /* arrangement */
+  .arrange-body { flex:1; min-height:0; display:grid; grid-template-columns:210px minmax(0,1fr) 250px; }
+  .arrange-tracks { border-right:1px solid var(--line); background:color-mix(in srgb,var(--app),var(--surface) 30%); padding-top:44px; }
+  .track-head { height:72px; display:grid; grid-template-columns:30px 1fr auto; gap:8px; align-items:center; padding:0 12px; border-bottom:1px solid var(--line); }
+  .track-head.selected { background:var(--surface); }
+  .track-role { font-size:11px; font-weight:650; }
+  .track-sound { font-size:8px; color:var(--muted); margin-top:3px; }
+  .track-glyph { width:23px; height:23px; border-radius:8px; display:grid; place-items:center; color:var(--accent); background:var(--accent-ghost); }
+  .track-control { width:24px; height:24px; border:0; border-radius:50%; background:transparent; color:var(--muted); cursor:pointer; font-size:8px; }
+  .track-control:hover, .track-control.active { background:var(--surface-2); color:var(--ink); }
+  .arrange-canvas { position:relative; overflow:hidden; background:var(--surface); background-image:linear-gradient(to right,var(--line) 1px,transparent 1px); background-size:6.25% 100%; padding-top:44px; }
+  .arrange-ruler { position:absolute; top:0; left:0; right:0; height:44px; display:grid; grid-template-columns:repeat(16,1fr); border-bottom:1px solid var(--line-strong); }
+  .arrange-ruler span { padding:14px 0 0 6px; border-left:1px solid var(--line); color:var(--muted); font-size:8px; }
+  .arrange-row { position:relative; height:72px; border-bottom:1px solid var(--line); }
+  .clip { position:absolute; top:12px; height:48px; border-radius:14px; border:1px solid color-mix(in srgb,var(--clip),transparent 55%); background:color-mix(in srgb,var(--clip),transparent 82%); color:var(--clip); overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
+  .clip::before { content:""; position:absolute; left:10px; right:10px; top:50%; height:16px; transform:translateY(-50%); background:repeating-linear-gradient(to right,currentColor 0,currentColor 2px,transparent 2px,transparent 7px); opacity:.38; mask-image:linear-gradient(to bottom,transparent 0,#000 40%,#000 60%,transparent 100%); }
+  .clip label { position:absolute; left:10px; top:7px; font-size:8px; color:currentColor; font-weight:700; letter-spacing:.02em; }
+  .clip.rest { border-style:dashed; background:transparent; opacity:.65; }
+  .section-label { position:absolute; top:8px; color:var(--muted); font-size:8px; letter-spacing:.10em; text-transform:uppercase; z-index:3; }
+  .arrange-inspector { border-left:1px solid var(--line); background:color-mix(in srgb,var(--app),var(--surface) 43%); padding:22px 18px; overflow:auto; }
+  .arrange-inspector h3 { font-family:var(--serif); font-size:26px; font-weight:500; margin:0 0 4px; }
+  .arrange-inspector > p { color:var(--muted); font-size:10px; line-height:1.5; margin:0 0 20px; }
+  .inspector-action { width:100%; min-height:45px; border:0; border-top:1px solid var(--line); background:transparent; display:grid; grid-template-columns:24px 1fr auto; gap:9px; align-items:center; text-align:left; cursor:pointer; }
+  .inspector-action:last-of-type { border-bottom:1px solid var(--line); }
+  .inspector-action:hover { color:var(--accent); padding-left:6px; }
+  .inspector-action strong { font-size:10px; }
+  .inspector-action small { color:var(--muted); font-size:8px; }
+
+  /* sound sculpt */
+  .sculpt { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 320px; }
+  .sculpt-main { padding:42px 48px 30px; display:flex; flex-direction:column; }
+  .sculpt-head { display:flex; justify-content:space-between; align-items:flex-start; }
+  .sculpt-head h2 { font-family:var(--serif); font-size:44px; font-weight:500; letter-spacing:-.04em; margin:0; }
+  .sculpt-head p { color:var(--muted); font-size:11px; line-height:1.55; max-width:420px; }
+  .sound-orbit { flex:1; min-height:250px; position:relative; display:grid; place-items:center; margin:14px 0; }
+  .orbit-ring { position:absolute; width:min(38vw,460px); aspect-ratio:1; border:1px solid var(--line); border-radius:50%; }
+  .orbit-ring:nth-child(2) { width:min(28vw,340px); }
+  .orbit-ring:nth-child(3) { width:min(18vw,220px); border-color:color-mix(in srgb,var(--accent),transparent 60%); }
+  .orbit-wave { position:relative; z-index:2; width:min(52vw,620px); height:210px; color:var(--accent); filter:drop-shadow(0 16px 28px color-mix(in srgb,var(--accent),transparent 78%)); }
+  .axis-controls { border-top:1px solid var(--line-strong); display:grid; grid-template-columns:repeat(3,1fr); gap:26px; padding-top:20px; }
+  .axis { min-width:0; }
+  .axis .semantic-labels { font-size:10px; }
+  .sculpt-presets { border-left:1px solid var(--line); background:color-mix(in srgb,var(--app),var(--surface) 42%); padding:26px 22px; }
+  .sculpt-presets h3 { color:var(--muted); font-size:9px; letter-spacing:.12em; text-transform:uppercase; margin:0 0 15px; }
+  .large-preset { width:100%; min-height:62px; border:0; border-top:1px solid var(--line); background:transparent; text-align:left; display:grid; grid-template-columns:1fr auto; align-items:center; cursor:pointer; }
+  .large-preset:last-child { border-bottom:1px solid var(--line); }
+  .large-preset:hover, .large-preset.active { color:var(--accent); padding-left:6px; }
+  .large-preset strong { display:block; font-family:var(--serif); font-size:19px; font-weight:500; }
+  .large-preset small { color:var(--muted); font-size:9px; }
+
+  /* UX notes */
+  .ux-note {
+    min-width:0;
+    height:min(850px, calc(100vh - 98px));
+    min-height:690px;
+    border-radius:20px;
+    padding:22px 20px;
+    background:rgba(249,247,242,.70);
+    border:1px solid rgba(255,255,255,.54);
+    box-shadow:0 20px 60px rgba(50,44,38,.12);
+    display:flex;
+    flex-direction:column;
+  }
+  .note-count { font-size:10px; letter-spacing:.14em; color:#8b857d; text-transform:uppercase; }
+  .ux-note h2 { font-family:var(--serif); font-size:28px; line-height:1.05; letter-spacing:-.035em; font-weight:500; margin:12px 0 13px; }
+  .ux-note > p { color:#6f6a63; font-size:12px; line-height:1.6; margin:0 0 20px; }
+  .note-rule { border-top:1px solid rgba(55,49,43,.13); padding:14px 0; }
+  .note-rule strong { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.10em; margin-bottom:6px; }
+  .note-rule span { color:#777169; font-size:11px; line-height:1.5; display:block; }
+  .journey-map { margin-top:auto; padding-top:18px; border-top:1px solid rgba(55,49,43,.13); }
+  .journey-line { display:grid; grid-template-columns:18px 1fr; gap:9px; align-items:start; padding:6px 0; color:#817b73; font-size:10px; }
+  .journey-line.active { color:#26221f; font-weight:650; }
+  .journey-index { width:18px; height:18px; border-radius:50%; border:1px solid rgba(55,49,43,.16); display:grid; place-items:center; font-size:8px; }
+  .journey-line.active .journey-index { background:#26221f; color:#fff; border-color:#26221f; }
+
+  @media (max-width: 1350px) {
+    .presentation { grid-template-columns:1fr; }
+    .ux-note { height:auto; min-height:0; display:grid; grid-template-columns:180px 1fr 1fr; gap:16px; }
+    .ux-note h2 { margin-top:5px; }
+    .ux-note > p { margin:0; }
+    .journey-map { display:none; }
+  }
+  @media (max-width: 900px) {
+    body { padding:8px; }
+    .prototype-bar { grid-template-columns:1fr auto; }
+    .state-tabs { grid-column:1 / -1; order:3; }
+    .app-window { min-height:650px; height:820px; }
+    .home { grid-template-columns:1fr; }
+    .recent-panel { display:none; }
+    .project-space { grid-template-columns:160px 1fr; }
+    .chooser-layout { grid-template-columns:160px 1fr; }
+    .semantic-panel { display:none; }
+    .piano-area { grid-template-columns:48px 1fr; }
+    .harmony-panel { display:none; }
+    .drum-layout { grid-template-columns:120px 1fr; }
+    .pattern-panel { display:none; }
+    .arrange-body { grid-template-columns:160px 1fr; }
+    .arrange-inspector { display:none; }
+    .sculpt { grid-template-columns:1fr; }
+    .sculpt-presets { display:none; }
+    .ux-note { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5v8.2a1.3 1.3 0 0 1-1.3 1.3H5.3A1.3 1.3 0 0 1 4 18.7Z"/><path d="M9 20v-6h6v6"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h2l2-6 3 12 3-14 3 16 2-8h3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.2h6l1.7 2h9.3v8.8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z"/><path d="M3.5 9.2V6a2 2 0 0 1 2-2h3l2 2h4"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 13.7v-3.4l-2-.7-.6-1.4.9-1.9-2.4-2.4-1.9.9-1.4-.6-.7-2H7.5l-.7 2-1.4.6-1.9-.9-2.4 2.4.9 1.9-.6 1.4-2 .7v3.4l2 .7.6 1.4-.9 1.9 2.4 2.4 1.9-.9 1.4.6.7 2h3.4l.7-2 1.4-.6 1.9.9 2.4-2.4-.9-1.9.6-1.4Z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15.2A8 8 0 0 1 8.8 4 8.2 8.2 0 1 0 20 15.2Z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m9 6 9 6-9 6Z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 7-5 5 5 5"/><path d="M5 5v14"/></symbol>
+  <symbol id="i-forward" viewBox="0 0 24 24"><path d="m9 7 5 5-5 5"/><path d="M19 5v14"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="m9 8-4 4 4 4"/><path d="M5 12h7a6 6 0 0 1 6 6"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 8 4 4-4 4"/><path d="M19 12h-7a6 6 0 0 0-6 6"/></symbol>
+  <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10Z"/><path d="M16 9a4 4 0 0 1 0 6M18.7 6.5a8 8 0 0 1 0 11"/></symbol>
+  <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M4 14h3v6H5.5A1.5 1.5 0 0 1 4 18.5ZM20 14h-3v6h1.5a1.5 1.5 0 0 0 1.5-1.5Z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h6v6H4ZM14 4h6v6h-6ZM4 14h6v6H4ZM14 14h6v6h-6Z"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></symbol>
+  <symbol id="i-drum" viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="8" ry="3"/><path d="M4 7v9c0 1.7 3.6 3 8 3s8-1.3 8-3V7"/><path d="m5 10 14 5M19 10 5 15"/></symbol>
+  <symbol id="i-bass" viewBox="0 0 24 24"><path d="M4 16c2-6 5-9 9-10 2-.5 4 .4 5 2 1.4 2.7-.2 5.5-3 6.2-2 .5-4.3.1-6 1.8-1.3 1.3-2 2.5-2 4"/><path d="M14 9c1 1 2 1.8 4 2"/></symbol>
+  <symbol id="i-chord" viewBox="0 0 24 24"><path d="M5 18 10 6l4 8 2-5 3 9Z"/></symbol>
+  <symbol id="i-melody" viewBox="0 0 24 24"><path d="M3 14c3-7 6 6 9-2s6 5 9-4"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 14v5h16v-5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M15 8l4 4-4 4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10Z"/><path d="m17 9 4 6M21 9l-4 6"/></symbol>
+  <symbol id="i-loop" viewBox="0 0 24 24"><path d="M6 7h11l-2-2M18 17H7l2 2"/><path d="M18 7a5 5 0 0 1 0 10M6 17a5 5 0 0 1 0-10"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+  <symbol id="i-cut" viewBox="0 0 24 24"><circle cx="6" cy="7" r="3"/><circle cx="6" cy="17" r="3"/><path d="m8.5 8.5 11 7M8.5 15.5l11-7"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4"/><path d="M12 12h9M17 12v3M20 12v2"/></symbol>
+</svg>
+
+<div class="prototype-shell">
+  <header class="prototype-bar">
+    <div class="prototype-title"><strong>Tiempio</strong><span>user-path prototype</span></div>
+    <nav class="state-tabs" aria-label="Состояния прототипа">
+      <button class="state-tab active" data-state="home">01 Старт</button>
+      <button class="state-tab" data-state="empty">02 Первый слой</button>
+      <button class="state-tab" data-state="sound">03 Выбор звука</button>
+      <button class="state-tab" data-state="piano">04 Мелодия</button>
+      <button class="state-tab" data-state="drums">05 Ритм</button>
+      <button class="state-tab" data-state="arrange">06 Структура</button>
+      <button class="state-tab" data-state="sculpt">07 Характер звука</button>
+    </nav>
+    <div class="proto-actions">
+      <button class="proto-button" id="themeToggle" aria-label="Сменить тему"><svg class="tool-icon"><use href="#i-moon"/></svg></button>
+    </div>
+  </header>
+
+  <div class="presentation">
+    <section class="app-window" id="appWindow">
+      <div class="window-titlebar">
+        <div class="brand-lockup">
+          <svg class="brand-mark" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 7a5 5 0 1 0 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/></svg>
+          <span>Tiempio</span><span class="edition">Foundation</span>
+        </div>
+        <div class="window-controls"><span>—</span><span>□</span><span>×</span></div>
+      </div>
+      <div class="app-body">
+        <aside class="nav-rail">
+          <button class="rail-button active" data-tip="Проекты" data-goto="home"><svg class="tool-icon"><use href="#i-home"/></svg></button>
+          <button class="rail-button" data-tip="Создать" data-goto="empty"><svg class="tool-icon"><use href="#i-plus"/></svg></button>
+          <button class="rail-button" data-tip="Звуки" data-goto="sound"><svg class="tool-icon"><use href="#i-wave"/></svg></button>
+          <button class="rail-button" data-tip="Мои файлы"><svg class="tool-icon"><use href="#i-folder"/></svg></button>
+          <span class="rail-spacer"></span>
+          <button class="rail-button" data-tip="Настройки"><svg class="tool-icon"><use href="#i-settings"/></svg></button>
+        </aside>
+        <main class="workspace">
+
+          <!-- HOME -->
+          <section class="screen active" data-screen="home">
+            <div class="home">
+              <div class="home-main">
+                <div class="eyebrow">Electronic music, without the ceremony</div>
+                <h1>Начни с одного <em>звука.</em></h1>
+                <p class="home-intro">Tiempio открывается как инструмент, а не как экзамен. Никаких обязательных шаблонов, маршрутизации и пустых технических дорожек — только понятный первый шаг.</p>
+                <div class="start-actions">
+                  <button class="start-row" data-goto="empty"><span class="round-symbol"><svg class="tool-icon"><use href="#i-plus"/></svg></span><span><strong>Новый трек</strong><small>Пустая восьмитактовая фраза</small></span><svg class="tool-icon arrow"><use href="#i-arrow"/></svg></button>
+                  <button class="start-row" data-goto="sound"><span class="round-symbol"><svg class="tool-icon"><use href="#i-wave"/></svg></span><span><strong>Начать со звука</strong><small>Сначала выбрать характер инструмента</small></span><svg class="tool-icon arrow"><use href="#i-arrow"/></svg></button>
+                  <button class="start-row"><span class="round-symbol"><svg class="tool-icon"><use href="#i-folder"/></svg></span><span><strong>Открыть проект</strong><small>Локальный файл Tiempio</small></span><svg class="tool-icon arrow"><use href="#i-arrow"/></svg></button>
+                </div>
+              </div>
+              <aside class="recent-panel">
+                <div class="panel-title"><span>Недавние</span><span>3</span></div>
+                <div class="recent-list">
+                  <div class="recent-item"><span class="round-symbol"><svg class="tool-icon"><use href="#i-wave"/></svg></span><span><div class="recent-name">Night Drive</div><div class="recent-meta">Сегодня, 14:23 · A minor</div></span><span class="recent-bpm">128</span></div>
+                  <div class="recent-item"><span class="round-symbol"><svg class="tool-icon"><use href="#i-wave"/></svg></span><span><div class="recent-name">Quiet Signal</div><div class="recent-meta">Вчера · C minor</div></span><span class="recent-bpm">112</span></div>
+                  <div class="recent-item"><span class="round-symbol"><svg class="tool-icon"><use href="#i-wave"/></svg></span><span><div class="recent-name">Glass Room</div><div class="recent-meta">4 дня назад · F minor</div></span><span class="recent-bpm">96</span></div>
+                </div>
+                <div class="inspiration-note"><svg class="tool-icon"><use href="#i-headphones"/></svg><span><strong style="color:var(--ink)">Слушай референсы параллельно.</strong><br>Tiempio по умолчанию делит системный звук с браузером, Spotify и другими приложениями.</span></div>
+              </aside>
+            </div>
+          </section>
+
+          <!-- EMPTY -->
+          <section class="screen" data-screen="empty">
+            <div class="topbar">
+              <div class="top-left"><button class="icon-button" data-tip="Меню"><svg class="tool-icon"><use href="#i-grid"/></svg></button><div><div class="project-name">Untitled 01</div><div class="subtle-label">Сохранено локально</div></div></div>
+              <div class="transport"><button class="icon-button"><svg class="tool-icon"><use href="#i-back"/></svg></button><button class="icon-button play-button"><svg class="tool-icon play-icon"><use href="#i-play"/></svg></button><button class="icon-button"><svg class="tool-icon"><use href="#i-forward"/></svg></button><div class="tempo"><span>Tempo</span><b>120</b></div><div class="key-control"><span>Key</span><b>A minor</b></div></div>
+              <div class="top-right"><button class="icon-button" data-tip="Отменить"><svg class="tool-icon"><use href="#i-undo"/></svg></button><button class="icon-button" data-tip="Повторить"><svg class="tool-icon"><use href="#i-redo"/></svg></button><button class="audio-chip"><span class="status-dot"></span><strong>Shared audio</strong><svg class="tool-icon" style="width:14px"><use href="#i-speaker"/></svg></button></div>
+              <div class="audio-popover"><div class="popover-head"><span class="round-symbol"><svg class="tool-icon"><use href="#i-speaker"/></svg></span><div><div class="popover-title">Звук работает вместе с системой</div><div class="popover-copy">YouTube, Spotify и браузер продолжают играть. Tiempio не забирает аудиоустройство без разрешения.</div></div></div><div class="mode-option"><span class="radio checked"></span><div><div class="mode-name">Shared</div><div class="mode-copy">Обычная работа и прослушивание референсов параллельно.</div></div><span class="mode-badge">Default</span></div><div class="mode-option"><span class="radio"></span><div><div class="mode-name">Low latency</div><div class="mode-copy">Для записи с минимальной задержкой. Может ограничить звук других приложений.</div></div><span></span></div></div>
+            </div>
+            <div class="project-space">
+              <aside class="layer-list"><div class="layer-title"><span>Слои</span><span>0</span></div><button class="add-layer" data-goto="sound"><svg class="tool-icon"><use href="#i-plus"/></svg>Добавить слой</button></aside>
+              <div class="canvas empty-canvas">
+                <div class="phrase-head"><span class="bar-num">1</span><span class="bar-num">2</span><span class="bar-num">3</span><span class="bar-num">4</span><span class="bar-num">5</span><span class="bar-num">6</span><span class="bar-num">7</span><span class="bar-num">8</span></div>
+                <div class="first-layer"><div class="first-layer-inner"><h2>С чего начнём?</h2><p>Выбирай музыкальную роль, а Tiempio сам создаст подходящий инструмент, диапазон и редактор. Никаких пустых MIDI-дорожек.</p><div class="intent-list">
+                  <button class="intent-row" data-goto="drums"><span class="round-symbol"><svg class="tool-icon"><use href="#i-drum"/></svg></span><span><strong>Ритм</strong><small>Удары и пульс</small></span><svg class="tool-icon arrow"><use href="#i-arrow"/></svg></button>
+                  <button class="intent-row" data-goto="sound"><span class="round-symbol"><svg class="tool-icon"><use href="#i-bass"/></svg></span><span><strong>Бас</strong><small>Низ и движение</small></span><svg class="tool-icon arrow"><use href="#i-arrow"/></svg></button>
+                  <button class="intent-row" data-goto="piano"><span class="round-symbol"><svg class="tool-icon"><use href="#i-chord"/></svg></span><span><strong>Аккорды или мелодия</strong><small>Ноты с подсказками по гармонии</small></span><svg class="tool-icon arrow"><use href="#i-arrow"/></svg></button>
+                  <button class="intent-row"><span class="round-symbol"><svg class="tool-icon"><use href="#i-upload"/></svg></span><span><strong>Мой звук</strong><small>Перетащить аудиофайл</small></span><svg class="tool-icon arrow"><use href="#i-arrow"/></svg></button>
+                </div></div></div>
+                <div class="footer-guidance"><span>Первый слой можно заменить в любой момент</span><span class="key-hint"><kbd>Space</kbd> Play <kbd>Ctrl</kbd><kbd>K</kbd> Quick action</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SOUND CHOOSER -->
+          <section class="screen" data-screen="sound">
+            <div class="topbar">
+              <div class="top-left"><button class="icon-button" data-goto="empty"><svg class="tool-icon"><use href="#i-back"/></svg></button><div><div class="project-name">Выбери характер</div><div class="subtle-label">Звук можно изменить позже</div></div></div>
+              <div class="transport"><button class="icon-button play-button"><svg class="tool-icon"><use href="#i-play"/></svg></button><div class="tempo"><span>Audition</span><b>A2</b></div></div>
+              <div class="top-right"><button class="audio-chip"><span class="status-dot"></span><strong>Shared audio</strong><svg class="tool-icon" style="width:14px"><use href="#i-speaker"/></svg></button></div>
+              <div class="audio-popover"><div class="popover-head"><span class="round-symbol"><svg class="tool-icon"><use href="#i-speaker"/></svg></span><div><div class="popover-title">Звук работает вместе с системой</div><div class="popover-copy">Можно слушать референс в другом приложении и одновременно пробовать тембры Tiempio.</div></div></div><div class="mode-option"><span class="radio checked"></span><div><div class="mode-name">Shared</div><div class="mode-copy">Без эксклюзивного захвата аудиоустройства.</div></div><span class="mode-badge">Default</span></div></div>
+            </div>
+            <div class="chooser-layout">
+              <aside class="chooser-categories"><div class="chooser-kicker">Инструмент</div>
+                <button class="category-row active"><svg class="tool-icon"><use href="#i-bass"/></svg><strong>Bass</strong><span>06</span></button>
+                <button class="category-row"><svg class="tool-icon"><use href="#i-melody"/></svg><strong>Lead</strong><span>07</span></button>
+                <button class="category-row"><svg class="tool-icon"><use href="#i-chord"/></svg><strong>Pad</strong><span>05</span></button>
+                <button class="category-row"><svg class="tool-icon"><use href="#i-note"/></svg><strong>Pluck</strong><span>04</span></button>
+                <button class="category-row"><svg class="tool-icon"><use href="#i-wave"/></svg><strong>Texture</strong><span>05</span></button>
+              </aside>
+              <div class="sound-stage">
+                <div class="sound-title"><div><h2>Deep Bass</h2><p>Низкий, гладкий и устойчивый. Сразу открывается в басовом диапазоне, поэтому первая сыгранная нота звучит там, где ожидается.</p></div><button class="primary-action" data-goto="piano">Использовать звук</button></div>
+                <div class="audition"><span class="audition-label">Удерживай A–L для игры</span><svg class="wave" viewBox="0 0 800 100" preserveAspectRatio="none"><path d="M0 50 C25 18 46 82 71 50 S118 18 143 50 189 82 214 50 260 18 286 50 332 82 357 50 403 18 429 50 475 82 500 50 546 18 572 50 618 82 643 50 689 18 715 50 761 82 800 50"/><path opacity=".28" d="M0 50 C38 36 61 64 99 50 S160 36 198 50 259 64 297 50 358 36 396 50 457 64 495 50 556 36 594 50 655 64 693 50 754 36 800 50"/></svg></div>
+                <div class="preset-lines">
+                  <button class="preset-row active"><span class="tone-dot"></span><span><strong>Deep</strong><small>Массивный и ровный</small></span><span>↗</span></button>
+                  <button class="preset-row"><span class="tone-dot"></span><span><strong>Punchy</strong><small>Короткий и читаемый</small></span><span>↗</span></button>
+                  <button class="preset-row"><span class="tone-dot"></span><span><strong>Warm</strong><small>Мягкий и округлый</small></span><span>↗</span></button>
+                  <button class="preset-row"><span class="tone-dot"></span><span><strong>Dirty</strong><small>Грубый и насыщенный</small></span><span>↗</span></button>
+                  <button class="preset-row"><span class="tone-dot"></span><span><strong>Soft</strong><small>Спокойный и воздушный</small></span><span>↗</span></button>
+                  <button class="preset-row"><span class="tone-dot"></span><span><strong>Retro</strong><small>Выраженный синтовый</small></span><span>↗</span></button>
+                </div>
+                <div class="keys-preview"><div class="key-white"><span>A</span></div><div class="key-white active"><span>S</span></div><div class="key-white"><span>D</span></div><div class="key-white"><span>F</span></div><div class="key-white active"><span>G</span></div><div class="key-white"><span>H</span></div><div class="key-white"><span>J</span></div><div class="key-white"><span>K</span></div><div class="key-white"><span>L</span></div><div class="key-white"></div><div class="key-white"></div><div class="key-white"></div><div class="key-white"></div><div class="key-white"></div></div>
+              </div>
+              <aside class="semantic-panel"><h3>Тонкая настройка</h3>
+                <div class="semantic-row"><div class="semantic-labels"><span>Dark</span><span>Bright</span></div><div class="semantic-line" style="--v:34%"></div></div>
+                <div class="semantic-row"><div class="semantic-labels"><span>Soft</span><span>Hard</span></div><div class="semantic-line" style="--v:42%"></div></div>
+                <div class="semantic-row"><div class="semantic-labels"><span>Clean</span><span>Dirty</span></div><div class="semantic-line" style="--v:22%"></div></div>
+                <div class="semantic-row"><div class="semantic-labels"><span>Short</span><span>Long</span></div><div class="semantic-line" style="--v:58%"></div></div>
+                <div class="semantic-help">Никаких осцилляторов на первом экране. Эти оси управляют несколькими параметрами синтеза одновременно и меняют звук предсказуемо.</div>
+              </aside>
+            </div>
+          </section>
+
+          <!-- PIANO -->
+          <section class="screen" data-screen="piano">
+            <div class="topbar">
+              <div class="top-left"><button class="icon-button"><svg class="tool-icon"><use href="#i-grid"/></svg></button><div><div class="project-name">Untitled 01</div><div class="subtle-label">Bass · Deep</div></div></div>
+              <div class="transport"><button class="icon-button"><svg class="tool-icon"><use href="#i-back"/></svg></button><button class="icon-button play-button"><svg class="tool-icon"><use href="#i-play"/></svg></button><button class="icon-button"><svg class="tool-icon"><use href="#i-forward"/></svg></button><div class="tempo"><span>Tempo</span><b>120</b></div><div class="key-control"><span>Key</span><b>A minor</b></div></div>
+              <div class="top-right"><button class="icon-button" data-tip="На октаву ниже"><span style="font-size:11px;font-weight:700">−8va</span></button><button class="icon-button" data-tip="На октаву выше"><span style="font-size:11px;font-weight:700">+8va</span></button><button class="audio-chip"><span class="status-dot"></span><strong>Shared audio</strong><svg class="tool-icon" style="width:14px"><use href="#i-speaker"/></svg></button></div>
+              <div class="audio-popover"><div class="popover-head"><span class="round-symbol"><svg class="tool-icon"><use href="#i-speaker"/></svg></span><div><div class="popover-title">Референс может играть параллельно</div><div class="popover-copy">Shared mode включён по умолчанию. Ничего закрывать не нужно.</div></div></div><div class="mode-option"><span class="radio checked"></span><div><div class="mode-name">Shared</div><div class="mode-copy">Tiempio + другие приложения.</div></div><span class="mode-badge">Default</span></div></div>
+            </div>
+            <div class="project-space">
+              <aside class="layer-list"><div class="layer-title"><span>Слои</span><span>1</span></div><div class="layer selected"><span class="layer-symbol bass"><svg class="tool-icon"><use href="#i-bass"/></svg></span><span><div class="layer-name">Bass</div><div class="layer-sub">Deep · A1–A3</div></span><span class="layer-tools"><button class="micro">S</button><button class="micro">M</button></span></div><button class="add-layer" data-goto="drums"><svg class="tool-icon"><use href="#i-plus"/></svg>Добавить слой</button></aside>
+              <div class="canvas editor-grid">
+                <div class="piano-area">
+                  <div class="piano-keys"><div class="pkey">C3</div><div class="pkey black"></div><div class="pkey">B2</div><div class="pkey black"></div><div class="pkey">A2</div><div class="pkey black"></div><div class="pkey">G2</div><div class="pkey black"></div><div class="pkey">F2</div><div class="pkey">E2</div><div class="pkey black"></div><div class="pkey">D2</div><div class="pkey black"></div><div class="pkey">C2</div><div class="pkey">B1</div><div class="pkey black"></div><div class="pkey">A1</div></div>
+                  <div class="piano-roll"><div class="roll-ruler"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span></div><div class="playhead"></div>
+                    <div class="note" style="left:4%;top:268px;width:9%"></div><div class="note" style="left:15%;top:242px;width:9%"></div><div class="note selected" style="left:27%;top:216px;width:13%"></div><div class="note" style="left:43%;top:268px;width:9%"></div><div class="note" style="left:55%;top:242px;width:9%"></div><div class="note" style="left:67%;top:294px;width:10%"></div><div class="note" style="left:80%;top:268px;width:13%"></div><div class="note ghost" style="left:54%;top:190px;width:8%"></div>
+                  </div>
+                  <aside class="harmony-panel"><div class="harmony-head"><h3>A minor</h3><span class="scale-badge">Natural</span></div><div class="theory-line"><div class="theory-label">Ноты гаммы</div><div class="note-set"><span class="note-pill root">A</span><span class="note-pill">B</span><span class="note-pill chord">C</span><span class="note-pill">D</span><span class="note-pill chord">E</span><span class="note-pill">F</span><span class="note-pill chord">G</span></div></div><div class="theory-line"><div class="theory-label">Выбранная нота</div><div class="theory-copy"><strong style="color:var(--ink)">C2 — устойчиво.</strong><br>Это третья ступень текущего аккорда Am. Она хорошо поддерживает гармонию.</div></div><div class="theory-line"><div class="theory-label">Следующий вариант</div><div class="theory-copy">Призрачная нота показывает предложение. Нажми её, чтобы добавить, или проигнорируй.</div></div></aside>
+                </div>
+                <div class="editor-footer"><div class="footer-tools"><button class="text-tool">Сетка 1/16</button><button class="text-tool">Длина 100%</button><button class="text-tool">Impact 80</button></div><div class="cycle-strip"><svg class="tool-icon"><use href="#i-loop"/></svg><div class="cycle"><div class="cycle-sound"></div><div class="cycle-rest"></div></div></div><div class="footer-tools right"><button class="text-tool"><svg class="tool-icon" style="width:14px"><use href="#i-copy"/></svg> Повторить</button><button class="text-tool"><svg class="tool-icon" style="width:14px"><use href="#i-cut"/></svg> Разделить</button></div></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- DRUMS -->
+          <section class="screen" data-screen="drums">
+            <div class="topbar">
+              <div class="top-left"><button class="icon-button"><svg class="tool-icon"><use href="#i-grid"/></svg></button><div><div class="project-name">Untitled 01</div><div class="subtle-label">Drums · Clean Pulse</div></div></div>
+              <div class="transport"><button class="icon-button"><svg class="tool-icon"><use href="#i-back"/></svg></button><button class="icon-button play-button"><svg class="tool-icon"><use href="#i-play"/></svg></button><button class="icon-button"><svg class="tool-icon"><use href="#i-forward"/></svg></button><div class="tempo"><span>Tempo</span><b>120</b></div><div class="key-control"><span>Swing</span><b>8%</b></div></div>
+              <div class="top-right"><button class="icon-button" data-tip="Отменить"><svg class="tool-icon"><use href="#i-undo"/></svg></button><button class="audio-chip"><span class="status-dot"></span><strong>Shared audio</strong><svg class="tool-icon" style="width:14px"><use href="#i-speaker"/></svg></button></div>
+              <div class="audio-popover"><div class="popover-head"><span class="round-symbol"><svg class="tool-icon"><use href="#i-speaker"/></svg></span><div><div class="popover-title">Системный звук не блокируется</div><div class="popover-copy">Можно одновременно слушать референс и собирать ритм.</div></div></div><div class="mode-option"><span class="radio checked"></span><div><div class="mode-name">Shared</div></div><span class="mode-badge">Default</span></div></div>
+            </div>
+            <div class="project-space">
+              <aside class="layer-list"><div class="layer-title"><span>Слои</span><span>2</span></div><div class="layer"><span class="layer-symbol bass"><svg class="tool-icon"><use href="#i-bass"/></svg></span><span><div class="layer-name">Bass</div><div class="layer-sub">Deep</div></span><span class="layer-tools"><button class="micro">S</button><button class="micro">M</button></span></div><div class="layer selected"><span class="layer-symbol"><svg class="tool-icon"><use href="#i-drum"/></svg></span><span><div class="layer-name">Drums</div><div class="layer-sub">Clean Pulse</div></span><span class="layer-tools"><button class="micro">S</button><button class="micro">M</button></span></div><button class="add-layer"><svg class="tool-icon"><use href="#i-plus"/></svg>Добавить слой</button></aside>
+              <div class="canvas drum-layout">
+                <div class="drum-voices"><div class="voice"><span class="voice-dot"></span><span><div class="voice-name">Kick</div><div class="voice-type">Deep</div></span><span>›</span></div><div class="voice"><span class="voice-dot"></span><span><div class="voice-name">Clap</div><div class="voice-type">Clean</div></span><span>›</span></div><div class="voice"><span class="voice-dot"></span><span><div class="voice-name">Closed hat</div><div class="voice-type">Fine</div></span><span>›</span></div><div class="voice"><span class="voice-dot"></span><span><div class="voice-name">Open hat</div><div class="voice-type">Air</div></span><span>›</span></div><div class="voice"><span class="voice-dot"></span><span><div class="voice-name">Perc</div><div class="voice-type">Glass</div></span><span>›</span></div></div>
+                <div class="drum-grid"><div class="drum-ruler"><span>1</span><span></span><span></span><span></span><span>2</span><span></span><span></span><span></span><span>3</span><span></span><span></span><span></span><span>4</span><span></span><span></span><span></span></div>
+                  <div class="step-row"><button class="step on"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step on"></button><button class="step"></button><button class="step ghost"></button><button class="step"></button><button class="step on"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step on"></button><button class="step"></button><button class="step ghost"></button><button class="step"></button></div>
+                  <div class="step-row"><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step on"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step on"></button><button class="step"></button><button class="step"></button><button class="step"></button></div>
+                  <div class="step-row"><button class="step on"></button><button class="step"></button><button class="step on"></button><button class="step"></button><button class="step on"></button><button class="step"></button><button class="step on"></button><button class="step"></button><button class="step on"></button><button class="step"></button><button class="step on"></button><button class="step"></button><button class="step on"></button><button class="step"></button><button class="step on"></button><button class="step"></button></div>
+                  <div class="step-row"><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step on"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step on"></button><button class="step"></button></div>
+                  <div class="step-row"><button class="step"></button><button class="step ghost"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step ghost"></button><button class="step"></button><button class="step"></button><button class="step ghost"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step"></button><button class="step ghost"></button><button class="step"></button></div>
+                </div>
+                <aside class="pattern-panel"><h3>Straight</h3><p>Ровный электронный пульс. Нажимай точки напрямую или возьми основу и измени её.</p><div class="pattern-list"><button class="pattern-row active"><strong>Straight</strong><small>равномерно</small></button><button class="pattern-row"><strong>Sparse</strong><small>больше воздуха</small></button><button class="pattern-row"><strong>Driving</strong><small>больше движения</small></button><button class="pattern-row"><strong>Broken</strong><small>неровный рисунок</small></button></div><div class="density"><div class="semantic-labels"><span>Simple</span><span>Busy</span></div><div class="semantic-line" style="--v:38%"></div></div></aside>
+              </div>
+            </div>
+          </section>
+
+          <!-- ARRANGE -->
+          <section class="screen" data-screen="arrange">
+            <div class="topbar">
+              <div class="top-left"><button class="icon-button"><svg class="tool-icon"><use href="#i-grid"/></svg></button><div><div class="project-name">Night Drive</div><div class="subtle-label">Последнее изменение сейчас</div></div></div>
+              <div class="transport"><button class="icon-button"><svg class="tool-icon"><use href="#i-back"/></svg></button><button class="icon-button play-button"><svg class="tool-icon"><use href="#i-play"/></svg></button><button class="icon-button"><svg class="tool-icon"><use href="#i-forward"/></svg></button><div class="tempo"><span>Tempo</span><b>124</b></div><div class="key-control"><span>Key</span><b>A minor</b></div></div>
+              <div class="top-right"><button class="icon-button" data-tip="Отменить"><svg class="tool-icon"><use href="#i-undo"/></svg></button><button class="icon-button" data-tip="Повторить"><svg class="tool-icon"><use href="#i-redo"/></svg></button><button class="audio-chip"><span class="status-dot"></span><strong>Shared audio</strong><svg class="tool-icon" style="width:14px"><use href="#i-speaker"/></svg></button></div>
+              <div class="audio-popover"><div class="popover-head"><span class="round-symbol"><svg class="tool-icon"><use href="#i-speaker"/></svg></span><div><div class="popover-title">Shared audio включён</div><div class="popover-copy">Tiempio и референс из другого приложения могут звучать одновременно.</div></div></div><div class="mode-option"><span class="radio checked"></span><div><div class="mode-name">Shared</div></div><span class="mode-badge">Default</span></div></div>
+            </div>
+            <div class="arrange-body">
+              <aside class="arrange-tracks"><div class="track-head"><span class="track-glyph"><svg class="tool-icon"><use href="#i-drum"/></svg></span><span><div class="track-role">Drums</div><div class="track-sound">Clean Pulse</div></span><span><button class="track-control">S</button><button class="track-control">M</button></span></div><div class="track-head selected"><span class="track-glyph"><svg class="tool-icon"><use href="#i-bass"/></svg></span><span><div class="track-role">Bass</div><div class="track-sound">Deep</div></span><span><button class="track-control">S</button><button class="track-control">M</button></span></div><div class="track-head"><span class="track-glyph"><svg class="tool-icon"><use href="#i-chord"/></svg></span><span><div class="track-role">Harmony</div><div class="track-sound">Soft Pad</div></span><span><button class="track-control">S</button><button class="track-control">M</button></span></div><div class="track-head"><span class="track-glyph"><svg class="tool-icon"><use href="#i-melody"/></svg></span><span><div class="track-role">Melody</div><div class="track-sound">Glass Lead</div></span><span><button class="track-control">S</button><button class="track-control active">M</button></span></div><button class="add-layer" style="margin:12px"><svg class="tool-icon"><use href="#i-plus"/></svg>Добавить слой</button></aside>
+              <div class="arrange-canvas"><div class="arrange-ruler"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span></div><span class="section-label" style="left:2%">Intro</span><span class="section-label" style="left:27%">Main</span><span class="section-label" style="left:76%">Break</span>
+                <div class="arrange-row"><div class="clip" style="--clip:var(--track-drum);left:1.5%;width:24%"><label>Sparse</label></div><div class="clip" style="--clip:var(--track-drum);left:27%;width:48%"><label>Driving</label></div><div class="clip rest" style="--clip:var(--track-drum);left:76.5%;width:11%"><label>Pause</label></div><div class="clip" style="--clip:var(--track-drum);left:89%;width:10%"><label>Fill</label></div></div>
+                <div class="arrange-row"><div class="clip" style="--clip:var(--track-bass);left:14%;width:11%"><label>Deep A</label></div><div class="clip" style="--clip:var(--track-bass);left:27%;width:48%"><label>Main bass</label></div><div class="clip rest" style="--clip:var(--track-bass);left:76.5%;width:11%"><label>1 bar rest</label></div><div class="clip" style="--clip:var(--track-bass);left:89%;width:10%"><label>Return</label></div></div>
+                <div class="arrange-row"><div class="clip" style="--clip:var(--track-harmony);left:1.5%;width:36%"><label>Am · F</label></div><div class="clip" style="--clip:var(--track-harmony);left:39%;width:36%"><label>C · G</label></div><div class="clip" style="--clip:var(--track-harmony);left:76.5%;width:22.5%"><label>Am · G</label></div></div>
+                <div class="arrange-row"><div class="clip" style="--clip:var(--track-lead);left:27%;width:23%"><label>Motif</label></div><div class="clip" style="--clip:var(--track-lead);left:52%;width:23%"><label>Variation</label></div><div class="clip rest" style="--clip:var(--track-lead);left:76.5%;width:11%"><label>Mute</label></div></div>
+                <div class="playhead" style="left:59%;top:0"></div>
+              </div>
+              <aside class="arrange-inspector"><h3>Main bass</h3><p>Выбранный фрагмент · 8 тактов. Действия сформулированы через намерение, а не через устройство DAW.</p><button class="inspector-action"><svg class="tool-icon"><use href="#i-copy"/></svg><span><strong>Повторить после</strong><small>Создать продолжение</small></span><span>↗</span></button><button class="inspector-action"><svg class="tool-icon"><use href="#i-loop"/></svg><span><strong>Добавить паузу</strong><small>1 такт после фразы</small></span><span>↗</span></button><button class="inspector-action"><span style="font-weight:750">−8va</span><span><strong>Опустить на октаву</strong><small>Сохранить рисунок нот</small></span><span>↗</span></button><button class="inspector-action" data-goto="sculpt"><svg class="tool-icon"><use href="#i-wave"/></svg><span><strong>Изменить характер</strong><small>Deep → Warm → Dirty</small></span><span>↗</span></button></aside>
+            </div>
+          </section>
+
+          <!-- SCULPT -->
+          <section class="screen" data-screen="sculpt">
+            <div class="topbar">
+              <div class="top-left"><button class="icon-button" data-goto="arrange"><svg class="tool-icon"><use href="#i-back"/></svg></button><div><div class="project-name">Характер звука</div><div class="subtle-label">Bass · Deep</div></div></div>
+              <div class="transport"><button class="icon-button play-button"><svg class="tool-icon"><use href="#i-play"/></svg></button><div class="tempo"><span>Preview</span><b>Loop</b></div></div>
+              <div class="top-right"><button class="primary-action" data-goto="arrange">Готово</button><button class="audio-chip"><span class="status-dot"></span><strong>Shared audio</strong><svg class="tool-icon" style="width:14px"><use href="#i-speaker"/></svg></button></div>
+              <div class="audio-popover"><div class="popover-head"><span class="round-symbol"><svg class="tool-icon"><use href="#i-speaker"/></svg></span><div><div class="popover-title">Можно сравнивать с референсом</div><div class="popover-copy">Внешняя музыка продолжает звучать, пока ты меняешь характер инструмента.</div></div></div><div class="mode-option"><span class="radio checked"></span><div><div class="mode-name">Shared</div></div><span class="mode-badge">Default</span></div></div>
+            </div>
+            <div class="sculpt">
+              <div class="sculpt-main"><div class="sculpt-head"><div><h2>Deep</h2><p>Меняй ощущение звука понятными осями. Технические параметры синтеза остаются внутри и раскрываются только по запросу.</p></div><button class="text-tool">Advanced ↗</button></div><div class="sound-orbit"><div class="orbit-ring"></div><div class="orbit-ring"></div><div class="orbit-ring"></div><svg class="orbit-wave" viewBox="0 0 800 200" preserveAspectRatio="none"><path d="M0 100 C30 5 62 195 95 100 S160 5 193 100 258 195 291 100 356 5 389 100 454 195 487 100 552 5 585 100 650 195 683 100 748 5 800 100" fill="none" stroke="currentColor" stroke-width="2"/><path d="M0 100 C42 65 70 135 112 100 S182 65 224 100 294 135 336 100 406 65 448 100 518 135 560 100 630 65 672 100 742 135 800 100" fill="none" stroke="currentColor" stroke-width="1" opacity=".32"/></svg></div><div class="axis-controls"><div class="axis"><div class="semantic-labels"><span>Dark</span><span>Bright</span></div><div class="semantic-line" style="--v:31%"></div></div><div class="axis"><div class="semantic-labels"><span>Soft</span><span>Hard</span></div><div class="semantic-line" style="--v:43%"></div></div><div class="axis"><div class="semantic-labels"><span>Clean</span><span>Dirty</span></div><div class="semantic-line" style="--v:24%"></div></div></div></div>
+              <aside class="sculpt-presets"><h3>Соседние характеры</h3><button class="large-preset active"><span><strong>Deep</strong><small>массивный и ровный</small></span><span>●</span></button><button class="large-preset"><span><strong>Warm</strong><small>мягче и округлее</small></span><span>○</span></button><button class="large-preset"><span><strong>Punchy</strong><small>короче и ритмичнее</small></span><span>○</span></button><button class="large-preset"><span><strong>Dirty</strong><small>грубее и насыщеннее</small></span><span>○</span></button><button class="large-preset"><span><strong>Retro</strong><small>яркий синтовый характер</small></span><span>○</span></button></aside>
+            </div>
+          </section>
+
+        </main>
+      </div>
+    </section>
+
+    <aside class="ux-note" id="uxNote">
+      <div><span class="note-count" id="noteCount">Состояние 01 / 07</span><h2 id="noteTitle">Старт без давления</h2></div>
+      <p id="noteCopy">Первый экран не заставляет выбирать тип проекта и не показывает каталог шаблонов. Он даёт три ясных действия и прямо сообщает: можно начать с одного звука.</p>
+      <div>
+        <div class="note-rule"><strong>Что делает пользователь</strong><span id="userDoes">Открывает приложение, видит недавние проекты или начинает новый трек.</span></div>
+        <div class="note-rule"><strong>Что Tiempio берёт на себя</strong><span id="appDoes">Подготовку проекта, системный звук в shared mode и безопасные defaults.</span></div>
+        <div class="note-rule"><strong>Почему это не выглядит детским</strong><span id="styleRule">Типографика, линии и символы вместо иллюстрированных карточек и яркого «обучающего» интерфейса.</span></div>
+      </div>
+      <div class="journey-map" id="journeyMap"></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+  const stateInfo = {
+    home: {
+      n:'01', title:'Старт без давления',
+      copy:'Первый экран не заставляет выбирать тип проекта и не показывает каталог шаблонов. Он даёт три ясных действия и прямо сообщает: можно начать с одного звука.',
+      user:'Открывает приложение, видит недавние проекты или начинает новый трек.',
+      app:'Подготавливает проект и включает shared audio, чтобы браузер, Spotify или YouTube не замолкали.',
+      style:'Редакционная типографика, тонкие линии и символы вместо иллюстрированных карточек.'
+    },
+    empty: {
+      n:'02', title:'Первый шаг — музыкальная роль',
+      copy:'Вместо пустой MIDI-дорожки пользователь выбирает намерение: ритм, бас, гармонию, мелодию или свой звук. Это единственное решение, нужное на старте.',
+      user:'Выбирает, чем хочет начать композицию.',
+      app:'Сам создаёт правильный инструмент, диапазон, редактор, routing и рабочий звук.',
+      style:'Вертикальный список-команда выглядит серьёзно и не превращает создание музыки в набор игрушечных плиток.'
+    },
+    sound: {
+      n:'03', title:'Звук выбирается ушами',
+      copy:'Не 700 пресетов и не техническая панель синтезатора. Шесть различимых характеров, немедленное прослушивание и четыре понятные оси.',
+      user:'Играет несколько нот и выбирает Deep, Warm, Punchy или другой характер.',
+      app:'Держит синтез и DSP внутри, открывает только предсказуемые смысловые controls.',
+      style:'Большая типографика, звуковая линия и текстовый список вместо обложек и каталогов с картинками.'
+    },
+    piano: {
+      n:'04', title:'Ноты без экзамена по теории',
+      copy:'Piano roll остаётся настоящим редактором, но показывает гамму, chord tones, басовый диапазон и прямые действия вроде «на октаву ниже».',
+      user:'Рисует или играет ноты, затем строит фразу из 4 тактов и 1 такта паузы.',
+      app:'Подсвечивает музыкальный контекст, но не запрещает «неправильные» ноты и не сочиняет вместо человека.',
+      style:'Спокойная сетка, тональные акценты и капсулы нот; никаких мультяшных подсказок.'
+    },
+    drums: {
+      n:'05', title:'Ритм через точки, не через routing',
+      copy:'Drum layer сразу открывает нужную сетку и синтезированные голоса. Можно поставить удары вручную или начать с редактируемого рисунка.',
+      user:'Нажимает точки, меняет плотность и характер каждого удара.',
+      app:'Автоматически создаёт drum synth, синхронизирует темп и сохраняет паттерн как редактируемые данные.',
+      style:'Функциональная ритмическая сетка с круглыми событиями — инструмент, а не декоративная карточная галерея.'
+    },
+    arrange: {
+      n:'06', title:'Структура формулируется намерениями',
+      copy:'На обзорном экране появляются слои и части композиции. Контекстные действия говорят «добавить паузу» и «опустить на октаву», а не требуют знать внутренние команды DAW.',
+      user:'Повторяет фразы, добавляет паузу, выключает слой и строит intro / main / break.',
+      app:'Сохраняет точность обычного arrangement, но переводит операции на человеческий язык.',
+      style:'Нейтральные музыкальные ленты, один акцентный цвет и много воздуха вместо разноцветной панели управления самолётом.'
+    },
+    sculpt: {
+      n:'07', title:'Сложный синтез — простой жест',
+      copy:'Характер инструмента меняется через Dark/Bright, Soft/Hard и Clean/Dirty. Advanced существует, но не стоит между новичком и первым хорошим звуком.',
+      user:'Сравнивает несколько характеров в loop и подстраивает ощущение звука.',
+      app:'Преобразует смысловые оси в несколько параметров синтезатора и сохраняет результат как preset state.',
+      style:'Абстрактная звуковая форма и три точных оси — выразительно, но не игрушечно.'
+    }
+  };
+  const order = ['home','empty','sound','piano','drums','arrange','sculpt'];
+  const labels = ['Старт','Первый слой','Звук','Мелодия','Ритм','Структура','Характер'];
+
+  function buildJourney(active){
+    const map = document.getElementById('journeyMap');
+    map.innerHTML = order.map((s,i)=>`<div class="journey-line ${s===active?'active':''}"><span class="journey-index">${i+1}</span><span>${labels[i]}</span></div>`).join('');
+  }
+
+  function go(state){
+    document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('active',x.dataset.screen===state));
+    document.querySelectorAll('.state-tab').forEach(x=>x.classList.toggle('active',x.dataset.state===state));
+    const info=stateInfo[state];
+    document.getElementById('noteCount').textContent=`Состояние ${info.n} / 07`;
+    document.getElementById('noteTitle').textContent=info.title;
+    document.getElementById('noteCopy').textContent=info.copy;
+    document.getElementById('userDoes').textContent=info.user;
+    document.getElementById('appDoes').textContent=info.app;
+    document.getElementById('styleRule').textContent=info.style;
+    buildJourney(state);
+    history.replaceState(null,'',`#${state}`);
+  }
+
+  document.querySelectorAll('[data-state]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.state)));
+  document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.goto)));
+
+  document.querySelectorAll('.audio-chip').forEach(chip=>{
+    chip.addEventListener('click',e=>{
+      e.stopPropagation();
+      const pop=chip.closest('.topbar').querySelector('.audio-popover');
+      document.querySelectorAll('.audio-popover').forEach(x=>{ if(x!==pop) x.classList.remove('open'); });
+      pop.classList.toggle('open');
+    });
+  });
+  document.addEventListener('click',()=>document.querySelectorAll('.audio-popover').forEach(x=>x.classList.remove('open')));
+  document.querySelectorAll('.audio-popover').forEach(x=>x.addEventListener('click',e=>e.stopPropagation()));
+
+  document.querySelectorAll('.play-button').forEach(btn=>btn.addEventListener('click',()=>{
+    btn.classList.toggle('playing');
+    const use=btn.querySelector('use');
+    use.setAttribute('href',btn.classList.contains('playing')?'#i-pause':'#i-play');
+  }));
+  document.querySelectorAll('.step').forEach(x=>x.addEventListener('click',()=>{x.classList.toggle('on');x.classList.remove('ghost');}));
+  document.querySelectorAll('.micro, .track-control').forEach(x=>x.addEventListener('click',e=>{e.stopPropagation();x.classList.toggle('on');x.classList.toggle('active');}));
+
+  document.getElementById('themeToggle').addEventListener('click',()=>{
+    document.getElementById('appWindow').classList.toggle('dark');
+    const use=document.querySelector('#themeToggle use');
+    use.setAttribute('href',document.getElementById('appWindow').classList.contains('dark')?'#i-sun':'#i-moon');
+  });
+
+  const initial=location.hash.slice(1);
+  go(order.includes(initial)?initial:'home');
+</script>
+</body>
+</html>
