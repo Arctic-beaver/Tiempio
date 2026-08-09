@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
 	assetId,
+	compileEngineWireRenderPlan,
 	compileProjectRenderPlan,
 	createAssetReference,
 	createDrumClip,
@@ -101,5 +102,35 @@ describe('project render plan', () => {
 		const result = compileProjectRenderPlan({ ...fixture, layers }, 1)
 		assert.equal(result.status, 'ready')
 		if (result.status === 'ready') assert.deepEqual(result.plan.layers, [])
+	})
+
+	it('projects a Bass-only plan into the bounded cross-language wire model', () => {
+		const fixture = renderFixture()
+		const bassOnly = {
+			...fixture,
+			assets: [],
+			layers: fixture.layers.filter((layer) => layer.id === 'layer.bass')
+		}
+		const projectPlan = compileProjectRenderPlan(bassOnly, 9)
+		assert.equal(projectPlan.status, 'ready')
+		if (projectPlan.status !== 'ready') return
+		const wire = compileEngineWireRenderPlan(projectPlan.plan)
+		assert.equal(wire.status, 'ready')
+		if (wire.status !== 'ready') return
+		assert.equal(wire.plan.projectRevision, 9)
+		assert.equal(wire.plan.tempoMap[0]?.microBpm, 108_000_000)
+		assert.equal(wire.plan.layers[0]?.source.type, 'subtractive-bass')
+		assert.equal(wire.plan.layers[0]?.events[0]?.id, 'note.early')
+	})
+
+	it('rejects unavailable drum sources at the Stage 4 wire boundary', () => {
+		const projectPlan = compileProjectRenderPlan(renderFixture(), 1)
+		assert.equal(projectPlan.status, 'ready')
+		if (projectPlan.status !== 'ready') return
+		assert.deepEqual(compileEngineWireRenderPlan(projectPlan.plan), {
+			status: 'rejected',
+			code: 'UNSUPPORTED_SOURCE',
+			message: 'Stage 4 accepts only subtractive Bass layers.'
+		})
 	})
 })

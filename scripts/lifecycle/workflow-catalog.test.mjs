@@ -62,9 +62,17 @@ describe('closed lifecycle workflow catalog', () => {
 	})
 
 	it('keeps Cargo stages inside the same direct-launch catalog', () => {
-		for (const name of ['generate:cargo-lock', 'toolchain:rust', 'check:rust']) {
+		for (const name of [
+			'generate:cargo-lock',
+			'toolchain:rust',
+			'toolchain:rust-clippy',
+			'format:rust',
+			'check:rust'
+		]) {
 			const steps = workflowSteps(name)
-			assert.ok(steps.some((step) => /(?:cargo|rustc)(?:\.exe)?$/iu.test(step.command)))
+			assert.ok(
+				steps.some((step) => /(?:cargo|rustc|rustup)(?:\.exe)?$/iu.test(step.command))
+			)
 			assert.ok(steps.every((step) => Object.hasOwn(step, 'shell') === false))
 		}
 	})

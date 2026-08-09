@@ -2,10 +2,21 @@
 
 pub const ENGINE_PROTOCOL_SCHEMA_VERSION: u32 = 1;
 pub const ENGINE_PROTOCOL_VERSION: u32 = 1;
-pub const ENGINE_PROTOCOL_MAX_FRAME_BYTES: usize = 262144;
-pub const ENGINE_PROTOCOL_MAX_PAYLOAD_BYTES: usize = 196608;
+pub const ENGINE_PROTOCOL_MAX_FRAME_BYTES: usize = 262_144;
+pub const ENGINE_PROTOCOL_MAX_PAYLOAD_BYTES: usize = 196_608;
 pub const ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES: usize = 128;
-pub const ENGINE_PROTOCOL_MAX_BATCH_ITEMS: usize = 4096;
+pub const ENGINE_PROTOCOL_MAX_BATCH_ITEMS: usize = 4_096;
+pub const ENGINE_PROTOCOL_MAX_JSON_DEPTH: usize = 32;
+pub const ENGINE_PROTOCOL_MAX_ENGINE_LAYERS: usize = 32;
+pub const ENGINE_PROTOCOL_MAX_TEMPO_POINTS: usize = 256;
+pub const ENGINE_PROTOCOL_MAX_MUSICAL_EVENTS: usize = 4_096;
+pub const ENGINE_PROTOCOL_MAX_PREPARED_ACTIONS: usize = 8_192;
+pub const ENGINE_PROTOCOL_MAX_ACTIONS_PER_BLOCK: usize = 512;
+pub const ENGINE_PROTOCOL_MAX_VOICES: usize = 64;
+pub const ENGINE_PROTOCOL_MAX_BLOCK_FRAMES: usize = 2_048;
+pub const ENGINE_PROTOCOL_MIN_SAMPLE_RATE: usize = 8_000;
+pub const ENGINE_PROTOCOL_MAX_SAMPLE_RATE: usize = 192_000;
+pub const ENGINE_PROTOCOL_MAX_OFFLINE_SECONDS: usize = 600;
 
 pub const ENGINE_COMMAND_TYPES: &[&str] = &[
     "handshake",
@@ -43,13 +54,32 @@ pub const ENGINE_EVENT_TYPES: &[&str] = &[
     "fatal-error",
 ];
 
+pub const ENGINE_CAPABILITY_CODES: &[&str] = &[
+    "protocol.typed-json",
+    "render-plan.full",
+    "transport.basic",
+    "transport.loop",
+    "synth.bass.deep",
+    "audition.notes",
+    "diagnostics.health",
+    "render.offline",
+];
+
 pub const ENGINE_DIAGNOSTIC_CODES: &[&str] = &[
     "protocol.version-mismatch",
     "protocol.frame-too-large",
     "protocol.invalid-envelope",
+    "protocol.invalid-sequence",
+    "protocol.unsupported-command",
     "engine.unavailable",
+    "engine.invalid-plan",
+    "engine.stale-revision",
+    "engine.unsupported-source",
+    "engine.limit-exceeded",
     "audio.suspended",
     "audio.device-unavailable",
     "audio.output-muted",
     "audio.render-overload",
+    "audio.non-finite-output",
+    "offline.canceled",
 ];

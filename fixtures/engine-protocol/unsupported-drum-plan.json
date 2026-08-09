@@ -1,0 +1,29 @@
+{
+	"planVersion": 1,
+	"projectId": "project.unsupported",
+	"projectRevision": 1,
+	"ticksPerQuarter": 960,
+	"tempoMap": [
+		{
+			"tick": 0,
+			"microBpm": 108000000
+		}
+	],
+	"loop": {
+		"enabled": false,
+		"startTick": 0,
+		"endTick": 3840
+	},
+	"layers": [
+		{
+			"id": "layer.drums",
+			"gain": 1,
+			"pan": 0,
+			"source": {
+				"type": "drum",
+				"patch": {}
+			},
+			"events": []
+		}
+	]
+}

@@ -1,5 +1,5 @@
-use tiempio_engine_core::protocol_version;
+use tiempio_engine_protocol::ENGINE_PROTOCOL_VERSION;
 
 fn main() {
-    let _protocol_version = protocol_version();
+    std::hint::black_box(ENGINE_PROTOCOL_VERSION);
 }

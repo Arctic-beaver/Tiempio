@@ -4,6 +4,7 @@ import { join } from 'node:path'
 const inspectionTimeoutMs = 15_000
 const cleanupTimeoutMs = 15_000
 const cleanupPollMs = 100
+const cleanupExitGraceMs = 500
 
 const wait = (milliseconds) => new Promise((resolveWait) => setTimeout(resolveWait, milliseconds))
 
@@ -240,8 +241,14 @@ export function createSystemProcessAdapter({
 	}
 
 	const terminateTree = async (rootIdentity, tracked = []) => {
-		const before = await remainingTree(rootIdentity, tracked)
+		let before = await remainingTree(rootIdentity, tracked)
 		if (before.length === 0) return { hadRemaining: false }
+		const passiveDeadline = now() + cleanupExitGraceMs
+		while (now() < passiveDeadline) {
+			await waitFor(cleanupPollMs)
+			before = await remainingTree(rootIdentity, tracked)
+			if (before.length === 0) return { hadRemaining: false }
+		}
 
 		if (platform === 'win32') {
 			for (const root of highestOwnedRoots(before, rootIdentity.pid)) {

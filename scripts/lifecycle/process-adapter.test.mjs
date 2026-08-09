@@ -118,4 +118,40 @@ describe('process ownership adapter', () => {
 		assert.match(inspectionScript, /CommandLineBase64/u)
 		assert.doesNotMatch(inspectionScript, /Select-Object.*CommandLine/u)
 	})
+
+	it('allows a tracked descendant a bounded natural-exit grace before cleanup', async () => {
+		const root = identity(800, 700, '2026-08-09T10:00:00.000Z', 'cargo test')
+		let inspections = 0
+		let taskkillCalls = 0
+		let clock = 0
+		const adapter = createSystemProcessAdapter({
+			platform: 'win32',
+			now: () => (clock += 100),
+			waitFor: async () => {},
+			spawnSyncProcess: (command) => {
+				if (command.endsWith('taskkill.exe')) {
+					taskkillCalls += 1
+					return { status: 0, stderr: '', stdout: '' }
+				}
+				inspections += 1
+				const records = inspections === 1 ? [root] : []
+				return {
+					status: 0,
+					stderr: '',
+					stdout: JSON.stringify(
+						records.map((record) => ({
+							ProcessId: record.pid,
+							ParentProcessId: record.parentPid,
+							CreationDate: record.startedAt,
+							NameBase64: Buffer.from('cargo.exe').toString('base64'),
+							CommandLineBase64: Buffer.from(record.commandLine).toString('base64')
+						}))
+					)
+				}
+			}
+		})
+
+		assert.deepEqual(await adapter.terminateTree(root, [root]), { hadRemaining: false })
+		assert.equal(taskkillCalls, 0)
+	})
 })

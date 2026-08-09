@@ -8,6 +8,7 @@ const rustBin =
 		: null
 const cargo = rustBin === null ? 'cargo' : resolve(rustBin, 'cargo.exe')
 const rustc = rustBin === null ? 'rustc' : resolve(rustBin, 'rustc.exe')
+const rustup = rustBin === null ? 'rustup' : resolve(rustBin, 'rustup.exe')
 
 function directStep(name, command, arguments_ = [], timeoutMs = minute) {
 	return Object.freeze({
@@ -69,6 +70,7 @@ const compiledTestFiles = Object.freeze([
 	resolve('.test-out/apps/desktop/renderer/runtime/desktopRuntime.test.js'),
 	resolve('.test-out/packages/contracts/src/application-runtime.test.js'),
 	resolve('.test-out/packages/contracts/src/engine-protocol.test.js'),
+	resolve('.test-out/packages/contracts/src/engine-render-plan.test.js'),
 	resolve('.test-out/packages/application/src/shell/layout-model.test.js'),
 	resolve('.test-out/packages/application/src/commands/command-registry.test.js'),
 	resolve('.test-out/packages/application/src/project/projectors.test.js'),
@@ -88,6 +90,7 @@ const prettierInputs = Object.freeze([
 	'build/**/*.ts',
 	'content/**/*.md',
 	'docs/evidence/**/*.md',
+	'fixtures/**/*.json',
 	'packages/**/*.{json,ts,tsx}',
 	'scripts/**/*.mjs'
 ])
@@ -216,11 +219,25 @@ const steps = Object.freeze({
 		directStep('Rust compiler version', rustc, ['--version']),
 		directStep('Cargo version', cargo, ['--version'])
 	],
+	rustClippyInstall: () =>
+		directStep(
+			'Rust clippy component installation',
+			rustup,
+			['component', 'add', 'clippy'],
+			5 * minute
+		),
 	rustFormat: () =>
 		directStep(
 			'Rust format check',
 			cargo,
 			['fmt', '--manifest-path', 'engine/Cargo.toml', '--all', '--', '--check'],
+			2 * minute
+		),
+	rustFormatWrite: () =>
+		directStep(
+			'Rust format',
+			cargo,
+			['fmt', '--manifest-path', 'engine/Cargo.toml', '--all'],
 			2 * minute
 		),
 	rustCheck: () =>
@@ -236,6 +253,37 @@ const steps = Object.freeze({
 				'--locked'
 			],
 			4 * minute
+		),
+	rustClippy: () =>
+		directStep(
+			'Rust clippy policy',
+			cargo,
+			[
+				'clippy',
+				'--manifest-path',
+				'engine/Cargo.toml',
+				'--workspace',
+				'--all-targets',
+				'--locked',
+				'--',
+				'-D',
+				'warnings'
+			],
+			5 * minute
+		),
+	rustTest: () =>
+		directStep(
+			'Rust workspace tests',
+			cargo,
+			[
+				'test',
+				'--manifest-path',
+				'engine/Cargo.toml',
+				'--workspace',
+				'--all-targets',
+				'--locked'
+			],
+			5 * minute
 		)
 })
 
@@ -258,7 +306,9 @@ function qualitySteps() {
 		steps.typecheckNode(),
 		steps.typecheckWeb(),
 		steps.rustFormat(),
-		steps.rustCheck()
+		steps.rustCheck(),
+		steps.rustClippy(),
+		steps.rustTest()
 	]
 }
 
@@ -287,6 +337,7 @@ const workflowFactories = Object.freeze({
 	'dependencies:ci': () => [steps.dependencyInstall(true)],
 	'check:dependencies': () => [steps.dependencyPolicy()],
 	format: () => [steps.format()],
+	'format:rust': () => [steps.rustFormatWrite()],
 	'format:check': () => [steps.formatCheck()],
 	lint: () => [steps.lint()],
 	'lint:fix': () => [steps.lintFix()],
@@ -294,12 +345,18 @@ const workflowFactories = Object.freeze({
 	'check:protocol-generated': () => [steps.protocolCheck()],
 	'generate:cargo-lock': () => [steps.cargoLock()],
 	'toolchain:rust': () => steps.rustToolchain(),
+	'toolchain:rust-clippy': () => [steps.rustClippyInstall()],
 	test: testSteps,
 	'test:lifecycle': () => [steps.testLifecycle()],
 	'typecheck:node': () => [steps.typecheckNode()],
 	'typecheck:web': () => [steps.typecheckWeb()],
 	typecheck: () => [steps.typecheckNode(), steps.typecheckWeb()],
-	'check:rust': () => [steps.rustFormat(), steps.rustCheck()],
+	'check:rust': () => [
+		steps.rustFormat(),
+		steps.rustCheck(),
+		steps.rustClippy(),
+		steps.rustTest()
+	],
 	'check:target-boundaries': () => [steps.targetBoundaries()],
 	'check:visual-a11y': () => [
 		steps.uiFoundation(),

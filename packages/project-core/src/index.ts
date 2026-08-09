@@ -114,8 +114,10 @@ export {
 	updateDeepBassMacro
 } from './presets.js'
 export {
+	compileEngineWireRenderPlan,
 	compileProjectRenderPlan,
 	renderPlanVersion,
+	type EngineWirePlanCompilationResult,
 	type ProjectRenderPlan,
 	type RenderPlanDrumEvent,
 	type RenderPlanEvent,

@@ -6,7 +6,18 @@ export const engineProtocolLimits = Object.freeze({
 	maxFrameBytes: 262144,
 	maxPayloadBytes: 196608,
 	maxIdentifierBytes: 128,
-	maxBatchItems: 4096
+	maxBatchItems: 4096,
+	maxJsonDepth: 32,
+	maxEngineLayers: 32,
+	maxTempoPoints: 256,
+	maxMusicalEvents: 4096,
+	maxPreparedActions: 8192,
+	maxActionsPerBlock: 512,
+	maxVoices: 64,
+	maxBlockFrames: 2048,
+	minSampleRate: 8000,
+	maxSampleRate: 192000,
+	maxOfflineSeconds: 600
 } as const)
 
 export const engineCommandTypes = Object.freeze([
@@ -47,14 +58,34 @@ export const engineEventTypes = Object.freeze([
 ] as const)
 export type EngineEventType = (typeof engineEventTypes)[number]
 
+export const engineCapabilityCodes = Object.freeze([
+	'protocol.typed-json',
+	'render-plan.full',
+	'transport.basic',
+	'transport.loop',
+	'synth.bass.deep',
+	'audition.notes',
+	'diagnostics.health',
+	'render.offline'
+] as const)
+export type EngineCapabilityCode = (typeof engineCapabilityCodes)[number]
+
 export const engineDiagnosticCodes = Object.freeze([
 	'protocol.version-mismatch',
 	'protocol.frame-too-large',
 	'protocol.invalid-envelope',
+	'protocol.invalid-sequence',
+	'protocol.unsupported-command',
 	'engine.unavailable',
+	'engine.invalid-plan',
+	'engine.stale-revision',
+	'engine.unsupported-source',
+	'engine.limit-exceeded',
 	'audio.suspended',
 	'audio.device-unavailable',
 	'audio.output-muted',
-	'audio.render-overload'
+	'audio.render-overload',
+	'audio.non-finite-output',
+	'offline.canceled'
 ] as const)
 export type EngineDiagnosticCode = (typeof engineDiagnosticCodes)[number]

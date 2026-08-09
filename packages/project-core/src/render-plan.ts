@@ -1,5 +1,12 @@
 import { cloneAndFreeze } from './immutable.js'
 import {
+	enginePatchModelVersion,
+	engineRenderPlanVersion,
+	engineTicksPerQuarter,
+	validateEngineWireRenderPlan,
+	type EngineWireRenderPlan
+} from '../../contracts/src/index.js'
+import {
 	defaultTicksPerQuarter,
 	type ClipId,
 	type DrumEventId,
@@ -67,6 +74,14 @@ export type RenderPlanResult =
 	| { readonly plan: ProjectRenderPlan; readonly status: 'ready' }
 	| {
 			readonly code: 'INVALID_PROJECT' | 'INVALID_REVISION' | 'STALE_REVISION'
+			readonly message: string
+			readonly status: 'rejected'
+	  }
+
+export type EngineWirePlanCompilationResult =
+	| { readonly plan: EngineWireRenderPlan; readonly status: 'ready' }
+	| {
+			readonly code: 'INVALID_PLAN' | 'UNSUPPORTED_SOURCE'
 			readonly message: string
 			readonly status: 'rejected'
 	  }
@@ -193,4 +208,77 @@ export function compileProjectRenderPlan(
 			layers
 		})
 	}
+}
+
+export function compileEngineWireRenderPlan(
+	projectPlan: ProjectRenderPlan
+): EngineWirePlanCompilationResult {
+	if (projectPlan.layers.some((layer) => layer.source.type !== 'synth')) {
+		return {
+			status: 'rejected',
+			code: 'UNSUPPORTED_SOURCE',
+			message: 'Stage 4 accepts only subtractive Bass layers.'
+		}
+	}
+	const plan = cloneAndFreeze({
+		planVersion: engineRenderPlanVersion,
+		projectId: projectPlan.projectId,
+		projectRevision: projectPlan.projectRevision,
+		ticksPerQuarter: engineTicksPerQuarter,
+		tempoMap: projectPlan.tempoMap.map((point) => ({
+			tick: point.tick,
+			microBpm: Math.round(point.bpm * 1_000_000)
+		})),
+		loop: projectPlan.loop,
+		layers: projectPlan.layers.map((layer) => {
+			if (layer.source.type !== 'synth') {
+				throw new TypeError('Unsupported source crossed the Stage 4 wire-plan boundary.')
+			}
+			return {
+				id: layer.id,
+				gain: layer.gain,
+				pan: layer.pan,
+				source: {
+					type: 'subtractive-bass' as const,
+					patch: {
+						patchModelVersion: enginePatchModelVersion,
+						oscillator: {
+							detuneCents: layer.source.instrument.oscillator.detuneCents,
+							subLevel: layer.source.instrument.oscillator.subLevel
+						},
+						filter: layer.source.instrument.filter,
+						amplifier: layer.source.instrument.amplifier,
+						drive: layer.source.instrument.drive,
+						stereoWidth: layer.source.instrument.stereoWidth,
+						outputGain: layer.source.instrument.outputGain
+					}
+				},
+				events: layer.events.flatMap((event) =>
+					event.type === 'midi-note'
+						? [
+								{
+									id: event.id,
+									startTick: event.startTick,
+									durationTicks: event.durationTicks,
+									pitch: event.pitch,
+									velocity: event.velocity
+								}
+							]
+						: []
+				)
+			}
+		})
+	})
+	const validation = validateEngineWireRenderPlan(plan)
+	if (!validation.ok) {
+		return {
+			status: 'rejected',
+			code:
+				validation.diagnostic === 'engine.unsupported-source'
+					? 'UNSUPPORTED_SOURCE'
+					: 'INVALID_PLAN',
+			message: validation.message
+		}
+	}
+	return { status: 'ready', plan: validation.value }
 }

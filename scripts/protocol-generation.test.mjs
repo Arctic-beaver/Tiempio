@@ -24,10 +24,22 @@ describe('engine protocol generation', () => {
 					maxFrameBytes: 2,
 					maxPayloadBytes: 1,
 					maxIdentifierBytes: 1,
-					maxBatchItems: 1
+					maxBatchItems: 1,
+					maxJsonDepth: 1,
+					maxEngineLayers: 1,
+					maxTempoPoints: 1,
+					maxMusicalEvents: 1,
+					maxPreparedActions: 1,
+					maxActionsPerBlock: 1,
+					maxVoices: 1,
+					maxBlockFrames: 1,
+					minSampleRate: 1,
+					maxSampleRate: 1,
+					maxOfflineSeconds: 1
 				},
 				commands: ['handshake'],
 				events: ['ready'],
+				capabilities: ['protocol.typed-json'],
 				diagnosticCodes: ['protocol.invalid']
 			})
 		)
@@ -46,10 +58,22 @@ describe('engine protocol generation', () => {
 							maxFrameBytes: 2,
 							maxPayloadBytes: 1,
 							maxIdentifierBytes: 1,
-							maxBatchItems: 1
+							maxBatchItems: 1,
+							maxJsonDepth: 1,
+							maxEngineLayers: 1,
+							maxTempoPoints: 1,
+							maxMusicalEvents: 1,
+							maxPreparedActions: 1,
+							maxActionsPerBlock: 1,
+							maxVoices: 1,
+							maxBlockFrames: 1,
+							minSampleRate: 1,
+							maxSampleRate: 1,
+							maxOfflineSeconds: 1
 						},
 						commands: ['play', 'play'],
 						events: ['ready'],
+						capabilities: ['protocol.typed-json'],
 						diagnosticCodes: ['protocol.invalid']
 					})
 				),
