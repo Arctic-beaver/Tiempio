@@ -1,0 +1,59 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { describe, it } from 'node:test'
+import {
+	expectedProtocolBindings,
+	parseEngineProtocolSchema,
+	renderRustBinding,
+	renderTypescriptBinding
+} from './generate-engine-protocol.mjs'
+
+describe('engine protocol generation', () => {
+	it('keeps committed TypeScript and Rust bindings deterministic', () => {
+		for (const [path, expected] of Object.entries(expectedProtocolBindings())) {
+			assert.equal(readFileSync(path, 'utf8'), expected)
+		}
+	})
+
+	it('renders both languages from one schema version authority', () => {
+		const schema = parseEngineProtocolSchema(
+			JSON.stringify({
+				schemaVersion: 1,
+				engineProtocolVersion: 7,
+				limits: {
+					maxFrameBytes: 2,
+					maxPayloadBytes: 1,
+					maxIdentifierBytes: 1,
+					maxBatchItems: 1
+				},
+				commands: ['handshake'],
+				events: ['ready'],
+				diagnosticCodes: ['protocol.invalid']
+			})
+		)
+		assert.match(renderTypescriptBinding(schema), /engineProtocolVersion = 7/u)
+		assert.match(renderRustBinding(schema), /ENGINE_PROTOCOL_VERSION: u32 = 7/u)
+	})
+
+	it('rejects duplicate stable codes', () => {
+		assert.throws(
+			() =>
+				parseEngineProtocolSchema(
+					JSON.stringify({
+						schemaVersion: 1,
+						engineProtocolVersion: 1,
+						limits: {
+							maxFrameBytes: 2,
+							maxPayloadBytes: 1,
+							maxIdentifierBytes: 1,
+							maxBatchItems: 1
+						},
+						commands: ['play', 'play'],
+						events: ['ready'],
+						diagnosticCodes: ['protocol.invalid']
+					})
+				),
+			/commands must be a non-empty unique stable-code list/u
+		)
+	})
+})

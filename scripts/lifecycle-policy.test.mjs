@@ -6,9 +6,7 @@ import { describe, it } from 'node:test'
 import { verifyLifecyclePolicy } from './lifecycle-policy.mjs'
 
 const repositoryRoot = resolve('.')
-const repositoryPackage = JSON.parse(
-	readFileSync(resolve(repositoryRoot, 'package.json'), 'utf8')
-)
+const repositoryPackage = JSON.parse(readFileSync(resolve(repositoryRoot, 'package.json'), 'utf8'))
 
 function withPolicyFixture(packageDocument, scriptSource, run, scriptName = 'fixture.mjs') {
 	const directory = mkdtempSync(join(tmpdir(), 'tiempio-policy-test-'))

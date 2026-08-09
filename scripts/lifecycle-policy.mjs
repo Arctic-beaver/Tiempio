@@ -65,7 +65,9 @@ export function verifyLifecyclePolicy({
 	}
 	for (const planned of plannedWorkflowNames) {
 		if (workflowNames.includes(planned)) {
-			errors.push(`Planned workflow ${planned} is already active and must leave the reserve list.`)
+			errors.push(
+				`Planned workflow ${planned} is already active and must leave the reserve list.`
+			)
 		}
 	}
 
@@ -76,9 +78,7 @@ export function verifyLifecyclePolicy({
 		if (!/(?:node:)?child_process/u.test(source)) continue
 		if (repositoryPath === 'scripts/lifecycle/process-adapter.mjs') continue
 		if (!source.includes('requireLifecycleOwnership')) {
-			errors.push(
-				`${repositoryPath} creates processes without requireLifecycleOwnership().`
-			)
+			errors.push(`${repositoryPath} creates processes without requireLifecycleOwnership().`)
 		}
 	}
 

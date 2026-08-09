@@ -61,6 +61,14 @@ describe('closed lifecycle workflow catalog', () => {
 		})
 	})
 
+	it('keeps Cargo stages inside the same direct-launch catalog', () => {
+		for (const name of ['generate:cargo-lock', 'toolchain:rust', 'check:rust']) {
+			const steps = workflowSteps(name)
+			assert.ok(steps.some((step) => /(?:cargo|rustc)(?:\.exe)?$/iu.test(step.command)))
+			assert.ok(steps.every((step) => Object.hasOwn(step, 'shell') === false))
+		}
+	})
+
 	it('rejects missing npm ownership context and unknown workflows', () => {
 		const previous = process.env.npm_execpath
 		delete process.env.npm_execpath

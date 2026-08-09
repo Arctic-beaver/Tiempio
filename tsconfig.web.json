@@ -1,0 +1,15 @@
+{
+	"extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
+	"include": [
+		"apps/**/*.ts",
+		"apps/**/*.tsx",
+		"apps/**/*.d.ts",
+		"packages/**/*.ts",
+		"packages/**/*.tsx"
+	],
+	"compilerOptions": {
+		"composite": true,
+		"jsx": "react-jsx",
+		"baseUrl": "."
+	}
+}

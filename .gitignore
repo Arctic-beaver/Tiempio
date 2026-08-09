@@ -1,2 +1,6 @@
 artifacts/
 node_modules/
+dist/
+engine/target/
+.test-out/
+.eslintcache

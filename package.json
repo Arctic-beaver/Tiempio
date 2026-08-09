@@ -2,6 +2,9 @@
 	"name": "tiempio",
 	"version": "0.1.0",
 	"description": "A user-friendly electronic music studio",
+	"main": "./dist/desktop/main/index.js",
+	"author": "Tiempio",
+	"license": "UNLICENSED",
 	"private": true,
 	"type": "module",
 	"packageManager": "npm@10.9.3",
@@ -12,12 +15,71 @@
 	"scripts": {
 		"dependencies:install": "node scripts/lifecycle-runner.mjs dependencies:install",
 		"dependencies:ci": "node scripts/lifecycle-runner.mjs dependencies:ci",
+		"check:dependencies": "node scripts/lifecycle-runner.mjs check:dependencies",
+		"format": "node scripts/lifecycle-runner.mjs format",
+		"format:check": "node scripts/lifecycle-runner.mjs format:check",
+		"lint": "node scripts/lifecycle-runner.mjs lint",
+		"lint:fix": "node scripts/lifecycle-runner.mjs lint:fix",
+		"generate:protocol": "node scripts/lifecycle-runner.mjs generate:protocol",
+		"check:protocol-generated": "node scripts/lifecycle-runner.mjs check:protocol-generated",
+		"generate:cargo-lock": "node scripts/lifecycle-runner.mjs generate:cargo-lock",
+		"toolchain:rust": "node scripts/lifecycle-runner.mjs toolchain:rust",
 		"test": "node scripts/lifecycle-runner.mjs test",
 		"test:lifecycle": "node scripts/lifecycle-runner.mjs test:lifecycle",
+		"typecheck:node": "node scripts/lifecycle-runner.mjs typecheck:node",
+		"typecheck:web": "node scripts/lifecycle-runner.mjs typecheck:web",
+		"typecheck": "node scripts/lifecycle-runner.mjs typecheck",
+		"check:rust": "node scripts/lifecycle-runner.mjs check:rust",
+		"check:target-boundaries": "node scripts/lifecycle-runner.mjs check:target-boundaries",
+		"check:security": "node scripts/lifecycle-runner.mjs check:security",
+		"check:bundle-size": "node scripts/lifecycle-runner.mjs check:bundle-size",
+		"check:packaged-contents": "node scripts/lifecycle-runner.mjs check:packaged-contents",
+		"build": "node scripts/lifecycle-runner.mjs build",
+		"build:web": "node scripts/lifecycle-runner.mjs build:web",
 		"check:quick": "node scripts/lifecycle-runner.mjs check:quick",
+		"quality": "node scripts/lifecycle-runner.mjs quality",
+		"checks": "node scripts/lifecycle-runner.mjs checks",
 		"precommit": "node scripts/lifecycle-runner.mjs precommit",
 		"lifecycle:audit": "node scripts/lifecycle-audit.mjs",
 		"postinstall": "node scripts/reject-unsafe-install.mjs",
 		"prepare": "node scripts/reject-unsafe-install.mjs"
+	},
+	"dependencies": {
+		"@electron-toolkit/utils": "4.0.0",
+		"lucide-react": "1.26.0",
+		"react": "19.2.8",
+		"react-dom": "19.2.8"
+	},
+	"devDependencies": {
+		"@electron-toolkit/eslint-config-prettier": "3.0.0",
+		"@electron-toolkit/eslint-config-ts": "3.1.0",
+		"@electron-toolkit/tsconfig": "2.0.0",
+		"@types/node": "22.20.1",
+		"@types/react": "19.2.17",
+		"@types/react-dom": "19.2.3",
+		"@vitejs/plugin-react": "5.2.0",
+		"electron": "43.2.0",
+		"electron-builder": "26.15.3",
+		"electron-vite": "5.0.0",
+		"eslint": "9.39.5",
+		"eslint-plugin-react": "7.37.5",
+		"eslint-plugin-react-hooks": "7.1.1",
+		"eslint-plugin-react-refresh": "0.4.26",
+		"prettier": "3.9.6",
+		"typescript": "5.9.3",
+		"vite": "7.3.6"
+	},
+	"build": {
+		"appId": "app.tiempio.studio",
+		"productName": "Tiempio",
+		"asar": true,
+		"npmRebuild": false,
+		"directories": {
+			"output": "artifacts/packages"
+		},
+		"files": [
+			"dist/desktop/**/*",
+			"package.json"
+		]
 	}
 }

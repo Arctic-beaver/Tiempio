@@ -9,9 +9,7 @@ const variableNames = Object.freeze([
 ])
 
 function withLifecycleEnvironment(values, run) {
-	const previous = Object.fromEntries(
-		variableNames.map((name) => [name, process.env[name]])
-	)
+	const previous = Object.fromEntries(variableNames.map((name) => [name, process.env[name]]))
 	try {
 		for (const name of variableNames) {
 			if (values[name] === undefined) delete process.env[name]

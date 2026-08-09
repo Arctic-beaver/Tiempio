@@ -1,0 +1,16 @@
+[package]
+name = "tiempio-engine-native-host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+tiempio-engine-core = { path = "../core" }
+tiempio-engine-drums = { path = "../drums" }
+tiempio-engine-dsp = { path = "../dsp" }
+tiempio-engine-protocol = { path = "../protocol" }
+tiempio-engine-synth = { path = "../synth" }
+
+[lints]
+workspace = true

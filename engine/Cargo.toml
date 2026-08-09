@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = [
+	"crates/protocol",
+	"crates/core",
+	"crates/dsp",
+	"crates/synth",
+	"crates/drums",
+	"crates/native-host",
+	"crates/web-worklet"
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "UNLICENSED"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "deny"
+pedantic = "deny"

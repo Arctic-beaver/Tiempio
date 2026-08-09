@@ -1,0 +1,12 @@
+[package]
+name = "tiempio-engine-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+tiempio-engine-protocol = { path = "../protocol" }
+
+[lints]
+workspace = true

@@ -2,23 +2,28 @@ import { resolve } from 'node:path'
 
 const minute = 60_000
 const node = process.execPath
+const rustBin =
+	process.platform === 'win32' && typeof process.env.USERPROFILE === 'string'
+		? resolve(process.env.USERPROFILE, '.cargo/bin')
+		: null
+const cargo = rustBin === null ? 'cargo' : resolve(rustBin, 'cargo.exe')
+const rustc = rustBin === null ? 'rustc' : resolve(rustBin, 'rustc.exe')
 
-function nodeFileStep(name, path, arguments_ = [], timeoutMs = minute) {
+function directStep(name, command, arguments_ = [], timeoutMs = minute) {
 	return Object.freeze({
 		name,
-		command: node,
-		arguments: Object.freeze([resolve(path), ...arguments_]),
+		command,
+		arguments: Object.freeze([...arguments_]),
 		timeoutMs
 	})
 }
 
+function nodeFileStep(name, path, arguments_ = [], timeoutMs = minute) {
+	return directStep(name, node, [resolve(path), ...arguments_], timeoutMs)
+}
+
 function nodeArgumentsStep(name, arguments_, timeoutMs = minute) {
-	return Object.freeze({
-		name,
-		command: node,
-		arguments: Object.freeze([...arguments_]),
-		timeoutMs
-	})
+	return directStep(name, node, arguments_, timeoutMs)
 }
 
 function npmStep(name, arguments_, timeoutMs) {
@@ -31,14 +36,13 @@ function npmStep(name, arguments_, timeoutMs) {
 	return nodeArgumentsStep(name, [npmExecPath, ...arguments_], timeoutMs)
 }
 
-function gitStep(name, arguments_, timeoutMs = minute) {
-	return Object.freeze({
-		name,
-		command: 'git',
-		arguments: Object.freeze([...arguments_]),
-		timeoutMs
-	})
-}
+const cli = Object.freeze({
+	prettier: 'node_modules/prettier/bin/prettier.cjs',
+	eslint: 'node_modules/eslint/bin/eslint.js',
+	tsc: 'node_modules/typescript/bin/tsc',
+	vite: 'node_modules/vite/bin/vite.js',
+	electronVite: 'node_modules/electron-vite/bin/electron-vite.js'
+})
 
 const lifecycleTestFiles = Object.freeze([
 	resolve('scripts/lifecycle/lifecycle-owner.test.mjs'),
@@ -49,6 +53,39 @@ const lifecycleTestFiles = Object.freeze([
 	resolve('scripts/lifecycle-policy.test.mjs')
 ])
 
+const repositoryScriptTestFiles = Object.freeze([
+	...lifecycleTestFiles,
+	resolve('scripts/bundle-budget.test.mjs'),
+	resolve('scripts/dependency-policy.test.mjs'),
+	resolve('scripts/package-content-policy.test.mjs'),
+	resolve('scripts/protocol-generation.test.mjs'),
+	resolve('scripts/security-policy.test.mjs'),
+	resolve('scripts/target-boundary-policy.test.mjs')
+])
+
+const compiledTestFiles = Object.freeze([
+	resolve('.test-out/packages/contracts/src/application-runtime.test.js'),
+	resolve('.test-out/packages/contracts/src/engine-protocol.test.js')
+])
+
+const prettierInputs = Object.freeze([
+	'*.{json,mjs,ts,yaml}',
+	'apps/**/*.{html,ts,tsx}',
+	'build/**/*.ts',
+	'content/**/*.md',
+	'docs/evidence/**/*.md',
+	'packages/**/*.{json,ts,tsx}',
+	'scripts/**/*.mjs'
+])
+
+const eslintInputs = Object.freeze([
+	'*.{js,mjs,ts}',
+	'apps/**/*.{ts,tsx}',
+	'build/**/*.ts',
+	'packages/**/*.{ts,tsx}',
+	'scripts/**/*.mjs'
+])
+
 const steps = Object.freeze({
 	dependencyInstall: (clean) =>
 		npmStep(
@@ -56,40 +93,198 @@ const steps = Object.freeze({
 			[clean ? 'ci' : 'install', '--ignore-scripts', '--no-audit', '--no-fund'],
 			8 * minute
 		),
-	policy: () => nodeFileStep('lifecycle policy', 'scripts/lifecycle-policy.mjs', [], minute),
-	tests: () =>
+	format: () => nodeFileStep('format', cli.prettier, ['--write', ...prettierInputs], 2 * minute),
+	formatCheck: () =>
+		nodeFileStep('format check', cli.prettier, ['--check', ...prettierInputs], 2 * minute),
+	lint: () => nodeFileStep('lint', cli.eslint, ['--cache', ...eslintInputs], 2 * minute),
+	lintFix: () =>
+		nodeFileStep('lint fix', cli.eslint, ['--cache', '--fix', ...eslintInputs], 2 * minute),
+	policy: () => nodeFileStep('lifecycle policy', 'scripts/lifecycle-policy.mjs'),
+	dependencyPolicy: () =>
+		nodeFileStep('pinned dependency policy', 'scripts/dependency-policy.mjs'),
+	stagedWhitespace: () =>
+		directStep('staged whitespace check', 'git', ['diff', '--cached', '--check']),
+	protocolGenerate: () =>
+		nodeFileStep('engine protocol generation', 'scripts/generate-engine-protocol.mjs'),
+	protocolCheck: () =>
+		nodeFileStep(
+			'engine protocol generated-file check',
+			'scripts/generate-engine-protocol.mjs',
+			['--check']
+		),
+	testOutputClean: () =>
+		nodeFileStep('compiled test output cleanup', 'scripts/clean-test-output.mjs'),
+	testCompile: () =>
+		nodeFileStep('test TypeScript compile', cli.tsc, ['-p', 'tsconfig.test.json'], 3 * minute),
+	testUnit: () =>
+		nodeArgumentsStep(
+			'compiled contract tests',
+			['--test', '--test-reporter=spec', ...compiledTestFiles],
+			2 * minute
+		),
+	testScripts: () =>
+		nodeArgumentsStep(
+			'repository policy tests',
+			['--test', '--test-reporter=spec', ...repositoryScriptTestFiles],
+			4 * minute
+		),
+	testLifecycle: () =>
 		nodeArgumentsStep(
 			'lifecycle tests',
 			['--test', '--test-reporter=spec', ...lifecycleTestFiles],
 			3 * minute
 		),
-	stagedWhitespace: () => gitStep('staged whitespace check', ['diff', '--cached', '--check'])
+	typecheckNode: () =>
+		nodeFileStep(
+			'Node typecheck',
+			cli.tsc,
+			['--noEmit', '-p', 'tsconfig.node.json', '--composite', 'false'],
+			3 * minute
+		),
+	typecheckWeb: () =>
+		nodeFileStep(
+			'Web typecheck',
+			cli.tsc,
+			['--noEmit', '-p', 'tsconfig.web.json', '--composite', 'false'],
+			3 * minute
+		),
+	targetBoundaries: () =>
+		nodeFileStep('target import boundaries', 'scripts/target-boundary-policy.mjs'),
+	security: (requiredTarget = null) =>
+		nodeFileStep(
+			'production CSP policy',
+			'scripts/security-policy.mjs',
+			requiredTarget === null ? [] : ['--require-build', requiredTarget]
+		),
+	packageContents: (requireBuild = false) =>
+		nodeFileStep(
+			'Desktop package content policy',
+			'scripts/package-content-policy.mjs',
+			requireBuild ? ['--require-build'] : []
+		),
+	bundleBudget: (target = 'all') =>
+		nodeFileStep('empty-shell bundle budgets', 'scripts/bundle-budget.mjs', [target]),
+	desktopBuild: () =>
+		nodeFileStep('Desktop production build', cli.electronVite, ['build'], 5 * minute),
+	webBuild: () =>
+		nodeFileStep(
+			'Web production build',
+			cli.vite,
+			['build', '--config', 'vite.web.config.ts'],
+			5 * minute
+		),
+	cargoLock: () =>
+		directStep(
+			'Cargo lockfile generation',
+			cargo,
+			['generate-lockfile', '--manifest-path', 'engine/Cargo.toml'],
+			2 * minute
+		),
+	rustToolchain: () => [
+		directStep('Rust compiler version', rustc, ['--version']),
+		directStep('Cargo version', cargo, ['--version'])
+	],
+	rustFormat: () =>
+		directStep(
+			'Rust format check',
+			cargo,
+			['fmt', '--manifest-path', 'engine/Cargo.toml', '--all', '--', '--check'],
+			2 * minute
+		),
+	rustCheck: () =>
+		directStep(
+			'Rust workspace check',
+			cargo,
+			[
+				'check',
+				'--manifest-path',
+				'engine/Cargo.toml',
+				'--workspace',
+				'--all-targets',
+				'--locked'
+			],
+			4 * minute
+		)
 })
+
+function testSteps() {
+	return [steps.testOutputClean(), steps.testCompile(), steps.testUnit(), steps.testScripts()]
+}
+
+function qualitySteps() {
+	return [
+		steps.policy(),
+		steps.dependencyPolicy(),
+		steps.protocolCheck(),
+		steps.formatCheck(),
+		steps.lint(),
+		steps.targetBoundaries(),
+		steps.security(),
+		steps.packageContents(),
+		...testSteps(),
+		steps.typecheckNode(),
+		steps.typecheckWeb(),
+		steps.rustFormat(),
+		steps.rustCheck()
+	]
+}
+
+function desktopBuildSteps() {
+	return [
+		steps.typecheckNode(),
+		steps.typecheckWeb(),
+		steps.desktopBuild(),
+		steps.security('desktop'),
+		steps.bundleBudget('desktop'),
+		steps.packageContents(true)
+	]
+}
+
+function webBuildSteps() {
+	return [
+		steps.typecheckWeb(),
+		steps.webBuild(),
+		steps.security('web'),
+		steps.bundleBudget('web')
+	]
+}
 
 const workflowFactories = Object.freeze({
 	'dependencies:install': () => [steps.dependencyInstall(false)],
 	'dependencies:ci': () => [steps.dependencyInstall(true)],
-	test: () => [steps.tests()],
-	'test:lifecycle': () => [steps.tests()],
-	'check:quick': () => [steps.policy(), steps.tests()],
-	precommit: () => [steps.policy(), steps.stagedWhitespace(), steps.tests()]
+	'check:dependencies': () => [steps.dependencyPolicy()],
+	format: () => [steps.format()],
+	'format:check': () => [steps.formatCheck()],
+	lint: () => [steps.lint()],
+	'lint:fix': () => [steps.lintFix()],
+	'generate:protocol': () => [steps.protocolGenerate()],
+	'check:protocol-generated': () => [steps.protocolCheck()],
+	'generate:cargo-lock': () => [steps.cargoLock()],
+	'toolchain:rust': () => steps.rustToolchain(),
+	test: testSteps,
+	'test:lifecycle': () => [steps.testLifecycle()],
+	'typecheck:node': () => [steps.typecheckNode()],
+	'typecheck:web': () => [steps.typecheckWeb()],
+	typecheck: () => [steps.typecheckNode(), steps.typecheckWeb()],
+	'check:rust': () => [steps.rustFormat(), steps.rustCheck()],
+	'check:target-boundaries': () => [steps.targetBoundaries()],
+	'check:security': () => [steps.security()],
+	'check:bundle-size': () => [steps.bundleBudget()],
+	'check:packaged-contents': () => [steps.packageContents()],
+	build: desktopBuildSteps,
+	'build:web': webBuildSteps,
+	'check:quick': qualitySteps,
+	quality: qualitySteps,
+	checks: () => [...qualitySteps(), ...desktopBuildSteps(), ...webBuildSteps()],
+	precommit: () => [steps.policy(), steps.stagedWhitespace(), ...qualitySteps().slice(1)]
 })
 
 export const plannedWorkflowNames = Object.freeze([
-	'format',
-	'format:check',
-	'lint',
-	'lint:fix',
-	'typecheck:node',
-	'typecheck:web',
-	'typecheck',
-	'quality',
-	'build',
-	'build:web',
+	'dev',
+	'dev:web',
+	'preview:web',
 	'build:engine',
 	'package:check',
-	'check:target-boundaries',
-	'check:security',
 	'check:audio',
 	'check:visual-a11y',
 	'release:check'
@@ -100,10 +295,12 @@ export const workflowNames = Object.freeze(Object.keys(workflowFactories))
 const workflowTimeoutOverrides = Object.freeze({
 	'dependencies:install': 9 * minute,
 	'dependencies:ci': 9 * minute,
-	test: 4 * minute,
-	'test:lifecycle': 4 * minute,
-	'check:quick': 4 * minute,
-	precommit: 4 * minute
+	build: 8 * minute,
+	'build:web': 8 * minute,
+	'check:quick': 12 * minute,
+	quality: 12 * minute,
+	checks: 20 * minute,
+	precommit: 12 * minute
 })
 
 export function workflowSteps(name) {

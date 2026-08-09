@@ -1,0 +1,13 @@
+[package]
+name = "tiempio-engine-synth"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+tiempio-engine-core = { path = "../core" }
+tiempio-engine-dsp = { path = "../dsp" }
+
+[lints]
+workspace = true
