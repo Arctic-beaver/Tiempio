@@ -134,7 +134,17 @@ impl ProtocolSession {
                     "Command is reserved but not negotiated by the Stage 4 engine.",
                 ));
             }
-            _ => {}
+            EngineCommand::Play(_)
+            | EngineCommand::Stop
+            | EngineCommand::Seek(_)
+            | EngineCommand::SetLoop(_)
+            | EngineCommand::NoteOn(_)
+            | EngineCommand::NoteOff(_)
+            | EngineCommand::RequestDiagnostics
+            | EngineCommand::StartOfflineRender { .. }
+            | EngineCommand::CancelOfflineRender(_)
+            | EngineCommand::Ping(_)
+            | EngineCommand::Shutdown => {}
         }
         Ok(envelope)
     }

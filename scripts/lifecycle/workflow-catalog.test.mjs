@@ -86,7 +86,9 @@ describe('closed lifecycle workflow catalog', () => {
 			'toolchain:rust-clippy',
 			'format:rust',
 			'check:rust',
-			'evidence:engine'
+			'evidence:engine',
+			'build:engine',
+			'check:audio'
 		]) {
 			const steps = workflowSteps(name)
 			assert.ok(
@@ -94,6 +96,16 @@ describe('closed lifecycle workflow catalog', () => {
 			)
 			assert.ok(steps.every((step) => Object.hasOwn(step, 'shell') === false))
 		}
+	})
+
+	it('owns native build, audio and package stages without recursive workflows', () => {
+		const engine = workflowSteps('build:engine')
+		assert.deepEqual(
+			engine.map((step) => step.name),
+			['native host release build', 'native host package staging']
+		)
+		assert.ok(workflowSteps('check:audio').at(-1)?.name.includes('audio self-test'))
+		assert.ok(workflowSteps('package:check').at(-1)?.name.includes('package'))
 	})
 
 	it('runs every TypeScript test compiled by the test project', async () => {

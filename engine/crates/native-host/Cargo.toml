@@ -6,6 +6,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+cpal.workspace = true
 tiempio-engine-core = { path = "../core" }
 tiempio-engine-drums = { path = "../drums" }
 tiempio-engine-dsp = { path = "../dsp" }

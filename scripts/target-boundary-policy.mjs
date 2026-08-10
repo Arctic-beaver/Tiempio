@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { posix, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -10,6 +11,8 @@ const importPatterns = Object.freeze([
 	/\bimport\(\s*['"]([^'"]+)['"]\s*\)/gu
 ])
 const requiredPaths = Object.freeze([
+	'apps/desktop/host/native-host-contract.ts',
+	'apps/desktop/host/runtime-channels.ts',
 	'apps/desktop/main/index.ts',
 	'apps/desktop/preload/index.ts',
 	'apps/desktop/renderer/main.tsx',
@@ -291,6 +294,10 @@ export function selectPolicyPaths(paths) {
 	].sort()
 }
 
+export function selectWorktreePolicyPaths(paths, pathExists) {
+	return selectPolicyPaths(paths).filter(pathExists)
+}
+
 function repositoryPolicyPaths(repositoryRoot) {
 	const result = spawnSync(
 		'git',
@@ -324,7 +331,9 @@ function repositoryPolicyPaths(repositoryRoot) {
 			`Could not enumerate repository policy inputs: ${result.stderr.trim() || `git exited ${String(result.status)}`}`
 		)
 	}
-	return selectPolicyPaths(result.stdout.split('\0').filter(Boolean))
+	return selectWorktreePolicyPaths(result.stdout.split('\0').filter(Boolean), (path) =>
+		existsSync(resolve(repositoryRoot, path))
+	)
 }
 
 async function readRepositoryFiles(repositoryRoot, paths) {

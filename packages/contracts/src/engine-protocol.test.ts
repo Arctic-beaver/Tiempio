@@ -18,6 +18,10 @@ const compatibleHandshake = {
 } as const
 
 describe('engine protocol contracts', () => {
+	it('advances the live Desktop protocol contract to version 2', () => {
+		assert.equal(engineProtocolVersion, 2)
+	})
+
 	it('rejects version mismatch before session creation', () => {
 		const result = validateEngineHandshake({
 			...compatibleHandshake,
@@ -87,5 +91,39 @@ describe('engine protocol contracts', () => {
 		})
 		assert.equal(result.ok, false)
 		if (!result.ok) assert.equal(result.diagnostic, 'protocol.invalid-envelope')
+	})
+
+	it('validates bounded heartbeat and audio-health payloads', () => {
+		assert.equal(
+			validateEngineCommandEnvelope({
+				protocolVersion: engineProtocolVersion,
+				requestId: 'request-ping',
+				sequence: 1,
+				type: 'ping',
+				payload: { heartbeatId: 'heartbeat-1' }
+			}).ok,
+			true
+		)
+		assert.equal(
+			validateEngineEventEnvelope({
+				protocolVersion: engineProtocolVersion,
+				sequence: 2,
+				type: 'audio-health',
+				payload: {
+					activeDeviceId: 'device-default',
+					activeVoices: 1,
+					backendState: 'ready',
+					blockFrames: 128,
+					deviceState: 'available',
+					mode: 'shared',
+					outputMuted: false,
+					outputSignalObserved: true,
+					projectRevision: 4,
+					sampleRate: 48_000,
+					underruns: 0
+				}
+			}).ok,
+			true
+		)
 	})
 })

@@ -5,6 +5,7 @@ import {
 	type AnyEngineCommandEnvelope,
 	type AnyEngineEventEnvelope,
 	type ApplicationResult,
+	type EngineCapabilityCode,
 	type EngineRuntime
 } from '../../contracts/src/index.js'
 import { EngineClient } from './EngineClient.js'
@@ -16,10 +17,18 @@ class FakeEngineRuntime implements EngineRuntime {
 
 	public constructor(readonly connectedProtocolVersion: number = engineProtocolVersion) {}
 
-	public async connect(): Promise<ApplicationResult<{ readonly protocolVersion: number }>> {
+	public async connect(): Promise<
+		ApplicationResult<{
+			readonly capabilities: readonly EngineCapabilityCode[]
+			readonly protocolVersion: number
+		}>
+	> {
 		return Object.freeze({
 			ok: true as const,
-			value: Object.freeze({ protocolVersion: this.connectedProtocolVersion })
+			value: Object.freeze({
+				protocolVersion: this.connectedProtocolVersion,
+				capabilities: Object.freeze(['protocol.typed-json'] as const)
+			})
 		})
 	}
 
@@ -45,6 +54,22 @@ class FakeEngineRuntime implements EngineRuntime {
 		}
 	}
 
+	public async getHealth(): Promise<ApplicationResult<never>> {
+		return Object.freeze({
+			ok: false as const,
+			error: Object.freeze({
+				code: 'ENGINE_UNAVAILABLE' as const,
+				message: 'No health fixture.',
+				retryable: false,
+				details: null
+			})
+		})
+	}
+
+	public onHealth(): () => void {
+		return () => undefined
+	}
+
 	public emit(event: AnyEngineEventEnvelope): void {
 		this.listener?.(event)
 	}
@@ -58,7 +83,10 @@ describe('EngineClient', () => {
 		const connected = await client.connect()
 		assert.deepEqual(connected, {
 			ok: true,
-			value: { protocolVersion: engineProtocolVersion }
+			value: {
+				protocolVersion: engineProtocolVersion,
+				capabilities: ['protocol.typed-json']
+			}
 		})
 		assert.equal(client.state, 'ready')
 		assert.deepEqual(runtime.commands[0], {

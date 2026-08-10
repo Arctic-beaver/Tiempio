@@ -42,8 +42,14 @@ const cli = Object.freeze({
 	eslint: 'node_modules/eslint/bin/eslint.js',
 	tsc: 'node_modules/typescript/bin/tsc',
 	vite: 'node_modules/vite/bin/vite.js',
-	electronVite: 'node_modules/electron-vite/bin/electron-vite.js'
+	electronVite: 'node_modules/electron-vite/bin/electron-vite.js',
+	electronBuilder: 'node_modules/electron-builder/cli.js'
 })
+
+const nativeHostExecutable = resolve(
+	'engine/target/release',
+	process.platform === 'win32' ? 'tiempio-engine-native-host.exe' : 'tiempio-engine-native-host'
+)
 
 const lifecycleTestFiles = Object.freeze([
 	resolve('scripts/lifecycle/lifecycle-owner.test.mjs'),
@@ -68,9 +74,12 @@ const repositoryScriptTestFiles = Object.freeze([
 ])
 
 const compiledTestFiles = Object.freeze([
+	resolve('.test-out/apps/desktop/main/native-host-contract.test.js'),
+	resolve('.test-out/apps/desktop/main/runtime-channels.test.js'),
 	resolve('.test-out/apps/desktop/main/window-options.test.js'),
 	resolve('.test-out/apps/desktop/renderer/runtime/desktopRuntime.test.js'),
 	resolve('.test-out/packages/contracts/src/application-runtime.test.js'),
+	resolve('.test-out/packages/contracts/src/application-runtime-validation.test.js'),
 	resolve('.test-out/packages/contracts/src/engine-protocol.test.js'),
 	resolve('.test-out/packages/contracts/src/engine-render-plan.test.js'),
 	resolve('.test-out/packages/engine-client/src/EngineClient.test.js'),
@@ -219,7 +228,7 @@ const steps = Object.freeze({
 			'Cargo lockfile generation',
 			cargo,
 			['generate-lockfile', '--manifest-path', 'engine/Cargo.toml'],
-			2 * minute
+			10 * minute
 		),
 	rustToolchain: () => [
 		directStep('Rust compiler version', rustc, ['--version']),
@@ -258,7 +267,7 @@ const steps = Object.freeze({
 				'--all-targets',
 				'--locked'
 			],
-			4 * minute
+			10 * minute
 		),
 	rustClippy: () =>
 		directStep(
@@ -306,6 +315,37 @@ const steps = Object.freeze({
 				'--locked'
 			],
 			5 * minute
+		),
+	nativeHostBuild: () =>
+		directStep(
+			'native host release build',
+			cargo,
+			[
+				'build',
+				'--manifest-path',
+				'engine/Cargo.toml',
+				'--package',
+				'tiempio-engine-native-host',
+				'--release',
+				'--locked'
+			],
+			8 * minute
+		),
+	nativeHostStage: () =>
+		nodeFileStep('native host package staging', 'scripts/stage-native-host.mjs'),
+	nativeHostAudioCheck: () =>
+		directStep(
+			'native host controlled audio self-test',
+			nativeHostExecutable,
+			['--self-test-null'],
+			2 * minute
+		),
+	desktopPackage: () =>
+		nodeFileStep(
+			'Desktop unpacked package',
+			cli.electronBuilder,
+			['--dir', '--publish', 'never'],
+			8 * minute
 		)
 })
 
@@ -356,6 +396,24 @@ function webBuildSteps() {
 	]
 }
 
+function engineBuildSteps() {
+	return [steps.nativeHostBuild(), steps.nativeHostStage()]
+}
+
+function desktopPackageSteps() {
+	return [
+		steps.typecheckNode(),
+		steps.typecheckWeb(),
+		...engineBuildSteps(),
+		steps.desktopBuild(),
+		steps.security('desktop'),
+		steps.bundleBudget('desktop'),
+		steps.chunkTopology('desktop'),
+		steps.packageContents(true),
+		steps.desktopPackage()
+	]
+}
+
 const workflowFactories = Object.freeze({
 	'dependencies:install': () => [steps.dependencyInstall(false)],
 	'dependencies:ci': () => [steps.dependencyInstall(true)],
@@ -382,6 +440,9 @@ const workflowFactories = Object.freeze({
 		steps.rustTest()
 	],
 	'evidence:engine': () => [steps.engineEvidence()],
+	'build:engine': engineBuildSteps,
+	'check:audio': () => [...engineBuildSteps(), steps.nativeHostAudioCheck()],
+	'package:check': desktopPackageSteps,
 	'check:target-boundaries': () => [steps.targetBoundaries()],
 	'check:visual-a11y': () => [
 		steps.uiFoundation(),
@@ -402,14 +463,7 @@ const workflowFactories = Object.freeze({
 	precommit: () => [steps.policy(), steps.stagedWhitespace(), ...qualitySteps().slice(1)]
 })
 
-export const plannedWorkflowNames = Object.freeze([
-	'dev',
-	'dev:web',
-	'build:engine',
-	'package:check',
-	'check:audio',
-	'release:check'
-])
+export const plannedWorkflowNames = Object.freeze(['dev', 'dev:web', 'release:check'])
 
 export const workflowNames = Object.freeze(Object.keys(workflowFactories))
 
@@ -418,6 +472,9 @@ const workflowTimeoutOverrides = Object.freeze({
 	'dependencies:ci': 9 * minute,
 	build: 8 * minute,
 	'build:web': 8 * minute,
+	'build:engine': 10 * minute,
+	'check:audio': 12 * minute,
+	'package:check': 20 * minute,
 	'check:visual-a11y': 8 * minute,
 	'preview:web': 11 * minute,
 	'check:quick': 12 * minute,

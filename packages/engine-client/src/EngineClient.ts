@@ -19,6 +19,7 @@ export type EngineClientState = 'disconnected' | 'connecting' | 'ready' | 'disco
 export type EngineClientCommandType = Exclude<EngineCommandType, 'handshake'>
 
 export interface EngineClientConnection {
+	readonly capabilities: readonly EngineCapabilityCode[]
 	readonly protocolVersion: typeof engineProtocolVersion
 }
 
@@ -137,7 +138,12 @@ export class EngineClient {
 		}
 
 		this.#state = 'ready'
-		return success(Object.freeze({ protocolVersion: engineProtocolVersion }))
+		return success(
+			Object.freeze({
+				protocolVersion: engineProtocolVersion,
+				capabilities: Object.freeze([...connected.value.capabilities])
+			})
+		)
 	}
 
 	public async disconnect(): Promise<ApplicationResult<null>> {

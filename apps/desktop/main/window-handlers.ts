@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { applicationError, type ApplicationResult } from '../../../packages/contracts/src/index.js'
-import { desktopWindowChannels } from '../host/window-channels.js'
+import { desktopRuntimeChannels } from '../host/runtime-channels.js'
 
 function ownerWindow(event: IpcMainInvokeEvent): ApplicationResult<BrowserWindow> {
 	const window = BrowserWindow.fromWebContents(event.sender)
@@ -16,13 +16,13 @@ function ownerWindow(event: IpcMainInvokeEvent): ApplicationResult<BrowserWindow
 }
 
 export function registerWindowHandlers(): void {
-	ipcMain.handle(desktopWindowChannels.minimize, (event) => {
+	ipcMain.handle(desktopRuntimeChannels.windowMinimize, (event) => {
 		const owner = ownerWindow(event)
 		if (!owner.ok) return owner
 		owner.value.minimize()
 		return Object.freeze({ ok: true as const, value: null })
 	})
-	ipcMain.handle(desktopWindowChannels.toggleMaximize, (event) => {
+	ipcMain.handle(desktopRuntimeChannels.windowToggleMaximize, (event) => {
 		const owner = ownerWindow(event)
 		if (!owner.ok) return owner
 		if (owner.value.isMaximized()) owner.value.unmaximize()
@@ -32,7 +32,7 @@ export function registerWindowHandlers(): void {
 			value: Object.freeze({ maximized: owner.value.isMaximized() })
 		})
 	})
-	ipcMain.handle(desktopWindowChannels.requestClose, (event) => {
+	ipcMain.handle(desktopRuntimeChannels.windowRequestClose, (event) => {
 		const owner = ownerWindow(event)
 		if (!owner.ok) return owner
 		owner.value.close()

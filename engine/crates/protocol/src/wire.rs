@@ -96,6 +96,12 @@ pub struct RenderIdentifierPayload {
     pub render_id: String,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HeartbeatPayload {
+    pub heartbeat_id: String,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct OfflineRenderPayload {

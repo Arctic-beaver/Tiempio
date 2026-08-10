@@ -87,6 +87,7 @@ export interface EngineCommandPayloadByType {
 	}
 	readonly 'cancel-offline-render': { readonly renderId: string }
 	readonly shutdown: EmptyPayload
+	readonly ping: { readonly heartbeatId: string }
 }
 
 export type EngineCommandEnvelope<Type extends EngineCommandType = EngineCommandType> = Readonly<{
@@ -140,6 +141,20 @@ export interface EngineEventPayloadByType {
 		readonly renderId: string
 	}
 	readonly 'fatal-error': { readonly code: EngineDiagnosticCode; readonly message: string }
+	readonly pong: { readonly heartbeatId: string }
+	readonly 'audio-health': {
+		readonly activeDeviceId: string | null
+		readonly activeVoices: number
+		readonly backendState: 'starting' | 'ready' | 'stopped' | 'failed'
+		readonly blockFrames: number | null
+		readonly deviceState: 'available' | 'unavailable' | 'lost'
+		readonly mode: 'shared' | null
+		readonly outputMuted: boolean
+		readonly outputSignalObserved: boolean
+		readonly projectRevision: number | null
+		readonly sampleRate: number | null
+		readonly underruns: number
+	}
 }
 
 export type EngineEventEnvelope<Type extends EngineEventType = EngineEventType> = Readonly<{

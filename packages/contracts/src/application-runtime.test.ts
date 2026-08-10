@@ -48,4 +48,9 @@ describe('ApplicationRuntime contracts', () => {
 		assert.equal(acknowledgesPersistedRevision(downloaded), false)
 		assert.equal(acknowledgesPersistedRevision(persisted), true)
 	})
+
+	it('does not acknowledge Save Copy as persisted project state', () => {
+		const copied: PersistenceOutcome = { status: 'copy-written', revision: 8 }
+		assert.equal(acknowledgesPersistedRevision(copied), false)
+	})
 })

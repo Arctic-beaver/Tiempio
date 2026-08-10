@@ -10,10 +10,10 @@ use crate::validation::{parse_payload, valid_identifier, validate_configuration,
 use crate::{
     AudioConfiguration, ENGINE_CAPABILITY_CODES, ENGINE_PROTOCOL_MAX_BATCH_ITEMS,
     ENGINE_PROTOCOL_MAX_FRAME_BYTES, ENGINE_PROTOCOL_MAX_PAYLOAD_BYTES, ENGINE_PROTOCOL_VERSION,
-    EmptyPayload, EngineHandshake, IdentifierPayload, LoopPayload, MacroPayload, NoteOnPayload,
-    OfflineRenderPayload, PlayPayload, ProtocolDiagnostic, ProtocolError, RawCommandEnvelope,
-    RenderIdentifierPayload, RenderPlanDeltaChange, RenderPlanDeltaPayload, TickPayload,
-    WireRenderPlan,
+    EmptyPayload, EngineHandshake, HeartbeatPayload, IdentifierPayload, LoopPayload, MacroPayload,
+    NoteOnPayload, OfflineRenderPayload, PlayPayload, ProtocolDiagnostic, ProtocolError,
+    RawCommandEnvelope, RenderIdentifierPayload, RenderPlanDeltaChange, RenderPlanDeltaPayload,
+    TickPayload, WireRenderPlan,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -42,6 +42,7 @@ pub enum EngineCommand {
         end_tick: u64,
     },
     CancelOfflineRender(RenderIdentifierPayload),
+    Ping(HeartbeatPayload),
     Shutdown,
 }
 
@@ -353,6 +354,16 @@ fn decode_service_command(
                 ));
             }
             EngineCommand::CancelOfflineRender(payload)
+        }
+        "ping" => {
+            let payload: HeartbeatPayload = parse_payload(payload_value, "Ping")?;
+            if !valid_identifier(&payload.heartbeat_id) {
+                return Err(ProtocolError::new(
+                    ProtocolDiagnostic::InvalidEnvelope,
+                    "Heartbeat ID is invalid.",
+                ));
+            }
+            EngineCommand::Ping(payload)
         }
         "shutdown" => {
             let _: EmptyPayload = parse_payload(payload_value, "Shutdown")?;

@@ -84,6 +84,43 @@ function validEventPayload(type: EngineEventType, value: unknown): boolean {
 			(value.deviceId === null || validIdentifier(value.deviceId))
 		)
 	}
+	if (type === 'pong') {
+		return exactKeys(value, ['heartbeatId']) && validIdentifier(value.heartbeatId)
+	}
+	if (type === 'audio-health') {
+		return (
+			exactKeys(value, [
+				'activeDeviceId',
+				'activeVoices',
+				'backendState',
+				'blockFrames',
+				'deviceState',
+				'mode',
+				'outputMuted',
+				'outputSignalObserved',
+				'projectRevision',
+				'sampleRate',
+				'underruns'
+			]) &&
+			(value.activeDeviceId === null || validIdentifier(value.activeDeviceId)) &&
+			safeInteger(value.activeVoices) &&
+			['starting', 'ready', 'stopped', 'failed'].includes(String(value.backendState)) &&
+			(value.blockFrames === null ||
+				(safeInteger(value.blockFrames) &&
+					value.blockFrames >= 1 &&
+					value.blockFrames <= engineProtocolLimits.maxBlockFrames)) &&
+			['available', 'unavailable', 'lost'].includes(String(value.deviceState)) &&
+			(value.mode === null || value.mode === 'shared') &&
+			typeof value.outputMuted === 'boolean' &&
+			typeof value.outputSignalObserved === 'boolean' &&
+			(value.projectRevision === null || safeInteger(value.projectRevision)) &&
+			(value.sampleRate === null ||
+				(safeInteger(value.sampleRate) &&
+					value.sampleRate >= engineProtocolLimits.minSampleRate &&
+					value.sampleRate <= engineProtocolLimits.maxSampleRate)) &&
+			safeInteger(value.underruns)
+		)
+	}
 	if (type === 'midi-captured') {
 		return (
 			exactKeys(value, ['pitch', 'velocity', 'samplePosition']) &&

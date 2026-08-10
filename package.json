@@ -33,6 +33,9 @@
 		"typecheck": "node scripts/lifecycle-runner.mjs typecheck",
 		"check:rust": "node scripts/lifecycle-runner.mjs check:rust",
 		"evidence:engine": "node scripts/lifecycle-runner.mjs evidence:engine",
+		"build:engine": "node scripts/lifecycle-runner.mjs build:engine",
+		"check:audio": "node scripts/lifecycle-runner.mjs check:audio",
+		"package:check": "node scripts/lifecycle-runner.mjs package:check",
 		"check:target-boundaries": "node scripts/lifecycle-runner.mjs check:target-boundaries",
 		"check:security": "node scripts/lifecycle-runner.mjs check:security",
 		"check:bundle-size": "node scripts/lifecycle-runner.mjs check:bundle-size",
@@ -52,6 +55,7 @@
 	},
 	"dependencies": {
 		"@electron-toolkit/utils": "4.0.0",
+		"fflate": "0.8.3",
 		"i18next": "26.3.6",
 		"lucide-react": "1.26.0",
 		"react": "19.2.8",

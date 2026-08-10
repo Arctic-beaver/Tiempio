@@ -122,6 +122,13 @@ function validCommandPayload(
 			? null
 			: protocolFailure('protocol.invalid-envelope', 'Audio configuration is invalid.')
 	}
+	if (type === 'ping') {
+		return record(value) &&
+			exactKeys(value, ['heartbeatId']) &&
+			validIdentifier(value.heartbeatId)
+			? null
+			: protocolFailure('protocol.invalid-envelope', 'ping payload is invalid.')
+	}
 	if (type === 'load-render-plan') {
 		if (!record(value) || !exactKeys(value, ['plan'])) {
 			return protocolFailure('protocol.invalid-envelope', 'Render-plan payload is invalid.')

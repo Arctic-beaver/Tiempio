@@ -5,8 +5,8 @@
 This document is the implementation plan for Stage 5 of
 `APPLICATION_SKELETON.md`.
 
-**Implementation status:** planned; no Stage 5 production runtime behavior is implemented by this
-planning commit.
+**Implementation status:** in progress. Stage A contracts, dependency decisions and lifecycle entry
+points are complete on `feature/desktop-contracts-lifecycle`; Stage B native persistence is next.
 
 **Task integration branch:** `feature/skeleton-desktop-runtime`.
 
@@ -445,6 +445,25 @@ Audio callback deadlines derive from the negotiated sample rate and device buffe
 wall-clock assertion. Deadline measurements are recorded as baselines; hardware scheduling variance
 does not turn a unit test into a flaky performance gate.
 
+## Stage A dependency decision record — 2026-08-10
+
+- Native audio uses exactly `cpal 0.17.3` with default features disabled. CPAL is Apache-2.0
+  licensed, exposes WASAPI as its Windows backend and remains isolated in the Rust `native-host`
+  crate. ASIO, JACK, Web Audio and optional real-time-priority features are not enabled.
+- Physical project compression uses exactly `fflate 0.8.3` in Electron main. It is MIT licensed,
+  has no runtime dependencies and provides bounded streaming ZIP/DEFLATE primitives. It is not
+  imported by the renderer, Web target or shared application.
+- The Rust `zip` crate was not selected because physical project ownership belongs to Electron main
+  and routing persistence through another child process would add authority and lifecycle surface
+  without product benefit.
+- Both versions are pinned in the repository manifests and lockfiles. A future update requires the
+  same license, security, size, callback/streaming and cross-target review.
+
+Primary references:
+
+- `https://github.com/RustAudio/cpal`;
+- `https://www.npmjs.com/package/fflate`.
+
 ## Delivery stages
 
 The plan commit lives on `feature/skeleton-desktop-runtime`. Each implementation stage uses its own
@@ -478,6 +497,15 @@ neutral fixtures only.
 
 **Stage exit:** cross-process contracts and lifecycle entry points are deterministic, generated
 bindings match and all future Stage 5 heavy commands have one safe owner.
+
+**Implementation record — 2026-08-10:** complete. Runtime bridge version 2, the closed Desktop IPC
+registry, bounded/redacted boundary validators, native-host bootstrap contract, engine protocol
+version 2 heartbeat/audio-health vocabulary and generated TypeScript/Rust bindings are committed as
+one contract surface. `cpal 0.17.3` and `fflate 0.8.3` are exactly pinned and locked. The lifecycle
+catalog now owns native-host build/staging, controlled audio self-test and unpacked package checks;
+its timeout and ownership policies are covered by tests. `npm run check:quick` passed all 19 stages,
+including the locked prototype/UI policy, and the post-run lifecycle audit found no remaining task
+process, lock or quarantine.
 
 ### Stage B — Native project registry, physical archive, settings and recovery
 

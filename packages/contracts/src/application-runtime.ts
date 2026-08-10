@@ -1,10 +1,25 @@
-import type { AnyEngineCommandEnvelope, AnyEngineEventEnvelope } from './engine-protocol.js'
+import type {
+	AnyEngineCommandEnvelope,
+	AnyEngineEventEnvelope,
+	EngineCapabilityCode
+} from './engine-protocol.js'
 
-export const applicationRuntimeVersion = 1 as const
+export const applicationRuntimeVersion = 2 as const
 export type ApplicationRuntimeVersion = typeof applicationRuntimeVersion
 export type ApplicationTarget = 'desktop' | 'web'
 export type WindowChromeStyle = 'custom' | 'native' | 'none'
 export type DesktopPlatform = 'windows' | 'macos' | 'linux'
+
+export const desktopRuntimeLimits = Object.freeze({
+	maxProjectManifestBytes: 4 * 1024 * 1024,
+	maxSettingsBytes: 16 * 1024,
+	maxErrorMessageBytes: 2 * 1024,
+	maxErrorDetailEntries: 16,
+	maxOpaqueHandleBytes: 128,
+	maxRecoveryCandidates: 32,
+	maxRetainedEngineStderrBytes: 64 * 1024,
+	maxRendererEventsPerSecond: 30
+})
 
 export const applicationErrorCodes = Object.freeze([
 	'INTERNAL_ERROR',
@@ -89,9 +104,24 @@ export type ProjectHandle = string & { readonly [projectHandleBrand]: 'ProjectHa
 declare const resourceHandleBrand: unique symbol
 export type ResourceHandle = string & { readonly [resourceHandleBrand]: 'ResourceHandle' }
 
+declare const recoveryHandleBrand: unique symbol
+export type RecoveryHandle = string & { readonly [recoveryHandleBrand]: 'RecoveryHandle' }
+
 export interface ProjectSnapshotEnvelope {
 	readonly revision: number
 	readonly bytes: Uint8Array
+}
+
+export interface ProjectLoadEnvelope {
+	readonly compatibility: 'supported' | 'unsupported'
+	readonly fingerprint: string | null
+	readonly saveAllowed: boolean
+	readonly snapshot: ProjectSnapshotEnvelope
+}
+
+export interface RecoveryCandidate {
+	readonly handle: RecoveryHandle
+	readonly revision: number
 }
 
 export type PersistenceOutcome =
@@ -105,6 +135,7 @@ export type PersistenceOutcome =
 			readonly revision: number
 			readonly suggestedName: string
 	  }
+	| { readonly status: 'copy-written'; readonly revision: number }
 	| { readonly status: 'canceled'; readonly revision: number }
 	| { readonly status: 'failed'; readonly revision: number; readonly error: ApplicationError }
 
@@ -115,12 +146,20 @@ export function acknowledgesPersistedRevision(outcome: PersistenceOutcome): bool
 export interface ProjectsRuntime {
 	create(): Promise<ApplicationResult<ProjectHandle>>
 	open(): Promise<ApplicationResult<ProjectHandle>>
-	load(handle: ProjectHandle): Promise<ApplicationResult<ProjectSnapshotEnvelope>>
+	load(handle: ProjectHandle): Promise<ApplicationResult<ProjectLoadEnvelope>>
 	persist(handle: ProjectHandle, snapshot: ProjectSnapshotEnvelope): Promise<PersistenceOutcome>
-	downloadCopy(
+	persistAs(handle: ProjectHandle, snapshot: ProjectSnapshotEnvelope): Promise<PersistenceOutcome>
+	saveCopy(handle: ProjectHandle, snapshot: ProjectSnapshotEnvelope): Promise<PersistenceOutcome>
+	writeRecovery(
 		handle: ProjectHandle,
 		snapshot: ProjectSnapshotEnvelope
-	): Promise<PersistenceOutcome>
+	): Promise<ApplicationResult<{ readonly revision: number }>>
+	listRecoveries(): Promise<ApplicationResult<readonly RecoveryCandidate[]>>
+	restoreRecovery(handle: RecoveryHandle): Promise<ApplicationResult<ProjectHandle>>
+	discardRecovery(
+		handle: RecoveryHandle,
+		throughRevision: number
+	): Promise<ApplicationResult<{ readonly discardedThroughRevision: number }>>
 }
 
 export interface ResourcesRuntime {
@@ -128,11 +167,37 @@ export interface ResourcesRuntime {
 	read(handle: ResourceHandle): Promise<ApplicationResult<Uint8Array>>
 }
 
+export type AudioBackendState =
+	'disconnected' | 'starting' | 'ready' | 'stopped' | 'restarting' | 'failed'
+
+export type AudioDeviceState = 'available' | 'unavailable' | 'lost'
+
+export interface AudioHealthSnapshot {
+	readonly activeDeviceId: string | null
+	readonly activeVoices: number
+	readonly backendState: AudioBackendState
+	readonly blockFrames: number | null
+	readonly deviceState: AudioDeviceState
+	readonly mode: 'shared' | null
+	readonly outputMuted: boolean
+	readonly outputSignalObserved: boolean
+	readonly projectRevision: number | null
+	readonly sampleRate: number | null
+	readonly underruns: number
+}
+
+export interface EngineConnection {
+	readonly capabilities: readonly EngineCapabilityCode[]
+	readonly protocolVersion: number
+}
+
 export interface EngineRuntime {
-	connect(): Promise<ApplicationResult<{ readonly protocolVersion: number }>>
+	connect(): Promise<ApplicationResult<EngineConnection>>
 	disconnect(): Promise<ApplicationResult<null>>
 	send(command: AnyEngineCommandEnvelope): Promise<ApplicationResult<{ readonly accepted: true }>>
 	onEvent(listener: (event: AnyEngineEventEnvelope) => void): () => void
+	getHealth(): Promise<ApplicationResult<AudioHealthSnapshot>>
+	onHealth(listener: (health: AudioHealthSnapshot) => void): () => void
 }
 
 export interface SettingsSnapshot {
@@ -167,7 +232,15 @@ export interface ApplicationRuntimeHandshake {
 }
 
 export interface DesktopRuntimeBridge extends ApplicationRuntimeHandshake {
+	readonly target: 'desktop'
 	readonly platform: DesktopPlatform
+	readonly capabilities: {
+		readonly projects: RuntimeCapability<ProjectsRuntime>
+		readonly engine: RuntimeCapability<EngineRuntime>
+		readonly settings: RuntimeCapability<SettingsRuntime>
+		readonly commands: RuntimeCapability<CommandsRuntime>
+		readonly lifecycle: RuntimeCapability<LifecycleRuntime>
+	}
 	readonly window: {
 		minimize(): Promise<ApplicationResult<null>>
 		toggleMaximize(): Promise<ApplicationResult<{ readonly maximized: boolean }>>

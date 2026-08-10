@@ -93,6 +93,32 @@ pub enum EngineEvent {
         #[serde(rename = "deviceId")]
         device_id: Option<String>,
     },
+    Pong {
+        #[serde(rename = "heartbeatId")]
+        heartbeat_id: String,
+    },
+    AudioHealth {
+        #[serde(rename = "activeDeviceId")]
+        active_device_id: Option<String>,
+        #[serde(rename = "activeVoices")]
+        active_voices: u64,
+        #[serde(rename = "backendState")]
+        backend_state: String,
+        #[serde(rename = "blockFrames")]
+        block_frames: Option<u32>,
+        #[serde(rename = "deviceState")]
+        device_state: String,
+        mode: Option<String>,
+        #[serde(rename = "outputMuted")]
+        output_muted: bool,
+        #[serde(rename = "outputSignalObserved")]
+        output_signal_observed: bool,
+        #[serde(rename = "projectRevision")]
+        project_revision: Option<u64>,
+        #[serde(rename = "sampleRate")]
+        sample_rate: Option<u32>,
+        underruns: u64,
+    },
     MidiCaptured {
         pitch: u8,
         velocity: u8,
@@ -125,6 +151,40 @@ pub enum EngineEvent {
         code: String,
         message: String,
     },
+}
+
+fn valid_audio_health(event: &EngineEvent) -> bool {
+    let EngineEvent::AudioHealth {
+        active_device_id,
+        active_voices,
+        backend_state,
+        block_frames,
+        device_state,
+        mode,
+        project_revision,
+        sample_rate,
+        underruns,
+        ..
+    } = event
+    else {
+        return false;
+    };
+    active_device_id.as_deref().is_none_or(valid_identifier)
+        && wire_safe(*active_voices)
+        && matches!(
+            backend_state.as_str(),
+            "starting" | "ready" | "stopped" | "failed"
+        )
+        && block_frames
+            .is_none_or(|frames| frames > 0 && frames as usize <= ENGINE_PROTOCOL_MAX_BLOCK_FRAMES)
+        && matches!(device_state.as_str(), "available" | "unavailable" | "lost")
+        && mode.as_deref().is_none_or(|value| value == "shared")
+        && project_revision.is_none_or(wire_safe)
+        && sample_rate.is_none_or(|rate| {
+            rate as usize >= ENGINE_PROTOCOL_MIN_SAMPLE_RATE
+                && rate as usize <= ENGINE_PROTOCOL_MAX_SAMPLE_RATE
+        })
+        && wire_safe(*underruns)
 }
 
 fn validate_event(event: &EngineEvent) -> Result<(), ProtocolError> {
@@ -169,6 +229,8 @@ fn validate_event(event: &EngineEvent) -> Result<(), ProtocolError> {
         EngineEvent::ActiveDeviceChanged { device_id } => {
             device_id.as_deref().is_none_or(valid_identifier)
         }
+        EngineEvent::Pong { heartbeat_id } => valid_identifier(heartbeat_id),
+        audio_health @ EngineEvent::AudioHealth { .. } => valid_audio_health(audio_health),
         EngineEvent::MidiCaptured {
             pitch,
             velocity,
@@ -271,7 +333,10 @@ mod tests {
         .unwrap();
         assert_eq!(
             body,
-            br#"{"payload":{"planGeneration":2,"projectRevision":7},"protocolVersion":1,"sequence":3,"type":"render-plan-acknowledged"}"#
+            format!(
+                r#"{{"payload":{{"planGeneration":2,"projectRevision":7}},"protocolVersion":{ENGINE_PROTOCOL_VERSION},"sequence":3,"type":"render-plan-acknowledged"}}"#
+            )
+            .into_bytes()
         );
         let value: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(value["protocolVersion"], ENGINE_PROTOCOL_VERSION);

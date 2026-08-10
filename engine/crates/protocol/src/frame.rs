@@ -197,14 +197,17 @@ mod tests {
 
     #[test]
     fn accepts_every_incremental_split_point() {
-        let body = br#"{"protocolVersion":1}"#;
-        let frame = encode_frame(body).unwrap();
+        let body = format!(
+            r#"{{"protocolVersion":{}}}"#,
+            crate::ENGINE_PROTOCOL_VERSION
+        );
+        let frame = encode_frame(body.as_bytes()).unwrap();
         for split in 0..frame.len() {
             let mut decoder = IncrementalFrameDecoder::new();
             decoder.push(&frame[..split]).unwrap();
             assert_eq!(decoder.try_take().unwrap(), None);
             decoder.push(&frame[split..]).unwrap();
-            assert_eq!(decoder.try_take().unwrap(), Some(body.to_vec()));
+            assert_eq!(decoder.try_take().unwrap(), Some(body.as_bytes().to_vec()));
         }
     }
 

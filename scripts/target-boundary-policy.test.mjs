@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
 	selectPolicyPaths,
+	selectWorktreePolicyPaths,
 	validateNeutralContracts,
 	validateRendererBridgeAccess,
 	validateRustCrateDependencies,
@@ -127,6 +128,17 @@ describe('target boundary policy', () => {
 				'artifacts/report.json'
 			]),
 			['apps/web/bootstrap/main.tsx', 'packages/application/src/index.ts']
+		)
+	})
+
+	it('excludes deleted tracked paths while retaining replacement runtime contracts', () => {
+		const existing = new Set(['apps/desktop/host/runtime-channels.ts'])
+		assert.deepEqual(
+			selectWorktreePolicyPaths(
+				['apps/desktop/host/window-channels.ts', 'apps/desktop/host/runtime-channels.ts'],
+				(path) => existing.has(path)
+			),
+			['apps/desktop/host/runtime-channels.ts']
 		)
 	})
 })
