@@ -62,11 +62,20 @@ export default function EditorSurface({ activeView }: EditorSurfaceProperties): 
 	if (activeView === 'arrangement') {
 		return (
 			<ArrangementView
+				layers={projections.layers}
 				model={projections.arrangement}
+				onAddLayer={addLayer}
+				onOpenSculpt={() => execute(commandForView('sound-sculpt'))}
 				onToggleCell={arrangement.toggleCell}
 				totalBars={projections.arrangement.totalBars}
 			/>
 		)
 	}
-	return <SoundSculptView model={projections.sculpt} onCommit={soundSculpt.commitMacro} />
+	return (
+		<SoundSculptView
+			model={projections.sculpt}
+			onCommit={soundSculpt.commitMacro}
+			onDone={() => execute(commandForView('arrangement'))}
+		/>
+	)
 }
