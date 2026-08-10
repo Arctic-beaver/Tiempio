@@ -5,8 +5,8 @@
 This document is the implementation plan for Stage 5 of
 `APPLICATION_SKELETON.md`.
 
-**Implementation status:** in progress. Stages A through C are complete; Stage D Desktop engine
-supervision is next.
+**Implementation status:** in progress. Stages A through D are complete; Stage E Desktop runtime
+composition and existing-command integration is next.
 
 **Task integration branch:** `feature/skeleton-desktop-runtime`.
 
@@ -453,6 +453,9 @@ does not turn a unit test into a flaky performance gate.
 - Native callback exchange uses exactly `rtrb 0.3.4` with default features disabled. Its bounded
   wait-free SPSC queues are isolated in `native-host`; allocation happens before stream start and
   full queues fail explicitly without blocking the callback. It is dual MIT/Apache-2.0 licensed.
+- Bootstrap token acknowledgement uses exactly `sha2 0.11.0` with default features disabled. The
+  RustCrypto implementation is dual MIT/Apache-2.0 licensed, is confined to native-host startup and
+  is never called from the realtime callback.
 - Physical project compression uses exactly `fflate 0.8.3` in Electron main. It is MIT licensed,
   has no runtime dependencies and provides bounded streaming ZIP/DEFLATE primitives. It is not
   imported by the renderer, Web target or shared application.
@@ -466,6 +469,7 @@ Primary references:
 
 - `https://github.com/RustAudio/cpal`;
 - `https://github.com/mgeier/rtrb`;
+- `https://docs.rs/sha2/0.11.0/sha2/`;
 - `https://www.npmjs.com/package/fflate`.
 
 ## Delivery stages
@@ -599,6 +603,22 @@ states. No raw host state or debug presentation is added.
 
 **Stage exit:** renderer-facing engine operations use only typed neutral methods; every supervisor
 exit path leaves no verified task-owned child, timer, subscription or pipe.
+
+**Implementation record — 2026-08-10:** Electron main now resolves the native executable only from
+the approved development or packaged platform/architecture root, launches one hidden direct child
+with a one-use environment token and verifies its SHA-256 bootstrap acknowledgement before engine
+traffic. `EngineHostSupervisor` owns strict framed pipes, monotonic rewritten command/event
+sequences, bounded writes and stderr retention, heartbeat failure detection, health projection,
+30 Hz transport/meter coalescing, serialized graceful shutdown and exact retained-child-handle
+fallback cleanup. One automatic restart re-handshakes and reloads the newest validated render plan,
+waiting for its project-revision acknowledgement before returning to ready. Main-owned IPC validates
+the exact renderer, origin, main frame, runtime version, generation and payload; preload exposes only
+the typed neutral `EngineRuntime`, revalidates every result/event and returns cleanup functions.
+Fake-child coverage exercises missing binaries, wrong token/version, partial and oversized framing,
+early exit, heartbeat hang, pipe failure, renderer reload, PID reuse, a foreign same-PID process and
+cleanup failure. `npm test`, `npm run check:rust` and the 19-step `npm run check:quick` pass; the
+locked prototype and complete light/dark reference matrix remain unchanged. No React, CSS, design
+token, geometry or prototype-reference file changed.
 
 ### Stage E — Desktop runtime composition and existing-command integration
 

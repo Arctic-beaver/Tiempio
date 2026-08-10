@@ -1,6 +1,8 @@
 import { engineProtocolVersion } from '../../../packages/contracts/src/index.js'
 
 export const nativeHostBootstrapVersion = 1 as const
+export const nativeHostTokenEnvironmentKey = 'TIEMPIO_NATIVE_HOST_TOKEN' as const
+export const nativeHostTokenBytes = 32 as const
 
 export const nativeHostOperationalLimits = Object.freeze({
 	startupTimeoutMs: 10_000,
