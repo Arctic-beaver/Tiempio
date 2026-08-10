@@ -578,142 +578,6 @@ button.note {
 	margin-top: 1.75rem;
 }
 
-.arrangement {
-	display: grid;
-	min-width: 43rem;
-	align-content: center;
-	gap: var(--ti-space-2);
-	padding: clamp(1rem, 3vw, 2.5rem);
-	overflow-x: auto;
-	border: var(--ti-hairline) solid var(--ti-border);
-	border-radius: var(--ti-radius-md);
-	background: var(--ti-surface-1);
-}
-
-.arrangement__sections,
-.arrangement__layer {
-	display: grid;
-	grid-template-columns: 7rem 0.8fr 1.6fr 0.8fr 0.8fr;
-	gap: var(--ti-space-2);
-}
-
-.arrangement__sections > div {
-	display: grid;
-	gap: 0.1rem;
-	padding: var(--ti-space-2);
-	border-bottom: var(--ti-hairline) solid var(--ti-border);
-}
-
-.arrangement__sections strong,
-.arrangement__sections small {
-	font-size: 0.62rem;
-}
-
-.arrangement__sections strong {
-	font-weight: 750;
-}
-
-.arrangement__sections small {
-	color: var(--ti-text-subtle);
-}
-
-.arrangement__layer {
-	align-items: stretch;
-}
-
-.arrangement__layer > strong {
-	display: flex;
-	align-items: center;
-	font-family: var(--ti-font-display);
-	font-size: 0.8rem;
-	font-weight: 400;
-}
-
-.arrangement__layer button {
-	min-height: 3.2rem;
-	border: var(--ti-hairline) dashed var(--ti-border);
-	border-radius: var(--ti-radius-sm);
-	background: transparent;
-	cursor: pointer;
-}
-
-.arrangement__layer button[aria-pressed="true"] {
-	border-style: solid;
-	border-color: var(--layer-color);
-	background:
-		repeating-linear-gradient(-45deg, transparent 0, transparent 0.45rem, color-mix(in srgb, var(--layer-color) 16%, transparent) 0.45rem, color-mix(in srgb, var(--layer-color) 16%, transparent) 0.9rem),
-		color-mix(in srgb, var(--layer-color) 12%, var(--ti-surface-1));
-}
-
-.sculpt-view__body {
-	display: grid;
-	grid-template-columns: minmax(15rem, 1fr) minmax(16rem, 0.8fr);
-	align-items: center;
-	gap: clamp(2rem, 6vw, 6rem);
-	padding: clamp(1rem, 3vw, 3rem);
-	border: var(--ti-hairline) solid var(--ti-border);
-	border-radius: var(--ti-radius-lg);
-	background: color-mix(in srgb, var(--ti-surface-1) 84%, transparent);
-}
-
-.sculpt-orbit {
-	position: relative;
-	display: grid;
-	width: min(100%, 24rem);
-	aspect-ratio: 1;
-	place-items: center;
-	justify-self: center;
-}
-
-.sculpt-orbit span {
-	position: absolute;
-	border: var(--ti-hairline) solid var(--ti-border);
-	border-radius: 50%;
-}
-
-.sculpt-orbit span:nth-child(1) {
-	inset: 3%;
-}
-
-.sculpt-orbit span:nth-child(2) {
-	inset: 19%;
-	border-color: color-mix(in srgb, var(--ti-accent) 55%, var(--ti-border));
-}
-
-.sculpt-orbit span:nth-child(3) {
-	inset: 34%;
-	background: var(--ti-accent-soft);
-}
-
-.sculpt-orbit::before,
-.sculpt-orbit::after {
-	position: absolute;
-	background: var(--ti-border);
-	content: "";
-}
-
-.sculpt-orbit::before {
-	width: 100%;
-	height: var(--ti-hairline);
-}
-
-.sculpt-orbit::after {
-	width: var(--ti-hairline);
-	height: 100%;
-}
-
-.sculpt-orbit strong {
-	z-index: 1;
-	font-family: var(--ti-font-display);
-	font-size: 1.8rem;
-	font-weight: 400;
-}
-
-.sculpt-view__controls {
-	display: grid;
-	gap: var(--ti-space-5);
-}
-
 .arrange-body {
 	display: grid;
 	min-height: 0;
@@ -1218,4 +1082,103 @@ button.note {
 .character-row.active .character-radio {
 	border-color: var(--ti-accent);
 	background: var(--ti-accent);
+}
+
+@media (max-width: 56.25rem) {
+	.piano-area {
+		grid-template-columns: 3rem minmax(0, 1fr);
+	}
+
+	.harmony-panel {
+		display: none;
+	}
+
+	.drum-layout {
+		grid-template-columns: 7.5rem minmax(0, 1fr);
+	}
+
+	.pattern-panel {
+		display: none;
+	}
+
+	.arrange-body {
+		grid-template-columns: 10rem minmax(0, 1fr);
+	}
+
+	.arrange-inspector {
+		display: none;
+	}
+
+	.sculpt-layout {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.character-panel {
+		display: none;
+	}
+}
+
+@media (max-width: 44.999rem) {
+	.editor-footer {
+		grid-template-columns: minmax(0, 1fr);
+		justify-items: center;
+	}
+
+	.footer-tools {
+		display: none;
+	}
+
+	.piano-area,
+	.drum-layout,
+	.arrange-body {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.piano-keys,
+	.drum-voices,
+	.arrange-tracks {
+		display: none;
+	}
+
+	.sculpt-main {
+		padding: 1.5rem;
+	}
+
+	.sculpt-controls {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 0.75rem;
+	}
+
+	.orbit-one {
+		width: min(72vw, 23rem);
+	}
+
+	.orbit-two {
+		width: min(54vw, 17rem);
+	}
+
+	.orbit-three {
+		width: min(36vw, 11rem);
+	}
+
+	.sculpt-wave {
+		width: min(84vw, 31rem);
+	}
+}
+
+@media (max-height: 34.999rem) {
+	.harmony-panel,
+	.pattern-panel,
+	.arrange-inspector,
+	.character-panel {
+		overflow-y: auto;
+	}
+
+	.sculpt-main {
+		overflow-y: auto;
+	}
+
+	.sculpt-visual {
+		min-height: 12rem;
+	}
 }

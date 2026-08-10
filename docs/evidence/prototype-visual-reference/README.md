@@ -54,3 +54,15 @@ Future work must:
 4. keep derived baselines and production diffs in a separate evidence directory;
 5. treat any mismatch between a PNG and the recorded HTML revision as a blocking reference change,
    not as permission to choose whichever appearance is easier to implement.
+
+## Restoration status
+
+As of 2026-08-10, all seven production states have been restored against this matrix on the
+`fix/restore-prototype-visuals` integration branch. Both schemes were reviewed in the in-app browser;
+the prototype's 900-pixel compact transition and a narrower reachable-control fallback were also
+checked. The HTML authority and all 14 files in this directory remain unchanged.
+
+Visual-only controls whose product behavior belongs to a later phase are deliberately disabled.
+They establish the prototype appearance without expanding this restoration task into audio,
+persistence or advanced editing work. Runtime-backed controls continue to show the actual project
+and engine availability rather than the prototype's demo success states.

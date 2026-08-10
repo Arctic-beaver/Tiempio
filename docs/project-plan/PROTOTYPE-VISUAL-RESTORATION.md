@@ -368,3 +368,29 @@ The combined integration branch runs, sequentially:
 - The integration branch contains focused atomic stage commits, no unrelated changes, no running
   task-owned process, no lifecycle lock and no cleanup quarantine, and is ready for explicit review
   rather than automatically merged or pushed.
+
+## Implementation record — 2026-08-10
+
+The restoration is implemented on `fix/restore-prototype-visuals`. The immutable authority remains
+[`docs/tiempio_ux_prototype.html`](../tiempio_ux_prototype.html); implementation work did not modify
+that file. The committed light/dark witnesses remain the secondary review evidence.
+
+- The shared window, title bar, activity rail, state-local top bars, transport and truthful audio
+  status now use the prototype composition and semantic tokens.
+- Home, First Layer, Sound Chooser, Piano Roll, Drums, Arrangement and Sound Sculpt reproduce the
+  prototype's state-specific geometry, typography, hierarchy, controls and light/dark treatments.
+- Existing phase-four project and editor commands remain wired. Prototype controls for later phases
+  are present only as disabled, labelled visual states and do not invent audio, save or editing
+  success.
+- The prototype's 900-pixel compact transition is preserved for all seven composition families;
+  an additional narrow-window layout keeps navigation and the active primary tool reachable.
+- EN, RU and ES were inspected for representative overflow. The shared `Select`, popover, focus and
+  semantic scrollbar treatments remain application-owned and theme-aware.
+- Direct browser review covered the seven standard states across the two color schemes plus 900 ×
+  820 and 700 × 760 responsive scenarios. No application-owned region is masked from review.
+- The visual contract locks the prototype SHA-256, all 14 reference PNG hashes, seven state names,
+  production/harness boundary and the compact composition selectors.
+
+Implementation commits are intentionally staged by surface: `4726809`, `80f0ef2`, `2c1b841` and
+`f0b5e81`, preceded by the plan and reference-contract commits. Final responsive and acceptance work
+is recorded in the subsequent Stage F commit.

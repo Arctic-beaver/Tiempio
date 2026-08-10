@@ -1,124 +1,123 @@
-@media (max-width: 74.999rem) {
-	.studio-shell__content-grid {
-		grid-template-columns: 13rem minmax(0, 1fr);
+/* The prototype collapses state-local secondary panels at a 56.25rem app viewport. */
+@media (max-width: 56.25rem) {
+	.studio-shell[data-application-target="web"] {
+		width: calc(100% - 1rem);
+		height: calc(100dvh - 1rem);
+		margin: 0.5rem;
 	}
 
-	.studio-shell__context {
+	.home {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.recent-panel {
 		display: none;
 	}
 
-	.title-bar__context-control {
-		display: block;
+	.project-space,
+	.chooser-layout {
+		grid-template-columns: 10rem minmax(0, 1fr);
 	}
 
-	.sound-chooser-view__grid {
-		grid-template-columns: repeat(2, minmax(12rem, 1fr));
+	.semantic-panel {
+		display: none;
 	}
 }
 
+/* Below the prototype's documented range, keep every primary tool reachable. */
 @media (max-width: 44.999rem) {
 	.studio-shell {
 		grid-template-rows: 3rem minmax(0, 1fr);
 	}
 
 	.title-bar {
+		height: 3rem;
 		grid-template-columns: auto minmax(0, 1fr) auto;
 	}
 
-	.title-bar__compact-control,
-	.title-bar__context-control {
+	.title-bar__compact-control {
 		display: block;
-	}
-
-	.title-bar__target {
-		display: none;
 	}
 
 	.title-bar__identity {
 		justify-self: center;
 	}
 
+	.title-bar__window-controls {
+		gap: 0.5rem;
+	}
+
 	.studio-shell__body {
 		grid-template-columns: minmax(0, 1fr);
 	}
 
-	.studio-shell__body > .activity-rail,
-	.studio-shell__layers {
+	.studio-shell__body > .activity-rail {
 		display: none;
 	}
 
-	.studio-shell__content-grid {
+	.topbar {
+		height: auto;
+		min-height: 4rem;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+	}
+
+	.topbar > .transport {
+		grid-column: 1 / -1;
+		grid-row: 2;
+		justify-self: center;
+	}
+
+	.top-right {
+		grid-column: 2;
+		grid-row: 1;
+	}
+
+	.project-space,
+	.chooser-layout {
 		grid-template-columns: minmax(0, 1fr);
 	}
 
-	.transport-bar {
-		padding: 0 var(--ti-space-2);
-	}
-
-	.transport-bar__position,
-	.transport-bar__tempo,
-	.transport-bar__audio {
+	.layer-list,
+	.chooser-categories {
 		display: none;
 	}
 
-	.studio-view {
-		padding: var(--ti-space-5) var(--ti-space-4);
+	.home-main,
+	.sound-stage {
+		padding: 1.5rem;
 	}
 
-	.home-view,
-	.first-layer-view,
-	.sculpt-view__body {
-		grid-template-columns: minmax(0, 1fr);
+	.home h1 {
+		font-size: clamp(2.5rem, 13vw, 4rem);
 	}
 
-	.home-view {
-		align-content: start;
-	}
-
-	.first-layer-view {
-		align-content: start;
-	}
-
-	.first-layer-view__roles,
-	.sound-chooser-view__grid {
-		grid-template-columns: minmax(0, 1fr);
-	}
-
-	.sound-chooser-view__heading {
-		grid-template-columns: minmax(0, 1fr);
-	}
-
-	.editor-view__heading {
-		align-items: start;
+	.sound-title {
 		flex-direction: column;
 	}
 
-	.editor-view,
-	.sculpt-view {
-		grid-template-rows: auto minmax(20rem, 1fr) auto;
+	.preset-lines {
+		grid-template-columns: minmax(0, 1fr);
 	}
 
-	.sculpt-orbit {
-		width: min(15rem, 70vw);
+	.footer-guidance > span:last-child,
+	.key-hint {
+		display: none;
 	}
 }
 
 @media (max-height: 34.999rem) {
-	.studio-shell {
-		grid-template-rows: 2.4rem minmax(0, 1fr);
+	.home-main,
+	.sound-stage {
+		overflow-y: auto;
 	}
 
-	.studio-shell__work-area {
-		grid-template-rows: 3rem minmax(0, 1fr);
+	.home-main {
+		justify-content: flex-start;
 	}
 
-	.layers-panel > footer,
-	.context-panel__note,
-	.studio-hint {
+	.footer-guidance {
 		display: none;
-	}
-
-	.studio-view {
-		padding-block: var(--ti-space-4);
 	}
 }

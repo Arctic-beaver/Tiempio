@@ -8,6 +8,14 @@ const repositoryRoot = resolve('.')
 const evidenceRoot = resolve(repositoryRoot, 'docs/evidence/prototype-visual-reference')
 const manifestPath = resolve(evidenceRoot, 'manifest.json')
 const prototypePath = resolve(repositoryRoot, 'docs/tiempio_ux_prototype.html')
+const responsiveStylesPath = resolve(
+	repositoryRoot,
+	'packages/application/src/app/styles/responsive.css'
+)
+const editorStylesPath = resolve(
+	repositoryRoot,
+	'packages/application/src/app/styles/editor-views.css'
+)
 
 function sha256(bytes) {
 	return createHash('sha256').update(bytes).digest('hex').toUpperCase()
@@ -77,4 +85,32 @@ test('keeps documentation harness classes out of production application sources'
 	for (const harnessClass of ['prototype-shell', 'prototype-bar', 'state-tabs', 'ux-note']) {
 		assert.doesNotMatch(source, new RegExp(harnessClass, 'u'))
 	}
+})
+
+test('preserves the prototype compact transition for every composition family', async () => {
+	const responsiveStyles = await readFile(responsiveStylesPath, 'utf8')
+	const editorStyles = await readFile(editorStylesPath, 'utf8')
+	for (const selector of [
+		'.home',
+		'.recent-panel',
+		'.project-space',
+		'.chooser-layout',
+		'.semantic-panel'
+	]) {
+		assert.match(responsiveStyles, new RegExp(`\\${selector}`, 'u'), selector)
+	}
+	for (const selector of [
+		'.piano-area',
+		'.harmony-panel',
+		'.drum-layout',
+		'.pattern-panel',
+		'.arrange-body',
+		'.arrange-inspector',
+		'.sculpt-layout',
+		'.character-panel'
+	]) {
+		assert.match(editorStyles, new RegExp(`\\${selector}`, 'u'), selector)
+	}
+	assert.match(responsiveStyles, /@media \(max-width: 56\.25rem\)/u)
+	assert.match(editorStyles, /@media \(max-width: 56\.25rem\)/u)
 })

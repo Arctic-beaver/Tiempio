@@ -85,6 +85,7 @@ test('rejects command controls that present invented runtime behavior', () => {
 
 test('keeps application, projector and style facades as composition roots', () => {
 	const valid = {
+		editorSurfaceSource: "import '../styles/editor-views.css'",
 		studioApplicationSource:
 			'useStudioNavigation() useTransportCommandHandlers() <ActiveStudioView <CommandProvider',
 		projectorFacadeSource:
@@ -92,7 +93,6 @@ test('keeps application, projector and style facades as composition roots', () =
 		styleFacadeSource: [
 			"@import './styles/shell-layout.css';",
 			"@import './styles/workflow-views.css';",
-			"@import './styles/editor-views.css';",
 			"@import './styles/drawers.css';",
 			"@import './styles/responsive.css';"
 		].join('\n')
@@ -100,6 +100,7 @@ test('keeps application, projector and style facades as composition roots', () =
 	assert.deepEqual(validateApplicationComposition(valid), [])
 	const invalid = {
 		...valid,
+		editorSurfaceSource: '',
 		studioApplicationSource: `${valid.studioApplicationSource} projectSession.dispatch(`,
 		projectorFacadeSource: `${valid.projectorFacadeSource} drumRows`,
 		styleFacadeSource: `${valid.styleFacadeSource}\n.studio-shell {}`
@@ -108,4 +109,5 @@ test('keeps application, projector and style facades as composition roots', () =
 	assert.match(errors, /owns implementation detail/u)
 	assert.match(errors, /owns feature detail/u)
 	assert.match(errors, /only the ordered owned style imports/u)
+	assert.match(errors, /deferred editor stylesheet/u)
 })

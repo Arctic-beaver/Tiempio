@@ -151,6 +151,7 @@ export function validateUiFoundation({
 }
 
 export function validateApplicationComposition({
+	editorSurfaceSource,
 	projectorFacadeSource,
 	studioApplicationSource,
 	styleFacadeSource
@@ -201,7 +202,6 @@ export function validateApplicationComposition({
 	const expectedStyleImports = [
 		'./styles/shell-layout.css',
 		'./styles/workflow-views.css',
-		'./styles/editor-views.css',
 		'./styles/drawers.css',
 		'./styles/responsive.css'
 	]
@@ -211,6 +211,9 @@ export function validateApplicationComposition({
 		styleImports.some((value, index) => value !== expectedStyleImports[index])
 	) {
 		errors.push('studio style facade must contain only the ordered owned style imports')
+	}
+	if (!editorSurfaceSource.includes("import '../styles/editor-views.css'")) {
+		errors.push('lazy editor surface must own its deferred editor stylesheet')
 	}
 	return errors.sort()
 }
@@ -247,6 +250,10 @@ export function auditUiFoundation({ repositoryRoot = resolve('.'), report = cons
 	})
 	errors.push(
 		...validateApplicationComposition({
+			editorSurfaceSource: readFileSync(
+				resolve(repositoryRoot, 'packages/application/src/app/surfaces/EditorSurface.tsx'),
+				'utf8'
+			),
 			projectorFacadeSource: readFileSync(
 				resolve(repositoryRoot, 'packages/application/src/project/projectors.ts'),
 				'utf8'
