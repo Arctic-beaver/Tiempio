@@ -78,6 +78,31 @@ function validEventPayload(type: EngineEventType, value: unknown): boolean {
 			finiteRange(value.rightPeak, 0, 1)
 		)
 	}
+	if (type === 'audio-devices-changed') {
+		return (
+			exactKeys(value, ['devices']) &&
+			Array.isArray(value.devices) &&
+			value.devices.length <= engineProtocolLimits.maxBatchItems &&
+			value.devices.filter((device) => record(device) && device.default === true).length <=
+				1 &&
+			new Set(
+				value.devices.flatMap((device) =>
+					record(device) && typeof device.id === 'string' ? [device.id] : []
+				)
+			).size === value.devices.length &&
+			value.devices.every(
+				(device) =>
+					record(device) &&
+					exactKeys(device, ['default', 'id', 'label']) &&
+					typeof device.default === 'boolean' &&
+					validIdentifier(device.id) &&
+					typeof device.label === 'string' &&
+					device.label.length > 0 &&
+					new TextEncoder().encode(device.label).byteLength <=
+						engineProtocolLimits.maxIdentifierBytes
+			)
+		)
+	}
 	if (type === 'active-device-changed') {
 		return (
 			exactKeys(value, ['deviceId']) &&

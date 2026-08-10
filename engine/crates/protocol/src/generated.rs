@@ -47,6 +47,7 @@ pub const ENGINE_EVENT_TYPES: &[&str] = &[
     "render-plan-acknowledged",
     "transport-snapshot",
     "meter-snapshot",
+    "audio-devices-changed",
     "active-device-changed",
     "midi-captured",
     "diagnostic",

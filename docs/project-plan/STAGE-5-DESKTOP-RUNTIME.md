@@ -5,8 +5,8 @@
 This document is the implementation plan for Stage 5 of
 `APPLICATION_SKELETON.md`.
 
-**Implementation status:** in progress. Stages A and B are complete; Stage C native shared-audio
-host work is next.
+**Implementation status:** in progress. Stages A through C are complete; Stage D Desktop engine
+supervision is next.
 
 **Task integration branch:** `feature/skeleton-desktop-runtime`.
 
@@ -450,6 +450,9 @@ does not turn a unit test into a flaky performance gate.
 - Native audio uses exactly `cpal 0.17.3` with default features disabled. CPAL is Apache-2.0
   licensed, exposes WASAPI as its Windows backend and remains isolated in the Rust `native-host`
   crate. ASIO, JACK, Web Audio and optional real-time-priority features are not enabled.
+- Native callback exchange uses exactly `rtrb 0.3.4` with default features disabled. Its bounded
+  wait-free SPSC queues are isolated in `native-host`; allocation happens before stream start and
+  full queues fail explicitly without blocking the callback. It is dual MIT/Apache-2.0 licensed.
 - Physical project compression uses exactly `fflate 0.8.3` in Electron main. It is MIT licensed,
   has no runtime dependencies and provides bounded streaming ZIP/DEFLATE primitives. It is not
   imported by the renderer, Web target or shared application.
@@ -462,6 +465,7 @@ does not turn a unit test into a flaky performance gate.
 Primary references:
 
 - `https://github.com/RustAudio/cpal`;
+- `https://github.com/mgeier/rtrb`;
 - `https://www.npmjs.com/package/fflate`.
 
 ## Delivery stages
@@ -561,6 +565,18 @@ neutral facts for localization by the existing application surface.
 **Stage exit:** the standalone supervised test harness can handshake, load a real Bass plan, start
 shared output, audition, stop and shut down while retaining Stage 4 deterministic and real-time
 invariants.
+
+**Implementation record — 2026-08-10:** complete. The standalone Rust host now owns strict framed
+stdin/stdout protocol I/O, a native-host session profile, truthful capabilities, typed device and
+health events, shared-output configuration negotiation and F32/I16/U16 conversion. Windows uses
+CPAL's normal WASAPI shared path; opaque stable device IDs keep backend handles private. The device
+callback owns the production `EngineKernel` and `Deep` Bass pool, uses preallocated scratch space
+and bounded wait-free `rtrb` exchanges, reclaims retired plans on the control thread and emits
+bounded observations through a non-realtime writer. Controlled null-backend coverage performs a
+real framed handshake, plan activation, audition, heartbeat, stop and shutdown; allocation
+instrumentation reports zero callback allocations/deallocations. `npm run check:rust`, release
+`npm run check:audio` and `npm run check:quick` pass, and the post-run lifecycle audit is clean. No
+React, CSS, design token, geometry or prototype-reference file changed.
 
 ### Stage D — EngineHostSupervisor and typed Desktop bridge
 

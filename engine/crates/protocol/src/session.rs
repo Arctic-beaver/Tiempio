@@ -16,6 +16,9 @@ pub struct ProtocolSession {
     state: ProtocolSessionState,
     last_sequence: Option<u64>,
     highest_plan_revision: Option<RenderPlanRevision>,
+    native_audio_available: bool,
+    native_audio_negotiated: bool,
+    audio_devices_negotiated: bool,
 }
 
 impl Default for ProtocolSession {
@@ -31,6 +34,22 @@ impl ProtocolSession {
             state: ProtocolSessionState::AwaitingHandshake,
             last_sequence: None,
             highest_plan_revision: None,
+            native_audio_available: false,
+            native_audio_negotiated: false,
+            audio_devices_negotiated: false,
+        }
+    }
+
+    /// Creates a session that can negotiate the Stage 5 native shared-audio commands.
+    #[must_use]
+    pub const fn native_host() -> Self {
+        Self {
+            state: ProtocolSessionState::AwaitingHandshake,
+            last_sequence: None,
+            highest_plan_revision: None,
+            native_audio_available: true,
+            native_audio_negotiated: false,
+            audio_devices_negotiated: false,
         }
     }
 
@@ -109,7 +128,19 @@ impl ProtocolSession {
         }
         self.last_sequence = Some(envelope.sequence);
         match &envelope.command {
-            EngineCommand::Handshake(_) => self.state = ProtocolSessionState::Ready,
+            EngineCommand::Handshake(handshake) => {
+                self.native_audio_negotiated = self.native_audio_available
+                    && handshake
+                        .capabilities
+                        .iter()
+                        .any(|capability| capability == "audio.native.shared");
+                self.audio_devices_negotiated = self.native_audio_available
+                    && handshake
+                        .capabilities
+                        .iter()
+                        .any(|capability| capability == "audio.devices");
+                self.state = ProtocolSessionState::Ready;
+            }
             EngineCommand::LoadRenderPlan(plan) => {
                 if self
                     .highest_plan_revision
@@ -122,12 +153,17 @@ impl ProtocolSession {
                 }
                 self.highest_plan_revision = Some(plan.project_revision);
             }
+            EngineCommand::ConfigureAudio(_)
+            | EngineCommand::StartAudio
+            | EngineCommand::StopAudio
+                if self.native_audio_negotiated => {}
+            EngineCommand::RefreshDevices if self.audio_devices_negotiated => {}
             EngineCommand::ApplyRenderPlanDelta(_)
+            | EngineCommand::PreviewMacro(_)
+            | EngineCommand::CommitMacro(_)
             | EngineCommand::ConfigureAudio(_)
             | EngineCommand::StartAudio
             | EngineCommand::StopAudio
-            | EngineCommand::PreviewMacro(_)
-            | EngineCommand::CommitMacro(_)
             | EngineCommand::RefreshDevices => {
                 return Err(ProtocolError::new(
                     ProtocolDiagnostic::UnsupportedCommand,
@@ -251,5 +287,48 @@ mod tests {
             ProtocolDiagnostic::StaleRevision
         );
         assert_eq!(session.state(), ProtocolSessionState::Ready);
+    }
+
+    #[test]
+    fn native_host_profile_accepts_only_the_negotiated_audio_surface() {
+        let mut session = ProtocolSession::native_host();
+        session
+            .accept_body(&command(
+                0,
+                "handshake",
+                &json!({
+                    "protocolVersion": ENGINE_PROTOCOL_VERSION,
+                    "peer": "application",
+                    "renderPlanVersion": 1,
+                    "patchModelVersion": 1,
+                    "capabilities": [
+                        "protocol.typed-json",
+                        "audio.native.shared",
+                        "audio.devices"
+                    ]
+                }),
+            ))
+            .unwrap();
+        session
+            .accept_body(&command(
+                1,
+                "configure-audio",
+                &json!({ "sampleRate": 48_000, "blockFrames": 128, "channels": 2 }),
+            ))
+            .unwrap();
+        session
+            .accept_body(&command(2, "refresh-devices", &json!({})))
+            .unwrap();
+        assert_eq!(session.state(), ProtocolSessionState::Ready);
+
+        let mut unnegotiated = ProtocolSession::native_host();
+        unnegotiated.accept_body(&handshake(0)).unwrap();
+        assert_eq!(
+            unnegotiated
+                .accept_body(&command(1, "start-audio", &json!({})))
+                .unwrap_err()
+                .diagnostic,
+            ProtocolDiagnostic::UnsupportedCommand
+        );
     }
 }

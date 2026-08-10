@@ -119,6 +119,13 @@ export interface EngineEventPayloadByType {
 		readonly tick: number
 	}
 	readonly 'meter-snapshot': { readonly leftPeak: number; readonly rightPeak: number }
+	readonly 'audio-devices-changed': {
+		readonly devices: readonly {
+			readonly default: boolean
+			readonly id: string
+			readonly label: string
+		}[]
+	}
 	readonly 'active-device-changed': { readonly deviceId: string | null }
 	readonly 'midi-captured': {
 		readonly pitch: number

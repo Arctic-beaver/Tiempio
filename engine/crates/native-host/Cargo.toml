@@ -7,11 +7,16 @@ publish.workspace = true
 
 [dependencies]
 cpal.workspace = true
+rtrb.workspace = true
+serde_json.workspace = true
 tiempio-engine-core = { path = "../core" }
 tiempio-engine-drums = { path = "../drums" }
 tiempio-engine-dsp = { path = "../dsp" }
 tiempio-engine-protocol = { path = "../protocol" }
 tiempio-engine-synth = { path = "../synth" }
+
+[dev-dependencies]
+allocation-counter = "=0.8.1"
 
 [lints]
 workspace = true

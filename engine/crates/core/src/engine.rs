@@ -142,6 +142,22 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
     ///
     /// Returns a stable error for sample-rate mismatch or a stale generation/revision.
     pub fn publish_plan(&mut self, plan: PreparedPlan) -> Result<(), EngineControlError> {
+        self.publish_plan_reclaiming(plan).map(|_| ())
+    }
+
+    /// Publishes a prepared plan and returns storage retired from the inactive slot.
+    ///
+    /// This is the native-host boundary for real-time-safe plan exchange: the audio callback can
+    /// move the retired allocation into a bounded reclamation queue so it is dropped later on the
+    /// control thread.
+    ///
+    /// # Errors
+    ///
+    /// Returns a stable error for sample-rate mismatch or a stale generation/revision.
+    pub fn publish_plan_reclaiming(
+        &mut self,
+        plan: PreparedPlan,
+    ) -> Result<Option<PreparedPlan>, EngineControlError> {
         let revision = plan.plan().project_revision.value();
         if plan.timeline().sample_rate() != self.configuration.sample_rate() {
             return Err(EngineControlError::ConfigurationMismatch);
@@ -160,11 +176,12 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
             Some(_) => 0,
             None => self.pending_slot.unwrap_or(0),
         };
+        let retired = self.plans[slot].take();
         self.plans[slot] = Some(plan);
         self.pending_slot = Some(slot);
         self.highest_generation = self.plans[slot].as_ref().map(PreparedPlan::generation);
         self.highest_revision = Some(revision);
-        Ok(())
+        Ok(retired)
     }
 
     /// Starts scheduled playback at an absolute musical tick.
@@ -623,5 +640,26 @@ mod tests {
         engine.render_block(&mut [StereoFrame::default(); 1]);
         assert_eq!(engine.take_plan_acknowledgement(), None);
         assert_eq!(engine.health_snapshot().plan_swaps, 1);
+    }
+
+    #[test]
+    fn returns_inactive_plan_storage_for_control_thread_reclamation() {
+        let configuration = DspConfiguration::new(48_000, 64).expect("valid config");
+        let mut engine = EngineKernel::new(configuration, TestVoiceBank::default());
+        engine
+            .publish_plan(PreparedPlan::prepare(test_plan_with_revision(1), 48_000, 1).unwrap())
+            .unwrap();
+        engine.render_block(&mut [StereoFrame::default(); 1]);
+        engine
+            .publish_plan(PreparedPlan::prepare(test_plan_with_revision(2), 48_000, 2).unwrap())
+            .unwrap();
+        engine.render_block(&mut [StereoFrame::default(); 1]);
+        let retired = engine
+            .publish_plan_reclaiming(
+                PreparedPlan::prepare(test_plan_with_revision(3), 48_000, 3).unwrap(),
+            )
+            .unwrap()
+            .expect("inactive plan storage is returned");
+        assert_eq!(retired.plan().project_revision.value(), 1);
     }
 }

@@ -50,6 +50,7 @@ export const engineEventTypes = Object.freeze([
 	'render-plan-acknowledged',
 	'transport-snapshot',
 	'meter-snapshot',
+	'audio-devices-changed',
 	'active-device-changed',
 	'midi-captured',
 	'diagnostic',

@@ -89,6 +89,9 @@ pub enum EngineEvent {
         #[serde(rename = "rightPeak")]
         right_peak: f64,
     },
+    AudioDevicesChanged {
+        devices: Vec<AudioDeviceDescriptor>,
+    },
     ActiveDeviceChanged {
         #[serde(rename = "deviceId")]
         device_id: Option<String>,
@@ -151,6 +154,14 @@ pub enum EngineEvent {
         code: String,
         message: String,
     },
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioDeviceDescriptor {
+    pub id: String,
+    pub label: String,
+    pub default: bool,
 }
 
 fn valid_audio_health(event: &EngineEvent) -> bool {
@@ -225,6 +236,19 @@ fn validate_event(event: &EngineEvent) -> Result<(), ProtocolError> {
                 && right_peak.is_finite()
                 && (0.0..=1.0).contains(left_peak)
                 && (0.0..=1.0).contains(right_peak)
+        }
+        EngineEvent::AudioDevicesChanged { devices } => {
+            let mut unique = BTreeSet::new();
+            let mut default_count = 0_usize;
+            devices.len() <= ENGINE_PROTOCOL_MAX_BATCH_ITEMS
+                && devices.iter().all(|device| {
+                    default_count += usize::from(device.default);
+                    valid_identifier(&device.id)
+                        && !device.label.is_empty()
+                        && device.label.len() <= ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES
+                        && unique.insert(device.id.as_str())
+                        && default_count <= 1
+                })
         }
         EngineEvent::ActiveDeviceChanged { device_id } => {
             device_id.as_deref().is_none_or(valid_identifier)
@@ -343,5 +367,52 @@ mod tests {
         assert_eq!(value["sequence"], 3);
         assert_eq!(value["type"], "render-plan-acknowledged");
         assert_eq!(value["payload"]["projectRevision"], 7);
+    }
+
+    #[test]
+    fn validates_unique_bounded_audio_device_descriptors() {
+        let device = AudioDeviceDescriptor {
+            id: "device.default".to_owned(),
+            label: "Primary output".to_owned(),
+            default: true,
+        };
+        assert!(
+            encode_event_body(
+                1,
+                &EngineEvent::AudioDevicesChanged {
+                    devices: vec![device.clone()],
+                },
+            )
+            .is_ok()
+        );
+        assert!(
+            encode_event_body(
+                2,
+                &EngineEvent::AudioDevicesChanged {
+                    devices: vec![device.clone(), device],
+                },
+            )
+            .is_err()
+        );
+        assert!(
+            encode_event_body(
+                3,
+                &EngineEvent::AudioDevicesChanged {
+                    devices: vec![
+                        AudioDeviceDescriptor {
+                            id: "device.one".to_owned(),
+                            label: "First".to_owned(),
+                            default: true,
+                        },
+                        AudioDeviceDescriptor {
+                            id: "device.two".to_owned(),
+                            label: "Second".to_owned(),
+                            default: true,
+                        },
+                    ],
+                },
+            )
+            .is_err()
+        );
     }
 }

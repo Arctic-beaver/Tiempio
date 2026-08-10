@@ -10,7 +10,7 @@ mod wire;
 use std::fmt::{Display, Formatter};
 
 pub use command::{EngineCommand, EngineCommandEnvelope, decode_command_body};
-pub use event::{EngineEvent, ProtocolLimits, encode_event_body};
+pub use event::{AudioDeviceDescriptor, EngineEvent, ProtocolLimits, encode_event_body};
 pub use frame::{IncrementalFrameDecoder, decode_frame, encode_frame};
 pub use generated::*;
 pub use session::{ProtocolSession, ProtocolSessionState};

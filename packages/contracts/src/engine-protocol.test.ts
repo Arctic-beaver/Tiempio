@@ -126,4 +126,35 @@ describe('engine protocol contracts', () => {
 			true
 		)
 	})
+
+	it('validates opaque unique audio-device descriptors', () => {
+		const event = {
+			protocolVersion: engineProtocolVersion,
+			sequence: 3,
+			type: 'audio-devices-changed',
+			payload: {
+				devices: [
+					{ default: true, id: 'device.default', label: 'Primary output' },
+					{ default: false, id: 'device.secondary', label: 'Secondary output' }
+				]
+			}
+		} as const
+		assert.equal(validateEngineEventEnvelope(event).ok, true)
+		assert.equal(
+			validateEngineEventEnvelope({
+				...event,
+				payload: { devices: [event.payload.devices[0], event.payload.devices[0]] }
+			}).ok,
+			false
+		)
+		assert.equal(
+			validateEngineEventEnvelope({
+				...event,
+				payload: {
+					devices: event.payload.devices.map((device) => ({ ...device, default: true }))
+				}
+			}).ok,
+			false
+		)
+	})
 })
