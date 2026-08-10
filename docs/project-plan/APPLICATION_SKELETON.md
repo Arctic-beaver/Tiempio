@@ -2,15 +2,17 @@
 
 ## Status and ownership
 
-**Status:** implementation completed through Stage 4; Stages 5-8 have not started.
+**Status:** implementation and pre-Stage-5 architecture alignment completed through Stage 4;
+Stages 5-8 have not started.
 
 **Original planned integration branch:** `feature/application-skeleton`.
 
 The original integration branch remains at the approved planning baseline. In the local repository,
 the reviewed Stage 0-4 task branches were integrated by sequential fast-forwards into `main`, ending
-at Stage 4 revision `d835cf9`. That history is retained rather than rewritten. Architecture
-alignment before Stage 5 is owned by `docs/project-plan/ARCHITECTURE-ALIGNMENT.md` and branch
-`fix/architecture-alignment`.
+at Stage 4 revision `d835cf9`. That history is retained rather than rewritten. The corrective
+architecture alignment before Stage 5 was completed through
+`docs/project-plan/ARCHITECTURE-ALIGNMENT.md` on branch `fix/architecture-alignment`; it does not
+implement or claim any Stage 5 runtime behavior.
 
 | Stage | Current state |
 | --- | --- |

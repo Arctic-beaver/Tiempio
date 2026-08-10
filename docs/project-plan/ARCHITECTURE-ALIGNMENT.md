@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**Status:** implementation in progress.
+**Status:** completed on 2026-08-10.
 
 **Task integration branch:** `fix/architecture-alignment`.
 
@@ -15,6 +15,17 @@ implementing Desktop audio, Web AudioWorklet hosting, physical project persisten
 audible vertical slice.
 
 Yinkie remains read-only reference material. Nothing in this task runs in or modifies Yinkie.
+
+## Completion record
+
+Stages A-H were implemented on their recorded task branches and fast-forwarded into
+`fix/architecture-alignment`. The accepted result is documented in
+`docs/evidence/ARCHITECTURE-ALIGNMENT.md`.
+
+The alignment keeps the implemented boundary at Stage 4: shared in-memory editing, logical project
+format, typed engine contracts and deterministic offline DSP are present. Desktop engine
+supervision, Web AudioWorklet activation, live playback and durable target persistence remain Stage
+5-7 work and stay unavailable in the shell.
 
 ## Required outcomes
 
