@@ -1,0 +1,80 @@
+import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+import { readFile, readdir } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import test from 'node:test'
+
+const repositoryRoot = resolve('.')
+const evidenceRoot = resolve(repositoryRoot, 'docs/evidence/prototype-visual-reference')
+const manifestPath = resolve(evidenceRoot, 'manifest.json')
+const prototypePath = resolve(repositoryRoot, 'docs/tiempio_ux_prototype.html')
+
+function sha256(bytes) {
+	return createHash('sha256').update(bytes).digest('hex').toUpperCase()
+}
+
+async function sourceFiles(directory) {
+	const entries = await readdir(directory, { withFileTypes: true })
+	const files = await Promise.all(
+		entries.map(async (entry) => {
+			const path = resolve(directory, entry.name)
+			return entry.isDirectory() ? sourceFiles(path) : [path]
+		})
+	)
+	return files.flat()
+}
+
+test('locks the exact prototype revision and its seven application states', async () => {
+	const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+	const prototype = await readFile(prototypePath)
+	assert.equal(sha256(prototype), manifest.referenceSha256)
+
+	const source = prototype.toString('utf8')
+	const states = [...source.matchAll(/data-screen="([^"]+)"/gu)].map((match) => match[1])
+	assert.deepEqual(states, ['home', 'empty', 'sound', 'piano', 'drums', 'arrange', 'sculpt'])
+	assert.match(source, /<section class="app-window" id="appWindow">/u)
+})
+
+test('preserves the complete light and dark reference capture matrix', async () => {
+	const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+	assert.equal(manifest.images.length, 14)
+
+	const expectedStates = [
+		'home',
+		'first-layer',
+		'sound-chooser',
+		'piano-roll',
+		'drums',
+		'arrangement',
+		'sound-sculpt'
+	]
+	for (const scheme of ['light', 'dark']) {
+		assert.deepEqual(
+			manifest.images.filter((image) => image.scheme === scheme).map((image) => image.state),
+			expectedStates
+		)
+	}
+
+	for (const image of manifest.images) {
+		const bytes = await readFile(resolve(evidenceRoot, image.path))
+		assert.equal(bytes.length, image.bytes, image.path)
+		assert.equal(sha256(bytes), image.sha256, image.path)
+		assert.equal(bytes.subarray(1, 4).toString('ascii'), 'PNG', image.path)
+		assert.equal(bytes.readUInt32BE(16), image.width, image.path)
+		assert.equal(bytes.readUInt32BE(20), image.height, image.path)
+	}
+})
+
+test('keeps documentation harness classes out of production application sources', async () => {
+	const files = await sourceFiles(resolve(repositoryRoot, 'packages/application/src'))
+	const source = (
+		await Promise.all(
+			files
+				.filter((path) => /\.(?:css|ts|tsx)$/u.test(path))
+				.map((path) => readFile(path, 'utf8'))
+		)
+	).join('\n')
+	for (const harnessClass of ['prototype-shell', 'prototype-bar', 'state-tabs', 'ux-note']) {
+		assert.doesNotMatch(source, new RegExp(harnessClass, 'u'))
+	}
+})

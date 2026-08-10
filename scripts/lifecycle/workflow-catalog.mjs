@@ -60,6 +60,7 @@ const repositoryScriptTestFiles = Object.freeze([
 	resolve('scripts/chunk-topology.test.mjs'),
 	resolve('scripts/dependency-policy.test.mjs'),
 	resolve('scripts/package-content-policy.test.mjs'),
+	resolve('scripts/prototype-visual-contract.test.mjs'),
 	resolve('scripts/protocol-generation.test.mjs'),
 	resolve('scripts/security-policy.test.mjs'),
 	resolve('scripts/target-boundary-policy.test.mjs'),

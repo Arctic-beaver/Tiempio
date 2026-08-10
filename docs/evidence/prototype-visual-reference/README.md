@@ -43,6 +43,9 @@ overwriting or transforming these raw files.
 [`manifest.json`](manifest.json) records the semantic state, scheme, dimensions, pixel format, byte
 length and SHA-256 of every committed PNG.
 
+[`component-map.md`](component-map.md) assigns every visible application region to a production
+component and records which existing command or project authority it must preserve.
+
 Future work must:
 
 1. read the restoration plan and prototype HTML before interpreting a screenshot;
