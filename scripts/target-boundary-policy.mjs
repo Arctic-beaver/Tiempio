@@ -1,5 +1,6 @@
-import { readdir, readFile } from 'node:fs/promises'
-import { posix, relative, resolve, sep } from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
+import { posix, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { requireLifecycleOwnership } from './lifecycle/ownership-guard.mjs'
 
@@ -29,6 +30,36 @@ const requiredPaths = Object.freeze([
 	'engine/crates/native-host/Cargo.toml',
 	'engine/crates/web-worklet/Cargo.toml'
 ])
+const allowedPackageDependencies = Object.freeze({
+	application: Object.freeze([
+		'contracts',
+		'design-system',
+		'engine-client',
+		'localization',
+		'music-theory',
+		'project-core'
+	]),
+	contracts: Object.freeze([]),
+	'design-system': Object.freeze([]),
+	'engine-client': Object.freeze(['contracts']),
+	localization: Object.freeze([]),
+	'music-theory': Object.freeze([]),
+	'project-core': Object.freeze(['contracts']),
+	'project-format': Object.freeze(['project-core'])
+})
+const allowedRustCrateDependencies = Object.freeze({
+	core: Object.freeze(['dsp']),
+	drums: Object.freeze(['core', 'dsp']),
+	dsp: Object.freeze([]),
+	'native-host': Object.freeze(['core', 'drums', 'dsp', 'protocol', 'synth']),
+	'offline-render': Object.freeze(['core', 'drums', 'dsp', 'protocol', 'synth']),
+	protocol: Object.freeze(['core']),
+	synth: Object.freeze(['core', 'dsp']),
+	'web-worklet': Object.freeze(['core', 'drums', 'dsp', 'protocol', 'synth'])
+})
+const generatedPathPattern =
+	/(?:^|\/)(?:\.git|\.test-out|artifacts|dist|node_modules)(?:\/|$)|^engine\/target(?:\/|$)/u
+const rustSiblingPathPattern = /\bpath\s*=\s*["']\.\.\/([a-z0-9-]+)["']/gu
 
 function normalizePath(path) {
 	return path.split(sep).join('/').replace(/^\.\//u, '')
@@ -101,6 +132,21 @@ function publicPackageViolation(ownerPath, targetPath) {
 	return `cross-package import bypasses packages/${targetPackage}/src/index.ts`
 }
 
+function packageDependencyViolation(ownerPath, targetPath) {
+	const ownerPackage = packageName(ownerPath)
+	const targetPackage = packageName(targetPath)
+	if (ownerPackage === null || targetPackage === null || ownerPackage === targetPackage)
+		return null
+	const allowed = allowedPackageDependencies[ownerPackage]
+	if (allowed === undefined) return null
+	if (!Object.hasOwn(allowedPackageDependencies, targetPackage)) {
+		return `shared package ${ownerPackage} imports unknown package ${targetPackage}`
+	}
+	return allowed.includes(targetPackage)
+		? null
+		: `shared package ${ownerPackage} may not depend on ${targetPackage}`
+}
+
 export function validateTargetBoundaries(files) {
 	const normalizedFiles = files.map((file) => ({
 		path: normalizePath(file.path),
@@ -108,6 +154,11 @@ export function validateTargetBoundaries(files) {
 	}))
 	const knownPaths = new Set(normalizedFiles.map((file) => file.path))
 	const errors = []
+	for (const owner of new Set(normalizedFiles.map((file) => packageName(file.path)))) {
+		if (owner !== null && !Object.hasOwn(allowedPackageDependencies, owner)) {
+			errors.push(`packages/${owner}: unknown shared package`)
+		}
+	}
 	for (const file of normalizedFiles) {
 		const area = sourceArea(file.path)
 		for (const specifier of importedSpecifiers(file.source)) {
@@ -124,6 +175,10 @@ export function validateTargetBoundaries(files) {
 				const publicViolation = publicPackageViolation(file.path, targetPath)
 				if (publicViolation !== null) {
 					errors.push(`${file.path}: ${publicViolation} (${specifier})`)
+				}
+				const dependencyViolation = packageDependencyViolation(file.path, targetPath)
+				if (dependencyViolation !== null) {
+					errors.push(`${file.path}: ${dependencyViolation} (${specifier})`)
 				}
 			}
 		}
@@ -180,6 +235,31 @@ export function validateRustBoundaries(files) {
 		.sort()
 }
 
+export function validateRustCrateDependencies(files) {
+	const errors = []
+	for (const file of files) {
+		const ownerMatch = /^engine\/crates\/([^/]+)\/Cargo\.toml$/u.exec(normalizePath(file.path))
+		if (ownerMatch === null) continue
+		const owner = ownerMatch[1]
+		const allowed = allowedRustCrateDependencies[owner]
+		if (allowed === undefined) {
+			errors.push(`${file.path}: unknown Rust workspace crate ${owner}`)
+			continue
+		}
+		for (const match of file.source.matchAll(rustSiblingPathPattern)) {
+			const dependency = match[1]
+			if (!Object.hasOwn(allowedRustCrateDependencies, dependency)) {
+				errors.push(
+					`${file.path}: Rust crate ${owner} depends on unknown crate ${dependency}`
+				)
+			} else if (!allowed.includes(dependency)) {
+				errors.push(`${file.path}: Rust crate ${owner} may not depend on ${dependency}`)
+			}
+		}
+	}
+	return errors.sort()
+}
+
 export function validateRepositoryLayout(paths, configurationSource) {
 	const normalized = new Set(paths.map(normalizePath))
 	const errors = requiredPaths.flatMap((path) =>
@@ -200,54 +280,75 @@ export function validateRepositoryLayout(paths, configurationSource) {
 	return errors.sort()
 }
 
-async function collectFiles(root, directory, predicate) {
-	let entries
-	try {
-		entries = await readdir(directory, { withFileTypes: true })
-	} catch (error) {
-		if (error?.code === 'ENOENT') return []
-		throw error
-	}
-	const files = []
-	for (const entry of entries) {
-		const absolutePath = resolve(directory, entry.name)
-		if (entry.isDirectory()) files.push(...(await collectFiles(root, absolutePath, predicate)))
-		else if (entry.isFile() && predicate(entry.name)) {
-			files.push({
-				path: normalizePath(relative(root, absolutePath)),
-				source: await readFile(absolutePath, 'utf8')
-			})
+export function selectPolicyPaths(paths) {
+	return [
+		...new Set(
+			paths
+				.map(normalizePath)
+				.filter((path) => /^(?:apps|engine|packages)\//u.test(path))
+				.filter((path) => !generatedPathPattern.test(path))
+		)
+	].sort()
+}
+
+function repositoryPolicyPaths(repositoryRoot) {
+	const result = spawnSync(
+		'git',
+		[
+			'ls-files',
+			'--cached',
+			'--others',
+			'--exclude-standard',
+			'-z',
+			'--',
+			'apps',
+			'packages',
+			'engine'
+		],
+		{
+			cwd: repositoryRoot,
+			encoding: 'utf8',
+			maxBuffer: 2 * 1024 * 1024,
+			shell: false,
+			timeout: 10_000,
+			windowsHide: true
 		}
-	}
-	return files
-}
-
-async function collectPaths(root, directory) {
-	return (await collectFiles(root, directory, () => true)).map((file) => file.path)
-}
-
-export async function auditTargetBoundaries(repositoryRoot = resolve('.')) {
-	const sourceFiles = (
-		await Promise.all(
-			['apps', 'packages'].map((directory) =>
-				collectFiles(repositoryRoot, resolve(repositoryRoot, directory), (name) =>
-					/\.(?:ts|tsx)$/u.test(name)
-				)
-			)
-		)
-	).flat()
-	const rustFiles = await collectFiles(
-		repositoryRoot,
-		resolve(repositoryRoot, 'engine'),
-		(name) => /\.(?:rs|toml)$/u.test(name)
 	)
-	const paths = (
-		await Promise.all(
-			['apps', 'packages', 'engine'].map((directory) =>
-				collectPaths(repositoryRoot, resolve(repositoryRoot, directory))
-			)
+	if (result.error !== undefined) {
+		throw new Error(`Could not enumerate repository policy inputs: ${result.error.message}`, {
+			cause: result.error
+		})
+	}
+	if (result.status !== 0) {
+		throw new Error(
+			`Could not enumerate repository policy inputs: ${result.stderr.trim() || `git exited ${String(result.status)}`}`
 		)
-	).flat()
+	}
+	return selectPolicyPaths(result.stdout.split('\0').filter(Boolean))
+}
+
+async function readRepositoryFiles(repositoryRoot, paths) {
+	return Promise.all(
+		paths.map(async (path) => ({
+			path,
+			source: await readFile(resolve(repositoryRoot, path), 'utf8')
+		}))
+	)
+}
+
+export async function auditTargetBoundaries(
+	repositoryRoot = resolve('.'),
+	listPaths = repositoryPolicyPaths
+) {
+	const paths = listPaths(repositoryRoot)
+	const sourceFiles = await readRepositoryFiles(
+		repositoryRoot,
+		paths.filter((path) => /^(?:apps|packages)\/.*\.(?:ts|tsx)$/u.test(path))
+	)
+	const rustFiles = await readRepositoryFiles(
+		repositoryRoot,
+		paths.filter((path) => /^engine\/.*\.(?:rs|toml)$/u.test(path))
+	)
 	const configurationSource = (
 		await Promise.all(
 			[
@@ -264,12 +365,14 @@ export async function auditTargetBoundaries(repositoryRoot = resolve('.')) {
 		...validateNeutralContracts(sourceFiles),
 		...validateRendererBridgeAccess(sourceFiles),
 		...validateRustBoundaries(rustFiles),
+		...validateRustCrateDependencies(rustFiles),
 		...validateRepositoryLayout(paths, configurationSource)
 	]
 	if (errors.length > 0) {
 		throw new Error(`Target boundary policy failed:\n- ${errors.join('\n- ')}`)
 	}
-	const message = 'PASS target boundaries: shared, Desktop, Web and engine graphs are isolated.'
+	const message =
+		'PASS target boundaries: owned shared, Desktop, Web and Rust crate graphs are isolated.'
 	console.log(message)
 	return message
 }

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
+	selectPolicyPaths,
 	validateNeutralContracts,
 	validateRendererBridgeAccess,
+	validateRustCrateDependencies,
 	validateRustBoundaries,
 	validateTargetBoundaries
 } from './target-boundary-policy.mjs'
@@ -25,6 +27,33 @@ describe('target boundary policy', () => {
 			{ path: 'apps/desktop/renderer/main.tsx', source: '' }
 		])
 		assert.match(errors.join('\n'), /shared code imports desktop-renderer/u)
+	})
+
+	it('enforces the approved shared package dependency direction', () => {
+		const allowed = validateTargetBoundaries([
+			{
+				path: 'packages/application/src/index.ts',
+				source: "export * from '../../contracts/src/index.js'"
+			},
+			{ path: 'packages/contracts/src/index.ts', source: '' }
+		])
+		assert.deepEqual(allowed, [])
+
+		const forbidden = validateTargetBoundaries([
+			{
+				path: 'packages/design-system/src/index.ts',
+				source: "export * from '../../application/src/index.js'"
+			},
+			{ path: 'packages/application/src/index.ts', source: '' }
+		])
+		assert.match(
+			forbidden.join('\n'),
+			/shared package design-system may not depend on application/u
+		)
+		assert.deepEqual(
+			validateTargetBoundaries([{ path: 'packages/experimental/src/index.ts', source: '' }]),
+			['packages/experimental: unknown shared package']
+		)
 	})
 
 	it('keeps neutral contracts free of native transport types', () => {
@@ -64,6 +93,40 @@ describe('target boundary policy', () => {
 				}
 			]),
 			['engine/crates/core/Cargo.toml: engine references application/UI code']
+		)
+	})
+
+	it('enforces the approved Rust crate dependency direction', () => {
+		assert.deepEqual(
+			validateRustCrateDependencies([
+				{
+					path: 'engine/crates/core/Cargo.toml',
+					source: 'tiempio-engine-dsp = { path = "../dsp" }'
+				}
+			]),
+			[]
+		)
+		assert.deepEqual(
+			validateRustCrateDependencies([
+				{
+					path: 'engine/crates/dsp/Cargo.toml',
+					source: '[dependencies.local-core]\npath = "../core"'
+				}
+			]),
+			['engine/crates/dsp/Cargo.toml: Rust crate dsp may not depend on core']
+		)
+	})
+
+	it('selects owned source inputs without generated build trees', () => {
+		assert.deepEqual(
+			selectPolicyPaths([
+				'engine/target/debug/build/generated.rs',
+				'packages/application/src/index.ts',
+				'apps/web/bootstrap/main.tsx',
+				'dist/web/index.js',
+				'artifacts/report.json'
+			]),
+			['apps/web/bootstrap/main.tsx', 'packages/application/src/index.ts']
 		)
 	})
 })

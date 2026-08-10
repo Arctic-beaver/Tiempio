@@ -71,8 +71,8 @@ identities are audited before another check, commit, branch or merge begins.
 
 **Branch:** `fix/boundary-policy-scope`.
 
-- Enumerate tracked repository source and manifest files instead of recursively walking generated
-  build caches.
+- Enumerate tracked and unignored new repository source/manifest files instead of recursively
+  walking generated build caches.
 - Explicitly exclude `.git`, `node_modules`, `dist`, `.test-out`, `artifacts` and `engine/target`
   from any fallback traversal.
 - Encode the approved TypeScript package dependency matrix and Rust crate dependency matrix.
