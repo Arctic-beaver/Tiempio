@@ -5,8 +5,8 @@
 This document is the implementation plan for Stage 5 of
 `APPLICATION_SKELETON.md`.
 
-**Implementation status:** in progress. Stage A contracts, dependency decisions and lifecycle entry
-points are complete on `feature/desktop-contracts-lifecycle`; Stage B native persistence is next.
+**Implementation status:** in progress. Stages A and B are complete; Stage C native shared-audio
+host work is next.
 
 **Task integration branch:** `feature/skeleton-desktop-runtime`.
 
@@ -528,6 +528,16 @@ current command availability remain unchanged until the existing coordinator is 
 
 **Stage exit:** runtime-level tests create, open, persist, conflict, recover and reopen a minimal
 project without renderer path authority or data loss.
+
+**Implementation record — 2026-08-10:** complete. Electron main now owns canonical source identity,
+256-bit opaque handles, native Open/Save destinations, a bounded ZIP central-directory preflight,
+streaming inflate with size/CRC checks, lossless retained entries and exact read-only copying of
+unsupported future projects. Saves use fingerprint revalidation, exclusive sibling temporary
+files, flush, atomic replacement and handled-exit cleanup. Per-project serialization keeps revision
+N/N+1 outcomes truthful; recovery and settings use checksummed/bounded atomic stores, and close can
+wait on the latest recovery barrier for at most 10 seconds. Fault injection covers open, read,
+write, flush, conflict, replace, recovery and cleanup boundaries. `npm run check:quick` passed all
+19 stages, including the locked prototype/UI policy, and the post-run lifecycle audit was clean.
 
 ### Stage C — Rust native host and shared-output adapter
 

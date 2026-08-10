@@ -75,6 +75,7 @@ const repositoryScriptTestFiles = Object.freeze([
 
 const compiledTestFiles = Object.freeze([
 	resolve('.test-out/apps/desktop/main/native-host-contract.test.js'),
+	resolve('.test-out/apps/desktop/main/persistence/persistence-runtime.test.js'),
 	resolve('.test-out/apps/desktop/main/runtime-channels.test.js'),
 	resolve('.test-out/apps/desktop/main/window-options.test.js'),
 	resolve('.test-out/apps/desktop/renderer/runtime/desktopRuntime.test.js'),
