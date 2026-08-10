@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { glob } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { describe, it } from 'node:test'
 import {
 	plannedWorkflowNames,
@@ -16,6 +18,22 @@ function withNpmExecPath(run) {
 		if (previous === undefined) delete process.env.npm_execpath
 		else process.env.npm_execpath = previous
 	}
+}
+
+async function compiledSourceTestOutputs() {
+	const patterns = [
+		'apps/desktop/main/**/*.test.ts',
+		'apps/desktop/renderer/**/*.test.ts',
+		'packages/**/*.test.ts',
+		'packages/**/*.test.tsx'
+	]
+	const outputs = []
+	for (const pattern of patterns) {
+		for await (const path of glob(pattern)) {
+			outputs.push(resolve('.test-out', path.replace(/\.(?:ts|tsx)$/u, '.js')))
+		}
+	}
+	return [...new Set(outputs)].sort()
 }
 
 describe('closed lifecycle workflow catalog', () => {
@@ -75,6 +93,17 @@ describe('closed lifecycle workflow catalog', () => {
 				steps.some((step) => /(?:cargo|rustc|rustup)(?:\.exe)?$/iu.test(step.command))
 			)
 			assert.ok(steps.every((step) => Object.hasOwn(step, 'shell') === false))
+		}
+	})
+
+	it('runs every TypeScript test compiled by the test project', async () => {
+		const testStep = workflowSteps('test').find(
+			(step) => step.name === 'compiled contract tests'
+		)
+		assert.notEqual(testStep, undefined)
+		const configured = new Set(testStep?.arguments ?? [])
+		for (const output of await compiledSourceTestOutputs()) {
+			assert.equal(configured.has(output), true, `${output} is compiled but not executed`)
 		}
 	})
 

@@ -27,6 +27,7 @@ test('Desktop adapter exposes custom chrome and window capabilities on Windows',
 	assert.equal(result.value.windowChrome, 'custom')
 	assert.equal(result.value.nativeWindow.availability, 'available')
 	assert.equal(result.value.lifecycle.availability, 'available')
+	assert.equal(result.value.engine.availability, 'unavailable')
 })
 
 test('Desktop adapter preserves native macOS chrome', () => {

@@ -1,3 +1,5 @@
+import type { AnyEngineCommandEnvelope, AnyEngineEventEnvelope } from './engine-protocol.js'
+
 export const applicationRuntimeVersion = 1 as const
 export type ApplicationRuntimeVersion = typeof applicationRuntimeVersion
 export type ApplicationTarget = 'desktop' | 'web'
@@ -129,8 +131,8 @@ export interface ResourcesRuntime {
 export interface EngineRuntime {
 	connect(): Promise<ApplicationResult<{ readonly protocolVersion: number }>>
 	disconnect(): Promise<ApplicationResult<null>>
-	send(command: unknown): Promise<ApplicationResult<{ readonly accepted: true }>>
-	onEvent(listener: (event: unknown) => void): () => void
+	send(command: AnyEngineCommandEnvelope): Promise<ApplicationResult<{ readonly accepted: true }>>
+	onEvent(listener: (event: AnyEngineEventEnvelope) => void): () => void
 }
 
 export interface SettingsSnapshot {
