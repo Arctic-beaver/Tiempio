@@ -92,6 +92,7 @@ const compiledTestFiles = Object.freeze([
 	resolve('.test-out/packages/application/src/commands/command-availability.test.js'),
 	resolve('.test-out/packages/application/src/commands/command-registry.test.js'),
 	resolve('.test-out/packages/application/src/project/projectors.test.js'),
+	resolve('.test-out/packages/application/src/runtime/ApplicationRuntimeController.test.js'),
 	resolve('.test-out/packages/design-system/src/theme.test.js'),
 	resolve('.test-out/packages/localization/src/catalogs.test.js'),
 	resolve('.test-out/packages/project-core/src/project-model.test.js'),

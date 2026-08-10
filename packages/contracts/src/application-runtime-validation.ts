@@ -8,7 +8,12 @@ import {
 	type ApplicationResult,
 	type AudioHealthSnapshot,
 	type DesktopRuntimeBridge,
+	type PersistenceOutcome,
+	type ProjectHandle,
+	type ProjectLoadEnvelope,
 	type ProjectSnapshotEnvelope,
+	type RecoveryCandidate,
+	type RecoveryHandle,
 	type SettingsSnapshot
 } from './application-runtime.js'
 import { engineProtocolLimits } from './engine-protocol.js'
@@ -109,6 +114,122 @@ export function validateProjectSnapshotEnvelope(
 		ok: true as const,
 		value: Object.freeze({ revision: input.revision, bytes: new Uint8Array(input.bytes) })
 	})
+}
+
+export function validateProjectHandle(input: unknown): ApplicationResult<ProjectHandle> {
+	if (
+		!boundedUtf8(input, desktopRuntimeLimits.maxOpaqueHandleBytes) ||
+		!/^project:[A-F0-9]{64}$/u.test(input)
+	) {
+		return invalidRequest('Project handle is invalid.')
+	}
+	return Object.freeze({ ok: true as const, value: input as ProjectHandle })
+}
+
+export function validateRecoveryHandle(input: unknown): ApplicationResult<RecoveryHandle> {
+	if (
+		!boundedUtf8(input, desktopRuntimeLimits.maxOpaqueHandleBytes) ||
+		!/^recovery:[A-F0-9]{64}$/u.test(input)
+	) {
+		return invalidRequest('Recovery handle is invalid.')
+	}
+	return Object.freeze({ ok: true as const, value: input as RecoveryHandle })
+}
+
+function validFingerprint(input: unknown): boolean {
+	return input === null || (typeof input === 'string' && /^sha256:[A-F0-9]{64}$/u.test(input))
+}
+
+export function validateProjectLoadEnvelope(
+	input: unknown
+): ApplicationResult<ProjectLoadEnvelope> {
+	if (
+		!record(input) ||
+		!exactKeys(input, ['compatibility', 'fingerprint', 'saveAllowed', 'snapshot']) ||
+		!['supported', 'unsupported'].includes(String(input.compatibility)) ||
+		!validFingerprint(input.fingerprint) ||
+		typeof input.saveAllowed !== 'boolean'
+	) {
+		return invalidRequest('Project load envelope is invalid.')
+	}
+	const snapshot = validateProjectSnapshotEnvelope(input.snapshot)
+	if (!snapshot.ok) return snapshot
+	if (input.compatibility === 'unsupported' && input.saveAllowed) {
+		return invalidRequest('An unsupported project cannot be saveable.')
+	}
+	return Object.freeze({
+		ok: true as const,
+		value: Object.freeze({
+			compatibility: input.compatibility,
+			fingerprint: input.fingerprint,
+			saveAllowed: input.saveAllowed,
+			snapshot: snapshot.value
+		}) as ProjectLoadEnvelope
+	})
+}
+
+export function validatePersistenceOutcome(input: unknown): ApplicationResult<PersistenceOutcome> {
+	if (!record(input) || !safeInteger(input.revision) || typeof input.status !== 'string') {
+		return invalidRequest('Persistence outcome is invalid.')
+	}
+	if (
+		input.status === 'persisted' &&
+		exactKeys(input, ['status', 'revision', 'fingerprint']) &&
+		validFingerprint(input.fingerprint) &&
+		input.fingerprint !== null
+	) {
+		return Object.freeze({ ok: true as const, value: input as unknown as PersistenceOutcome })
+	}
+	if (
+		input.status === 'download-requested' &&
+		exactKeys(input, ['status', 'revision', 'suggestedName']) &&
+		boundedUtf8(input.suggestedName, desktopRuntimeLimits.maxOpaqueHandleBytes)
+	) {
+		return Object.freeze({ ok: true as const, value: input as unknown as PersistenceOutcome })
+	}
+	if (
+		['copy-written', 'canceled'].includes(input.status) &&
+		exactKeys(input, ['status', 'revision'])
+	) {
+		return Object.freeze({ ok: true as const, value: input as unknown as PersistenceOutcome })
+	}
+	if (input.status === 'failed' && exactKeys(input, ['status', 'revision', 'error'])) {
+		return Object.freeze({
+			ok: true as const,
+			value: Object.freeze({
+				status: 'failed' as const,
+				revision: input.revision,
+				error: sanitizeApplicationError(input.error)
+			})
+		})
+	}
+	return invalidRequest('Persistence outcome is invalid.')
+}
+
+export function validateRecoveryCandidates(
+	input: unknown
+): ApplicationResult<readonly RecoveryCandidate[]> {
+	if (!Array.isArray(input) || input.length > desktopRuntimeLimits.maxRecoveryCandidates) {
+		return invalidRequest('Recovery candidates are invalid or exceed their limit.')
+	}
+	const candidates: RecoveryCandidate[] = []
+	const handles = new Set<string>()
+	for (const candidate of input as readonly unknown[]) {
+		if (
+			!record(candidate) ||
+			!exactKeys(candidate, ['handle', 'revision']) ||
+			!safeInteger(candidate.revision)
+		) {
+			return invalidRequest('Recovery candidate is invalid.')
+		}
+		const handle = validateRecoveryHandle(candidate.handle)
+		if (!handle.ok || handles.has(handle.value)) {
+			return invalidRequest('Recovery candidate handle is invalid or duplicated.')
+		}
+		handles.add(handle.value)
+		candidates.push(Object.freeze({ handle: handle.value, revision: candidate.revision }))
+	}
+	return Object.freeze({ ok: true as const, value: Object.freeze(candidates) })
 }
 
 export function validateSettingsSnapshot(input: unknown): ApplicationResult<SettingsSnapshot> {

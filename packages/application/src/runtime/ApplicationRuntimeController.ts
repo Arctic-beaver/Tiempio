@@ -1,0 +1,542 @@
+import {
+	applicationError,
+	type AnyEngineEventEnvelope,
+	type ApplicationError,
+	type ApplicationRuntime,
+	type AudioHealthSnapshot,
+	type EngineCapabilityCode,
+	type EngineCommandPayloadByType,
+	type ProjectHandle
+} from '../../../contracts/src/index.js'
+import { EngineClient, type EngineClientCommandType } from '../../../engine-client/src/index.js'
+import {
+	compileEngineWireRenderPlan,
+	compileProjectRenderPlan,
+	type ProjectDocument,
+	type ProjectRenderPlan,
+	type ProjectSession,
+	type ProjectSessionSnapshot
+} from '../../../project-core/src/index.js'
+
+const applicationEngineCapabilities = Object.freeze<readonly EngineCapabilityCode[]>([
+	'protocol.typed-json',
+	'render-plan.full',
+	'transport.basic',
+	'transport.loop',
+	'synth.bass.deep',
+	'audition.notes',
+	'diagnostics.health',
+	'supervision.heartbeat',
+	'audio.native.shared',
+	'audio.devices'
+])
+
+const auditionKeys = Object.freeze(
+	new Map<string, number>([
+		['a', 45],
+		['s', 47],
+		['d', 48],
+		['f', 50],
+		['g', 52],
+		['h', 53],
+		['j', 55],
+		['k', 57],
+		['l', 59]
+	])
+)
+
+export interface ProjectDocumentCodec {
+	encode(project: ProjectDocument): Uint8Array
+}
+
+export interface ApplicationRuntimeControllerOptions {
+	readonly projectCodec?: ProjectDocumentCodec
+}
+
+export interface ApplicationRuntimeControllerSnapshot {
+	readonly acknowledgedProjectRevision: number | null
+	readonly available: boolean
+	readonly diagnostic: ApplicationError | null
+	readonly health: AudioHealthSnapshot | null
+	readonly playing: boolean
+	readonly tick: number
+}
+
+function freezeSnapshot(
+	snapshot: ApplicationRuntimeControllerSnapshot
+): ApplicationRuntimeControllerSnapshot {
+	return Object.freeze({ ...snapshot })
+}
+
+function playablePlan(plan: ProjectRenderPlan): ProjectRenderPlan {
+	return Object.freeze({
+		...plan,
+		layers: Object.freeze(plan.layers.filter((layer) => layer.source.type === 'synth'))
+	})
+}
+
+function editableTarget(target: EventTarget | null): boolean {
+	return (
+		target instanceof HTMLInputElement ||
+		target instanceof HTMLTextAreaElement ||
+		target instanceof HTMLSelectElement ||
+		(target instanceof HTMLElement && target.isContentEditable)
+	)
+}
+
+export class ApplicationRuntimeController {
+	readonly #client: EngineClient | null
+	readonly #listeners = new Set<() => void>()
+	readonly #options: ApplicationRuntimeControllerOptions
+	readonly #runtime: ApplicationRuntime
+	readonly #heldAuditions = new Map<string, string>()
+	#auditionEnabled = false
+	#currentHandle: ProjectHandle | null = null
+	#disposed = false
+	#engineRestarting = false
+	#latestPlanGeneration = 0
+	#latestRequestedPlanRevision = -1
+	#observedProjectRevision = -1
+	#lifecycleUnsubscribe: (() => void) | null = null
+	#planDrain: Promise<void> | null = null
+	#projectGeneration = 0
+	#projectSession: ProjectSession
+	#projectUnsubscribe: (() => void) | null = null
+	#recoveryDrain: Promise<void> | null = null
+	#runtimeHealthUnsubscribe: (() => void) | null = null
+	#snapshot = freezeSnapshot({
+		acknowledgedProjectRevision: null,
+		available: false,
+		diagnostic: null,
+		health: null,
+		playing: false,
+		tick: 0
+	})
+	#started = false
+	#unsubscribeEngineEvents: (() => void) | null = null
+	#unsubscribeEngineFailures: (() => void) | null = null
+
+	public constructor(
+		runtime: ApplicationRuntime,
+		initialSession: ProjectSession,
+		options: ApplicationRuntimeControllerOptions = {}
+	) {
+		this.#runtime = runtime
+		this.#options = options
+		this.#projectSession = initialSession
+		this.#client =
+			runtime.engine.availability === 'available'
+				? new EngineClient(runtime.engine.api, {
+						capabilities: applicationEngineCapabilities
+					})
+				: null
+		if (runtime.lifecycle.availability === 'available') {
+			this.#lifecycleUnsubscribe = runtime.lifecycle.api.onCloseRequested(() => {
+				this.prepareToClose()
+			})
+		}
+		this.bindProjectSession(initialSession)
+	}
+
+	public readonly subscribe = (listener: () => void): (() => void) => {
+		this.#listeners.add(listener)
+		return () => this.#listeners.delete(listener)
+	}
+
+	public readonly getSnapshot = (): ApplicationRuntimeControllerSnapshot => this.#snapshot
+
+	public bindProjectSession(session: ProjectSession): void {
+		this.#projectUnsubscribe?.()
+		this.#projectGeneration += 1
+		this.#projectSession = session
+		this.#currentHandle = null
+		this.#latestRequestedPlanRevision = session.getSnapshot().revision
+		this.#observedProjectRevision = session.getSnapshot().revision
+		this.#latestPlanGeneration = this.#projectGeneration
+		this.#projectUnsubscribe = session.subscribe(() => this.#projectChanged())
+		if (this.#started) {
+			void this.#createProjectHandle(this.#projectGeneration)
+			this.#schedulePlanPublish()
+		}
+	}
+
+	public async start(): Promise<void> {
+		if (this.#started || this.#disposed) return
+		this.#started = true
+		this.#attachWindowListeners()
+		void this.#createProjectHandle(this.#projectGeneration)
+		if (this.#runtime.lifecycle.availability === 'available') {
+			await this.#runtime.lifecycle.api.ready()
+		}
+		await this.#startEngine()
+	}
+
+	public setAuditionEnabled(enabled: boolean): void {
+		if (this.#auditionEnabled === enabled) return
+		this.#auditionEnabled = enabled
+		if (!enabled) this.#releaseAuditions()
+	}
+
+	public togglePlayback(): void {
+		if (this.#snapshot.playing) void this.#send('stop', {})
+		else void this.#send('play', { startTick: this.#snapshot.tick })
+	}
+
+	public stop(): void {
+		void this.#send('stop', {})
+	}
+
+	public seek(tick: number): void {
+		if (!Number.isSafeInteger(tick) || tick < 0) return
+		void this.#send('seek', { tick })
+	}
+
+	public setLoop(loop: {
+		readonly enabled: boolean
+		readonly startTick: number
+		readonly endTick: number
+	}): void {
+		void this.#send('set-loop', loop)
+	}
+
+	public prepareToClose(): void {
+		if (this.#disposed) return
+		this.#releaseAuditions()
+		this.#scheduleRecovery(true)
+		void this.dispose()
+	}
+
+	public async dispose(): Promise<void> {
+		if (this.#disposed) return
+		this.#auditionEnabled = false
+		this.#releaseAuditions()
+		this.#disposed = true
+		this.#detachWindowListeners()
+		this.#projectUnsubscribe?.()
+		this.#projectUnsubscribe = null
+		this.#runtimeHealthUnsubscribe?.()
+		this.#runtimeHealthUnsubscribe = null
+		this.#unsubscribeEngineEvents?.()
+		this.#unsubscribeEngineEvents = null
+		this.#unsubscribeEngineFailures?.()
+		this.#unsubscribeEngineFailures = null
+		this.#lifecycleUnsubscribe?.()
+		this.#lifecycleUnsubscribe = null
+		if (this.#client?.state === 'ready') await this.#client.disconnect()
+		this.#publish({ ...this.#snapshot, available: false, playing: false })
+	}
+
+	async #startEngine(): Promise<void> {
+		if (this.#client === null || this.#runtime.engine.availability !== 'available') return
+		this.#unsubscribeEngineEvents = this.#client.onEvent((event) =>
+			this.#acceptEngineEvent(event)
+		)
+		this.#unsubscribeEngineFailures = this.#client.onFailure((error) => {
+			this.#releaseAuditions()
+			this.#setDiagnostic(error)
+		})
+		this.#runtimeHealthUnsubscribe = this.#runtime.engine.api.onHealth((health) =>
+			this.#acceptHealth(health)
+		)
+		const connected = await this.#client.connect()
+		if (!connected.ok) {
+			this.#setDiagnostic(connected.error)
+			return
+		}
+		const missingCapability = applicationEngineCapabilities.find(
+			(capability) => !connected.value.capabilities.includes(capability)
+		)
+		if (missingCapability !== undefined) {
+			this.#setDiagnostic(
+				applicationError(
+					'ENGINE_UNAVAILABLE',
+					'The native engine is missing a required capability.',
+					{
+						details: { capability: missingCapability }
+					}
+				)
+			)
+			await this.#client.disconnect()
+			return
+		}
+		await this.#initializeAudio()
+	}
+
+	async #initializeAudio(): Promise<void> {
+		const configured = await this.#send('configure-audio', {
+			sampleRate: 48_000,
+			blockFrames: 512,
+			channels: 2
+		})
+		if (!configured) return
+		await this.#publishLatestPlan()
+		await this.#send('start-audio', {})
+		if (this.#runtime.engine.availability === 'available') {
+			const health = await this.#runtime.engine.api.getHealth()
+			if (health.ok) this.#acceptHealth(health.value)
+			else this.#setDiagnostic(health.error)
+		}
+	}
+
+	#projectChanged(): void {
+		const snapshot = this.#projectSession.getSnapshot()
+		if (snapshot.revision !== this.#observedProjectRevision) {
+			this.#observedProjectRevision = snapshot.revision
+			this.#latestRequestedPlanRevision = snapshot.revision
+			this.#latestPlanGeneration = this.#projectGeneration
+			this.#schedulePlanPublish()
+		}
+		this.#scheduleRecovery(false)
+	}
+
+	#schedulePlanPublish(): void {
+		if (this.#client?.state !== 'ready' || this.#disposed || this.#planDrain !== null) return
+		this.#planDrain = this.#drainPlans().finally(() => {
+			this.#planDrain = null
+			if (
+				!this.#disposed &&
+				(this.#latestPlanGeneration !== this.#projectGeneration ||
+					this.#latestRequestedPlanRevision !==
+						this.#projectSession.getSnapshot().revision)
+			) {
+				this.#schedulePlanPublish()
+			}
+		})
+	}
+
+	async #drainPlans(): Promise<void> {
+		let publishedGeneration = -1
+		let publishedRevision = -1
+		do {
+			publishedGeneration = this.#projectGeneration
+			publishedRevision = this.#latestRequestedPlanRevision
+			const snapshot = this.#projectSession.getSnapshot()
+			if (snapshot.revision !== publishedRevision) continue
+			const compiled = compileProjectRenderPlan(
+				snapshot.project,
+				snapshot.revision,
+				publishedRevision
+			)
+			if (compiled.status !== 'ready') {
+				this.#setDiagnostic(applicationError('ENGINE_UNAVAILABLE', compiled.message))
+				return
+			}
+			const wire = compileEngineWireRenderPlan(playablePlan(compiled.plan))
+			if (wire.status !== 'ready') {
+				this.#setDiagnostic(applicationError('ENGINE_UNAVAILABLE', wire.message))
+				return
+			}
+			const accepted = await this.#send('load-render-plan', { plan: wire.plan })
+			if (!accepted) return
+		} while (
+			publishedGeneration !== this.#projectGeneration ||
+			publishedRevision !== this.#latestRequestedPlanRevision
+		)
+	}
+
+	async #publishLatestPlan(): Promise<void> {
+		this.#latestRequestedPlanRevision = this.#projectSession.getSnapshot().revision
+		this.#latestPlanGeneration = this.#projectGeneration
+		if (this.#planDrain !== null) await this.#planDrain
+		else await this.#drainPlans()
+	}
+
+	async #createProjectHandle(generation: number): Promise<void> {
+		if (
+			this.#runtime.projects.availability !== 'available' ||
+			this.#options.projectCodec === undefined
+		) {
+			return
+		}
+		const created = await this.#runtime.projects.api.create()
+		if (this.#disposed || generation !== this.#projectGeneration) return
+		if (!created.ok) return
+		this.#currentHandle = created.value
+		this.#scheduleRecovery(true)
+	}
+
+	#scheduleRecovery(force: boolean): void {
+		if (
+			this.#runtime.projects.availability !== 'available' ||
+			this.#options.projectCodec === undefined ||
+			this.#currentHandle === null ||
+			this.#recoveryDrain !== null
+		) {
+			return
+		}
+		const snapshot = this.#projectSession.getSnapshot()
+		if (!force && (!snapshot.recovery.needed || snapshot.recovery.inFlight !== null)) return
+		this.#recoveryDrain = this.#writeRecovery(snapshot).finally(() => {
+			this.#recoveryDrain = null
+			const current = this.#projectSession.getSnapshot()
+			if (!this.#disposed && current.recovery.needed) this.#scheduleRecovery(false)
+		})
+	}
+
+	async #writeRecovery(snapshot: ProjectSessionSnapshot): Promise<void> {
+		if (
+			this.#runtime.projects.availability !== 'available' ||
+			this.#options.projectCodec === undefined ||
+			this.#currentHandle === null
+		) {
+			return
+		}
+		const generation = this.#projectGeneration
+		const session = this.#projectSession
+		const handle = this.#currentHandle
+		const fingerprint = `recovery-${String(generation)}-${String(snapshot.revision)}`
+		let bytes: Uint8Array
+		try {
+			bytes = this.#options.projectCodec.encode(snapshot.project)
+			session.beginRecovery(snapshot.revision, fingerprint)
+		} catch {
+			return
+		}
+		const result = await this.#runtime.projects.api.writeRecovery(handle, {
+			revision: snapshot.revision,
+			bytes
+		})
+		if (generation !== this.#projectGeneration || session !== this.#projectSession) return
+		const current = session.getSnapshot().recovery.inFlight
+		if (
+			current === null ||
+			current.revision !== snapshot.revision ||
+			current.fingerprint !== fingerprint
+		) {
+			return
+		}
+		if (result.ok && result.value.revision === snapshot.revision) {
+			session.acknowledgeRecovery(snapshot.revision, fingerprint)
+		} else {
+			session.cancelRecovery(snapshot.revision, fingerprint)
+		}
+	}
+
+	#acceptEngineEvent(event: AnyEngineEventEnvelope): void {
+		if (event.type === 'render-plan-acknowledged') {
+			if (
+				event.payload.projectRevision < this.#latestRequestedPlanRevision ||
+				(this.#snapshot.acknowledgedProjectRevision !== null &&
+					event.payload.projectRevision < this.#snapshot.acknowledgedProjectRevision)
+			) {
+				return
+			}
+			this.#publish({
+				...this.#snapshot,
+				acknowledgedProjectRevision: event.payload.projectRevision
+			})
+			return
+		}
+		if (event.type === 'transport-snapshot') {
+			if (event.payload.projectRevision < this.#latestRequestedPlanRevision) return
+			this.#publish({
+				...this.#snapshot,
+				playing: event.payload.playing,
+				tick: event.payload.tick
+			})
+			return
+		}
+		if (event.type === 'diagnostic' || event.type === 'fatal-error') {
+			this.#setDiagnostic(
+				applicationError('ENGINE_UNAVAILABLE', event.payload.message, {
+					details: { diagnostic: event.payload.code }
+				})
+			)
+			if (event.type === 'fatal-error') this.#releaseAuditions()
+		}
+	}
+
+	#acceptHealth(health: AudioHealthSnapshot): void {
+		if (health.backendState === 'restarting') {
+			this.#engineRestarting = true
+			this.#releaseAuditions()
+		}
+		const available = health.backendState === 'ready' && health.deviceState === 'available'
+		this.#publish({
+			...this.#snapshot,
+			available,
+			diagnostic: available ? null : this.#snapshot.diagnostic,
+			health,
+			playing: available ? this.#snapshot.playing : false
+		})
+		if (this.#engineRestarting && health.backendState === 'stopped') {
+			this.#engineRestarting = false
+			void this.#initializeAudio()
+		}
+	}
+
+	async #send<Type extends EngineClientCommandType>(
+		type: Type,
+		payload: EngineCommandPayloadByType[Type]
+	): Promise<boolean> {
+		if (this.#client?.state !== 'ready' || this.#disposed) return false
+		const result = await this.#client.send(type, payload)
+		if (!result.ok) this.#setDiagnostic(result.error)
+		return result.ok
+	}
+
+	#keyDown = (event: KeyboardEvent): void => {
+		if (
+			!this.#auditionEnabled ||
+			event.repeat ||
+			event.ctrlKey ||
+			event.metaKey ||
+			event.altKey ||
+			editableTarget(event.target)
+		) {
+			return
+		}
+		const key = event.key.toLowerCase()
+		const pitch = auditionKeys.get(key)
+		if (pitch === undefined || this.#heldAuditions.has(key)) return
+		const auditionId = `keyboard-${key}-${String(Date.now())}`
+		this.#heldAuditions.set(key, auditionId)
+		void this.#send('note-on', { auditionId, pitch, velocity: 102 })
+	}
+
+	#keyUp = (event: KeyboardEvent): void => {
+		const key = event.key.toLowerCase()
+		const auditionId = this.#heldAuditions.get(key)
+		if (auditionId === undefined) return
+		this.#heldAuditions.delete(key)
+		void this.#send('note-off', { auditionId })
+	}
+
+	#visibilityChanged = (): void => {
+		if (document.visibilityState !== 'visible') this.#releaseAuditions()
+	}
+
+	#releaseAuditions(): void {
+		for (const auditionId of this.#heldAuditions.values()) {
+			void this.#send('note-off', { auditionId })
+		}
+		this.#heldAuditions.clear()
+	}
+
+	#attachWindowListeners(): void {
+		window.addEventListener('keydown', this.#keyDown)
+		window.addEventListener('keyup', this.#keyUp)
+		window.addEventListener('blur', this.#releaseAuditionsBound)
+		window.addEventListener('pagehide', this.#releaseAuditionsBound)
+		document.addEventListener('visibilitychange', this.#visibilityChanged)
+	}
+
+	#detachWindowListeners(): void {
+		window.removeEventListener('keydown', this.#keyDown)
+		window.removeEventListener('keyup', this.#keyUp)
+		window.removeEventListener('blur', this.#releaseAuditionsBound)
+		window.removeEventListener('pagehide', this.#releaseAuditionsBound)
+		document.removeEventListener('visibilitychange', this.#visibilityChanged)
+	}
+
+	#releaseAuditionsBound = (): void => this.#releaseAuditions()
+
+	#setDiagnostic(error: ApplicationError): void {
+		this.#publish({ ...this.#snapshot, available: false, diagnostic: error, playing: false })
+	}
+
+	#publish(snapshot: ApplicationRuntimeControllerSnapshot): void {
+		this.#snapshot = freezeSnapshot(snapshot)
+		for (const listener of this.#listeners) listener()
+	}
+}

@@ -1,8 +1,8 @@
 import { ArrowLeft, Grid2X2, Undo2, Volume2 } from 'lucide-react'
-import type { JSX, ReactNode } from 'react'
+import { useSyncExternalStore, type JSX, type ReactNode } from 'react'
 import { useLocalization } from '../../../localization/src/index.js'
-import { useApplicationRuntime } from '../providers/RuntimeContext.js'
 import { useProjectSession } from '../project/ProjectSessionContext.js'
+import { useApplicationRuntimeController } from '../runtime/ApplicationRuntimeControllerContext.js'
 
 export interface StudioTopBarProperties {
 	readonly actions?: ReactNode
@@ -22,9 +22,14 @@ export function StudioTopBar({
 	title
 }: StudioTopBarProperties): JSX.Element {
 	const { t } = useLocalization()
-	const runtime = useApplicationRuntime()
+	const controller = useApplicationRuntimeController()
+	const engine = useSyncExternalStore(
+		controller.subscribe,
+		controller.getSnapshot,
+		controller.getSnapshot
+	)
 	const { snapshot } = useProjectSession()
-	const engineAvailable = runtime.engine.availability === 'available'
+	const engineAvailable = engine.available
 	return (
 		<header className="topbar">
 			<div className="top-left">

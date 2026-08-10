@@ -22,17 +22,19 @@ import { projectStudio } from './projectors.js'
 export interface ProjectSessionProviderProperties {
 	readonly children: ReactNode
 	readonly initialSession?: ProjectSession
+	readonly onSessionChange?: (session: ProjectSession) => void
 }
 
 export function ProjectSessionProvider({
 	children,
-	initialSession
+	initialSession,
+	onSessionChange
 }: ProjectSessionProviderProperties): JSX.Element {
 	const [session, setSession] = useState(
 		() => initialSession ?? new ProjectSession(createSeedProject())
 	)
 	const [selectedLayerId, setSelectedLayerId] = useState<LayerId | null>(() =>
-		initialSession === undefined ? layerId('layer.melody') : null
+		layerId('layer.melody')
 	)
 	const idCounter = useRef(0)
 	const snapshot = useSyncExternalStore(
@@ -44,16 +46,21 @@ export function ProjectSessionProvider({
 		(command: ProjectCommand): ProjectSessionSnapshot => session.dispatch(command),
 		[session]
 	)
-	const createNewProject = useCallback((title: string): void => {
-		idCounter.current += 1
-		const project = createProjectFromCommand({
-			type: 'project.create',
-			projectId: `project.ui:${String(idCounter.current)}`,
-			title
-		})
-		setSelectedLayerId(null)
-		setSession(new ProjectSession(project))
-	}, [])
+	const createNewProject = useCallback(
+		(title: string): void => {
+			idCounter.current += 1
+			const project = createProjectFromCommand({
+				type: 'project.create',
+				projectId: `project.ui:${String(idCounter.current)}`,
+				title
+			})
+			const nextSession = new ProjectSession(project)
+			setSelectedLayerId(null)
+			setSession(nextSession)
+			onSessionChange?.(nextSession)
+		},
+		[onSessionChange]
+	)
 	const nextId = useCallback((scope: string): string => {
 		idCounter.current += 1
 		return `${scope}:${String(idCounter.current)}`

@@ -1,23 +1,37 @@
 import type { JSX, ReactNode } from 'react'
 import type { ApplicationRuntime } from '../../../contracts/src/index.js'
+import type { ProjectSession } from '../../../project-core/src/index.js'
 import { ProjectSessionProvider } from '../project/ProjectSessionProvider.js'
+import type { ApplicationRuntimeController } from '../runtime/ApplicationRuntimeController.js'
+import { ApplicationRuntimeControllerContext } from '../runtime/ApplicationRuntimeControllerContext.js'
 import { PresentationSettingsProvider } from './PresentationSettingsProvider.js'
 import { RuntimeProvider } from './RuntimeProvider.js'
 
 export interface ApplicationProvidersProperties {
 	readonly children: ReactNode
+	readonly controller: ApplicationRuntimeController
+	readonly initialSession: ProjectSession
 	readonly runtime: ApplicationRuntime
 }
 
 export function ApplicationProviders({
 	children,
+	controller,
+	initialSession,
 	runtime
 }: ApplicationProvidersProperties): JSX.Element {
 	return (
 		<RuntimeProvider runtime={runtime}>
-			<PresentationSettingsProvider>
-				<ProjectSessionProvider>{children}</ProjectSessionProvider>
-			</PresentationSettingsProvider>
+			<ApplicationRuntimeControllerContext.Provider value={controller}>
+				<PresentationSettingsProvider>
+					<ProjectSessionProvider
+						initialSession={initialSession}
+						onSessionChange={(session) => controller.bindProjectSession(session)}
+					>
+						{children}
+					</ProjectSessionProvider>
+				</PresentationSettingsProvider>
+			</ApplicationRuntimeControllerContext.Provider>
 		</RuntimeProvider>
 	)
 }
