@@ -1,0 +1,151 @@
+{
+	"schemaVersion": 1,
+	"reference": "docs/tiempio_ux_prototype.html",
+	"referenceGitBlob": "7ba45dddcd74090f7a8bbc602cf8c9de74d65143",
+	"referenceSha256": "C1A69E43635C7A41791A9179F5D1B0A176FEBDEB9E1F76A2BC2B109047F4990A",
+	"captureDate": "2026-08-10",
+	"captureKind": "user-provided-full-prototype-page",
+	"preservation": "byte-for-byte",
+	"images": [
+		{
+			"state": "home",
+			"scheme": "light",
+			"path": "light/01-home.png",
+			"width": 3120,
+			"height": 1910,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 453759,
+			"sha256": "8EF6546CD1B7A3DB5690FE2EA8D692A118D1C55444B0CFDCAEA8F83FF3AC1505"
+		},
+		{
+			"state": "first-layer",
+			"scheme": "light",
+			"path": "light/02-first-layer.png",
+			"width": 3120,
+			"height": 1908,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 503079,
+			"sha256": "C5D563C9BE1E56CF8DB512D6840B960574A2708639276DAA61277E6F6C2A4273"
+		},
+		{
+			"state": "sound-chooser",
+			"scheme": "light",
+			"path": "light/03-sound-chooser.png",
+			"width": 3120,
+			"height": 1908,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 437753,
+			"sha256": "F5EAE39129D576762DC908498DE11C95B1AF3B3FA4625A71825D042D6AB64DC0"
+		},
+		{
+			"state": "piano-roll",
+			"scheme": "light",
+			"path": "light/04-piano-roll.png",
+			"width": 3120,
+			"height": 1904,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 559822,
+			"sha256": "26E6113BC763FA4C680A8DC3BBF4D5BC7CF37679BF25177C6EB081B604467013"
+		},
+		{
+			"state": "drums",
+			"scheme": "light",
+			"path": "light/05-drums.png",
+			"width": 3120,
+			"height": 1906,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 486530,
+			"sha256": "D7D778BB52C56572E92D410485A2F9D1463023643E0A553795D82E957F1B7E89"
+		},
+		{
+			"state": "arrangement",
+			"scheme": "light",
+			"path": "light/06-arrangement.png",
+			"width": 3120,
+			"height": 1904,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 518827,
+			"sha256": "93F1A62F8F8193F7D899CF6494098B8119FB88234BA8704E3594C3957F2D70E8"
+		},
+		{
+			"state": "sound-sculpt",
+			"scheme": "light",
+			"path": "light/07-sound-sculpt.png",
+			"width": 3120,
+			"height": 1904,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 510691,
+			"sha256": "4AB9AEE3ED40C8BCE022003E8B3EBD5D0090EEE64B71BEA67B9B7642C8823390"
+		},
+		{
+			"state": "home",
+			"scheme": "dark",
+			"path": "dark/01-home.png",
+			"width": 3120,
+			"height": 1898,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 467218,
+			"sha256": "2EB9B35AEEE99170B91F3F3CE0EFF4C2D0D52085B367D31AC47B198B3BF1B988"
+		},
+		{
+			"state": "first-layer",
+			"scheme": "dark",
+			"path": "dark/02-first-layer.png",
+			"width": 3120,
+			"height": 1908,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 443881,
+			"sha256": "E11D5079553957BF18A07740D72B64DAB73DCF3D91DF95C086F6B98A6AE86EA6"
+		},
+		{
+			"state": "sound-chooser",
+			"scheme": "dark",
+			"path": "dark/03-sound-chooser.png",
+			"width": 3120,
+			"height": 1904,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 453792,
+			"sha256": "37509B4583AEBDC3BBF9B6F7698C24D42568DECDEC29D1A0054BE6E8FCC66F74"
+		},
+		{
+			"state": "piano-roll",
+			"scheme": "dark",
+			"path": "dark/04-piano-roll.png",
+			"width": 3120,
+			"height": 1908,
+			"pixelFormat": "Format24bppRgb",
+			"bytes": 552917,
+			"sha256": "F9554C25A5CC32CFED19D06AA93BD31A1DAA8509909065B4B9775D793DB9A0CF"
+		},
+		{
+			"state": "drums",
+			"scheme": "dark",
+			"path": "dark/05-drums.png",
+			"width": 3120,
+			"height": 1908,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 434507,
+			"sha256": "8AD5C4FC4C1F5D966B3BB28390156F4B32B4265E7540C9A4B677181DCC67102C"
+		},
+		{
+			"state": "arrangement",
+			"scheme": "dark",
+			"path": "dark/06-arrangement.png",
+			"width": 3120,
+			"height": 1902,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 474485,
+			"sha256": "93923AA77AB7458D90C1EFC9EB23BE676BD98D377773A57A4191A905A7BF2468"
+		},
+		{
+			"state": "sound-sculpt",
+			"scheme": "dark",
+			"path": "dark/07-sound-sculpt.png",
+			"width": 3120,
+			"height": 1912,
+			"pixelFormat": "Format32bppArgb",
+			"bytes": 514155,
+			"sha256": "2CED5FE3C1A4B41540C816FFC3FDD7244BC772C41467456794DC67FDE5EE6500"
+		}
+	]
+}

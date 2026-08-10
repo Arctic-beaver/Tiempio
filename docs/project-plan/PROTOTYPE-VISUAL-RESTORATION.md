@@ -24,6 +24,12 @@ The reference revision recorded for this plan is:
 - Git blob: `7ba45dddcd74090f7a8bbc602cf8c9de74d65143`;
 - SHA-256: `C1A69E43635C7A41791A9179F5D1B0A176FEBDEB9E1F76A2BC2B109047F4990A`.
 
+The user-provided light/dark visual witnesses for all seven states are retained in the
+[`prototype-visual-reference` catalog](../evidence/prototype-visual-reference/README.md). Its
+[`manifest.json`](../evidence/prototype-visual-reference/manifest.json) records dimensions, formats,
+byte lengths and hashes. These full-page captures make the intended rendering directly inspectable,
+but they do not supersede the HTML/CSS authority or change the production boundary below.
+
 The prototype is authoritative for visible hierarchy, placement, relative and canonical geometry,
 typography, colors, spacing, density, radii, borders, shadows, icons, copy, visual states, light and
 dark schemes and the motion shown by the prototype. “Inspired by”, “close to”, a theme using
@@ -124,7 +130,8 @@ lock, timeouts, heartbeats, signal handling and exact process-tree cleanup.
 **Planned branch:** `fix/prototype-visual-baselines`.
 
 - Capture the prototype's `.app-window` for all seven states in light and dark through an approved
-  browser surface or user-provided lossless exports.
+  browser surface or user-provided lossless exports. Preserve the committed user-provided full-page
+  captures as immutable raw inputs and derive canonical crops separately.
 - Record the exact `.app-window` bounds produced by canonical standard, compact and ultrawide
   reference viewports; production comparisons use an equal viewport to the captured app-window
   crop rather than the outer documentation page.
