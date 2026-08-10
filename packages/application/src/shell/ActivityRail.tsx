@@ -1,18 +1,13 @@
-import { AudioWaveform, Drum, Home, ListMusic, SlidersHorizontal } from 'lucide-react'
-import type { JSX, ReactNode } from 'react'
-import { useLocalization } from '../../../localization/src/index.js'
+import { FolderOpen, Home, Plus, Settings, Waves } from 'lucide-react'
+import type { JSX } from 'react'
+import { Popover, Select } from '../../../design-system/src/index.js'
+import { useLocalization, type SupportedLocale } from '../../../localization/src/index.js'
 import type { StudioViewId } from '../app/studio-state.js'
 import { CommandIconButton } from '../commands/CommandIconButton.js'
-import { activityCommandDefinitions, type CommandId } from '../commands/command-registry.js'
-import { useApplicationRuntime } from '../providers/RuntimeContext.js'
+import { usePresentationSettings } from '../providers/PresentationSettingsContext.js'
 
-const activityIcons: Readonly<Partial<Record<CommandId, ReactNode>>> = Object.freeze({
-	'studio.home': <Home />,
-	'studio.piano-roll': <AudioWaveform />,
-	'studio.drums': <Drum />,
-	'studio.arrangement': <ListMusic />,
-	'studio.sound-sculpt': <SlidersHorizontal />
-})
+const themeValues = Object.freeze(['system', 'light', 'dark'] as const)
+const localeValues = Object.freeze(['en', 'ru', 'es'] as const)
 
 export interface ActivityRailProperties {
 	readonly activeView: StudioViewId
@@ -20,31 +15,73 @@ export interface ActivityRailProperties {
 
 export function ActivityRail({ activeView }: ActivityRailProperties): JSX.Element {
 	const { t } = useLocalization()
-	const runtime = useApplicationRuntime()
-	const engineAvailable = runtime.engine.availability === 'available'
+	const settings = usePresentationSettings()
 	return (
-		<nav aria-label={t('nav.studio')} className="activity-rail">
-			<div aria-hidden="true" className="activity-rail__mark">
-				T
-			</div>
+		<nav aria-label={t('nav.studio')} className="activity-rail nav-rail">
 			<div className="activity-rail__items">
-				{activityCommandDefinitions.map((command) => (
-					<CommandIconButton
-						commandId={command.id}
-						icon={activityIcons[command.id]}
-						key={command.id}
-						label={t(command.labelKey)}
-						selected={activeView === command.view}
-						tooltipPlacement="right"
-					/>
-				))}
+				<CommandIconButton
+					className="rail-button"
+					commandId="studio.home"
+					icon={<Home />}
+					label={t('nav.home')}
+					selected={activeView === 'home'}
+					tooltipPlacement="right"
+				/>
+				<CommandIconButton
+					className="rail-button"
+					commandId="studio.first-layer"
+					icon={<Plus />}
+					label={t('layers.add')}
+					selected={activeView === 'first-layer'}
+					tooltipPlacement="right"
+				/>
+				<CommandIconButton
+					className="rail-button"
+					commandId="studio.sound-chooser"
+					icon={<Waves />}
+					label={t('soundChooser.title')}
+					selected={activeView === 'sound-chooser'}
+					tooltipPlacement="right"
+				/>
+				<button
+					aria-label={t('home.openProject')}
+					className="rail-button"
+					disabled
+					title={t('common.notAvailable')}
+					type="button"
+				>
+					<FolderOpen aria-hidden="true" />
+				</button>
 			</div>
-			<span
-				aria-label={t(engineAvailable ? 'engine.available' : 'engine.unavailable')}
-				className="activity-rail__status"
-				data-availability={engineAvailable ? 'available' : 'unavailable'}
-				role="status"
-			/>
+			<div className="activity-rail__settings">
+				<Popover icon={<Settings />} label={t('common.settings')} placement="start">
+					<div className="settings-popover">
+						<Select
+							label={t('common.theme')}
+							onChange={settings.setColorScheme}
+							options={themeValues.map((value) => ({
+								value,
+								label: t(`common.${value}`)
+							}))}
+							value={settings.colorScheme}
+						/>
+						<Select<SupportedLocale>
+							label={t('common.language')}
+							onChange={settings.setLocale}
+							options={localeValues.map((value) => ({
+								value,
+								label:
+									value === 'en'
+										? 'English'
+										: value === 'ru'
+											? 'Русский'
+											: 'Español'
+							}))}
+							value={settings.locale}
+						/>
+					</div>
+				</Popover>
+			</div>
 		</nav>
 	)
 }

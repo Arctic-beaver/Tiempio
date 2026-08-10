@@ -5,7 +5,6 @@ import { IconButton } from '../../../design-system/src/index.js'
 import { useLocalization } from '../../../localization/src/index.js'
 import { CommandIconButton } from '../commands/CommandIconButton.js'
 import { useApplicationRuntime } from '../providers/RuntimeContext.js'
-import { useProjectSession } from '../project/ProjectSessionContext.js'
 
 export interface TitleBarProperties {
 	readonly target: ApplicationTarget
@@ -14,7 +13,6 @@ export interface TitleBarProperties {
 export function TitleBar({ target }: TitleBarProperties): JSX.Element {
 	const { t } = useLocalization()
 	const runtime = useApplicationRuntime()
-	const { snapshot } = useProjectSession()
 	const [maximized, setMaximized] = useState(false)
 	const customChrome = runtime.windowChrome === 'custom'
 	const minimize = (): void => {
@@ -34,7 +32,7 @@ export function TitleBar({ target }: TitleBarProperties): JSX.Element {
 
 	return (
 		<header
-			className="title-bar"
+			className="title-bar window-titlebar"
 			data-target={target}
 			data-window-chrome={runtime.windowChrome}
 		>
@@ -45,14 +43,27 @@ export function TitleBar({ target }: TitleBarProperties): JSX.Element {
 					label={t('layout.openNavigation')}
 				/>
 			</div>
-			<div className="title-bar__identity">
+			<div className="title-bar__identity brand-lockup">
+				<svg aria-hidden="true" className="brand-mark" viewBox="0 0 24 24">
+					<path
+						d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5"
+						fill="none"
+						stroke="currentColor"
+						strokeLinecap="round"
+						strokeWidth="1.8"
+					/>
+					<path
+						d="M12 7a5 5 0 1 0 5 5"
+						fill="none"
+						stroke="currentColor"
+						strokeLinecap="round"
+						strokeWidth="1.8"
+					/>
+					<circle cx="12" cy="12" fill="currentColor" r="1.8" />
+				</svg>
 				<strong>{t('app.name')}</strong>
-				<span aria-hidden="true">/</span>
-				<span>{snapshot.project.title}</span>
+				<span className="edition">Foundation</span>
 			</div>
-			<span className="title-bar__target">
-				{target === 'desktop' ? t('app.desktop') : t('app.web')}
-			</span>
 			<div className="title-bar__actions title-bar__no-drag">
 				<div className="title-bar__context-control">
 					<CommandIconButton

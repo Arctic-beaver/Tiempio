@@ -1,6 +1,5 @@
 import type { JSX, ReactNode } from 'react'
 import type { ApplicationTarget } from '../../../contracts/src/index.js'
-import { ScrollSurface } from '../../../design-system/src/index.js'
 import { useLocalization } from '../../../localization/src/index.js'
 import type { StudioDrawer as StudioDrawerId, StudioViewId } from '../app/studio-state.js'
 import { useCommands } from '../commands/CommandContext.js'
@@ -9,7 +8,6 @@ import { ContextPanel } from './ContextPanel.js'
 import { LayersPanel } from './LayersPanel.js'
 import { StudioDrawer } from './StudioDrawer.js'
 import { TitleBar } from './TitleBar.js'
-import { TransportBar } from './TransportBar.js'
 
 export interface StudioShellProperties {
 	readonly activeDrawer: StudioDrawerId
@@ -30,26 +28,12 @@ export function StudioShell({
 		execute('layout.close-drawer')
 	}
 	return (
-		<main className="studio-shell" data-application-target={target}>
+		<main className="studio-shell app-window" data-application-target={target}>
 			<TitleBar target={target} />
-			<div className="studio-shell__body">
+			<div className="studio-shell__body app-body">
 				<ActivityRail activeView={activeView} />
-				<div className="studio-shell__work-area">
-					<TransportBar />
-					<div className="studio-shell__content-grid">
-						<div className="studio-shell__layers">
-							<LayersPanel />
-						</div>
-						<ScrollSurface
-							className="studio-shell__workspace"
-							data-testid="studio-workspace"
-						>
-							{children}
-						</ScrollSurface>
-						<div className="studio-shell__context">
-							<ContextPanel />
-						</div>
-					</div>
+				<div className="studio-shell__workspace workspace" data-testid="studio-workspace">
+					{children}
 				</div>
 			</div>
 			<StudioDrawer
