@@ -152,7 +152,7 @@ packages/
         first-layer/
         sound-chooser/
         piano-roll/
-        step-sequencer/
+        drums/
         arrangement/
         sound-sculpt/
   contracts/
@@ -171,6 +171,7 @@ engine/
     dsp/
     synth/
     drums/
+    offline-render/
     native-host/
     web-worklet/
 

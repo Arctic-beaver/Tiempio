@@ -2,9 +2,27 @@
 
 ## Status and ownership
 
-**Status:** approved planning baseline; implementation not started.
+**Status:** implementation completed through Stage 4; Stages 5-8 have not started.
 
-**Integration branch:** `feature/application-skeleton`.
+**Original planned integration branch:** `feature/application-skeleton`.
+
+The original integration branch remains at the approved planning baseline. In the local repository,
+the reviewed Stage 0-4 task branches were integrated by sequential fast-forwards into `main`, ending
+at Stage 4 revision `d835cf9`. That history is retained rather than rewritten. Architecture
+alignment before Stage 5 is owned by `docs/project-plan/ARCHITECTURE-ALIGNMENT.md` and branch
+`fix/architecture-alignment`.
+
+| Stage | Current state |
+| --- | --- |
+| 0 - Lifecycle foundation | Complete |
+| 1 - Repository and contracts | Complete |
+| 2 - Design system and shared shell | Complete; retained evidence exists |
+| 3 - Project core and logical format | Complete; retained evidence exists |
+| 4 - Engine core and offline proof | Complete; retained evidence exists |
+| 5 - Desktop runtime | Not started |
+| 6 - Web runtime | Not started |
+| 7 - Primary audible vertical slice | Not started |
+| 8 - Acceptance hardening | Not started |
 
 **Architecture authority:** `docs/architecture/TIEMPIO_ARCHITECTURE.md`.
 
@@ -74,8 +92,11 @@ disabled with a clear reason or omitted according to the current context.
 
 This is a large task. Work proceeds only in the primary repository worktree.
 
-1. `feature/application-skeleton` is the integration branch.
-2. Every implementation stage uses a separate branch created from the current integration head.
+1. `feature/application-skeleton` was the originally approved integration branch. The implemented
+   Stage 0-4 history instead reached local `main` through reviewed task-branch fast-forwards. No
+   historical branch pointer is moved to conceal that difference.
+2. Every remaining implementation stage uses a separate branch created from an explicit current
+   task integration head. Work never starts directly on `main`.
 3. A stage branch contains only that stage's scope and atomic English commits.
 4. The stage is reviewed and verified before it is merged into the integration branch.
 5. Immediately after every commit, the lifecycle lock, cleanup quarantine and exact task-owned

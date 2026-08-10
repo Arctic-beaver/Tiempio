@@ -24,10 +24,9 @@ Delivery branches:
   of the same immutable session snapshot.
 - Desktop and Web mount the same application and project provider. The project
   packages have no Electron, browser-storage or React dependencies.
-- Notes, drum events, arrangement clips, committed macros, layer selection and
-  project loop changes now travel through typed project commands. Only
-  navigation, drawers, playhead/playback and transient slider previews remain
-  presentation state.
+- Notes, drum events, arrangement clips, committed macros, sound-character selection and project
+  loop changes now travel through typed project commands. Selected layer, navigation, drawers,
+  playhead/playback and transient slider previews remain presentation state.
 
 Physical ZIP compression, storage dialogs, automatic durable persistence,
 native/WASM engine hosting and audible playback remain outside this stage.

@@ -8,7 +8,8 @@ This document is the implementation plan for Stage 4 of
 
 Implementation status: completed through four reviewed stage branches;
 acceptance evidence is recorded in `docs/evidence/STAGE-4-ENGINE-CORE.md`.
-Merge to `main` remains an explicit follow-up action.
+The task branch was subsequently fast-forwarded into local `main` at `d835cf9`; no push or remote
+integration is implied by that local history.
 
 The outcome is a platform-neutral Rust engine that accepts one bounded,
 versioned render-plan contract and renders the reviewed `Deep` Bass patch
