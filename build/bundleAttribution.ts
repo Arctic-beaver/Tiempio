@@ -22,6 +22,14 @@ export function bundleAttributionPlugin(bundleClass: BundleClass): Plugin {
 				.map((chunk) => ({
 					file: chunk.fileName,
 					bytes: Buffer.byteLength(chunk.code),
+					isEntry: chunk.isEntry,
+					isDynamicEntry: chunk.isDynamicEntry,
+					facadeModule:
+						chunk.facadeModuleId === null
+							? null
+							: repositoryModuleId(repositoryRoot, chunk.facadeModuleId),
+					imports: [...chunk.imports].sort(),
+					dynamicImports: [...chunk.dynamicImports].sort(),
 					modules: Object.entries(chunk.modules)
 						.map(([module, details]) => ({
 							module: repositoryModuleId(repositoryRoot, module),
@@ -37,7 +45,7 @@ export function bundleAttributionPlugin(bundleClass: BundleClass): Plugin {
 			mkdirSync(resolve(reportPath, '..'), { recursive: true })
 			writeFileSync(
 				reportPath,
-				`${JSON.stringify({ schemaVersion: 1, bundleClass, chunks }, null, 2)}\n`,
+				`${JSON.stringify({ schemaVersion: 2, bundleClass, chunks }, null, 2)}\n`,
 				'utf8'
 			)
 		}

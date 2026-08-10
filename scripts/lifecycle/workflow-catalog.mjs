@@ -57,6 +57,7 @@ const lifecycleTestFiles = Object.freeze([
 const repositoryScriptTestFiles = Object.freeze([
 	...lifecycleTestFiles,
 	resolve('scripts/bundle-budget.test.mjs'),
+	resolve('scripts/chunk-topology.test.mjs'),
 	resolve('scripts/dependency-policy.test.mjs'),
 	resolve('scripts/package-content-policy.test.mjs'),
 	resolve('scripts/protocol-generation.test.mjs'),
@@ -185,6 +186,8 @@ const steps = Object.freeze({
 		),
 	bundleBudget: (target = 'all') =>
 		nodeFileStep('empty-shell bundle budgets', 'scripts/bundle-budget.mjs', [target]),
+	chunkTopology: (target = 'all') =>
+		nodeFileStep('initial-shell chunk topology', 'scripts/chunk-topology.mjs', [target]),
 	desktopBuild: () =>
 		nodeFileStep('Desktop production build', cli.electronVite, ['build'], 5 * minute),
 	webBuild: () =>
@@ -337,6 +340,7 @@ function desktopBuildSteps() {
 		steps.desktopBuild(),
 		steps.security('desktop'),
 		steps.bundleBudget('desktop'),
+		steps.chunkTopology('desktop'),
 		steps.packageContents(true)
 	]
 }
@@ -346,7 +350,8 @@ function webBuildSteps() {
 		steps.typecheckWeb(),
 		steps.webBuild(),
 		steps.security('web'),
-		steps.bundleBudget('web')
+		steps.bundleBudget('web'),
+		steps.chunkTopology('web')
 	]
 }
 
@@ -385,6 +390,7 @@ const workflowFactories = Object.freeze({
 	],
 	'check:security': () => [steps.security()],
 	'check:bundle-size': () => [steps.bundleBudget()],
+	'check:chunk-topology': () => [steps.chunkTopology()],
 	'check:packaged-contents': () => [steps.packageContents()],
 	build: desktopBuildSteps,
 	'build:web': webBuildSteps,

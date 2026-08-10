@@ -36,6 +36,7 @@
 		"check:target-boundaries": "node scripts/lifecycle-runner.mjs check:target-boundaries",
 		"check:security": "node scripts/lifecycle-runner.mjs check:security",
 		"check:bundle-size": "node scripts/lifecycle-runner.mjs check:bundle-size",
+		"check:chunk-topology": "node scripts/lifecycle-runner.mjs check:chunk-topology",
 		"check:packaged-contents": "node scripts/lifecycle-runner.mjs check:packaged-contents",
 		"check:visual-a11y": "node scripts/lifecycle-runner.mjs check:visual-a11y",
 		"build": "node scripts/lifecycle-runner.mjs build",
