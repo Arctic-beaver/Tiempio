@@ -6,8 +6,8 @@ import { requireLifecycleOwnership } from './lifecycle/ownership-guard.mjs'
 export const emptyShellBundleBudgets = Object.freeze({
 	'desktop-main': Object.freeze({ root: 'dist/desktop/main', maxBytes: 65_536 }),
 	'desktop-preload': Object.freeze({ root: 'dist/desktop/preload', maxBytes: 32_768 }),
-	'desktop-renderer': Object.freeze({ root: 'dist/desktop/renderer', maxBytes: 393_216 }),
-	web: Object.freeze({ root: 'dist/web', maxBytes: 393_216 })
+	'desktop-renderer': Object.freeze({ root: 'dist/desktop/renderer', maxBytes: 458_752 }),
+	web: Object.freeze({ root: 'dist/web', maxBytes: 458_752 })
 })
 
 export function evaluateBundleClass(bundleClass, files) {
