@@ -140,6 +140,71 @@ export function validateUiFoundation({
 	return errors.sort()
 }
 
+export function validateApplicationComposition({
+	projectorFacadeSource,
+	studioApplicationSource,
+	styleFacadeSource
+}) {
+	const errors = []
+	for (const mechanism of [
+		'useStudioNavigation()',
+		'useTransportCommandHandlers()',
+		'<ActiveStudioView',
+		'<CommandProvider'
+	]) {
+		if (!studioApplicationSource.includes(mechanism)) {
+			errors.push(`StudioApplication composition mechanism is missing: ${mechanism}`)
+		}
+	}
+	for (const implementationDetail of [
+		'projectSession.dispatch(',
+		'createMidiClip(',
+		'createDrumClip(',
+		'useState('
+	]) {
+		if (studioApplicationSource.includes(implementationDetail)) {
+			errors.push(`StudioApplication owns implementation detail: ${implementationDetail}`)
+		}
+	}
+	for (const projector of [
+		'projectHome(context)',
+		'projectLayers(context)',
+		'projectContext(context)',
+		'projectPianoRoll(context)',
+		'projectDrums(context)',
+		'projectArrangement(context)',
+		'projectSoundSculpt(context)',
+		'projectTransport(context)'
+	]) {
+		if (!projectorFacadeSource.includes(projector)) {
+			errors.push(`projector facade is missing: ${projector}`)
+		}
+	}
+	for (const implementationDetail of ['defaultTicksPerQuarter', 'rolePresentation', 'drumRows']) {
+		if (projectorFacadeSource.includes(implementationDetail)) {
+			errors.push(`projector facade owns feature detail: ${implementationDetail}`)
+		}
+	}
+	const styleImports = [...styleFacadeSource.matchAll(/^@import '([^']+)';\r?$/gmu)].map(
+		(match) => match[1]
+	)
+	const expectedStyleImports = [
+		'./styles/shell-layout.css',
+		'./styles/workflow-views.css',
+		'./styles/editor-views.css',
+		'./styles/drawers.css',
+		'./styles/responsive.css'
+	]
+	if (
+		styleFacadeSource.includes('{') ||
+		styleImports.length !== expectedStyleImports.length ||
+		styleImports.some((value, index) => value !== expectedStyleImports[index])
+	) {
+		errors.push('studio style facade must contain only the ordered owned style imports')
+	}
+	return errors.sort()
+}
+
 export function auditUiFoundation({ repositoryRoot = resolve('.'), report = console.log } = {}) {
 	const cssFiles = collectFiles(repositoryRoot, resolve(repositoryRoot, 'packages'), /\.css$/u)
 	const applicationSource = collectFiles(
@@ -170,6 +235,22 @@ export function auditUiFoundation({ repositoryRoot = resolve('.'), report = cons
 		localizationSource,
 		desktopSource
 	})
+	errors.push(
+		...validateApplicationComposition({
+			projectorFacadeSource: readFileSync(
+				resolve(repositoryRoot, 'packages/application/src/project/projectors.ts'),
+				'utf8'
+			),
+			studioApplicationSource: readFileSync(
+				resolve(repositoryRoot, 'packages/application/src/app/StudioApplication.tsx'),
+				'utf8'
+			),
+			styleFacadeSource: readFileSync(
+				resolve(repositoryRoot, 'packages/application/src/app/studio-shell.css'),
+				'utf8'
+			)
+		})
+	)
 	if (errors.length > 0) throw new Error(`UI foundation policy failed:\n- ${errors.join('\n- ')}`)
 	const message =
 		'PASS UI foundation: shared themes, controls, scrollbars, availability-gated commands, one ProjectSession, EN/RU/ES i18n and seven states are present.'

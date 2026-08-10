@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { validateUiFoundation } from './ui-foundation-policy.mjs'
+import { validateApplicationComposition, validateUiFoundation } from './ui-foundation-policy.mjs'
 
 function validFixture() {
 	const applicationSource = [
@@ -72,4 +72,31 @@ test('rejects command controls that present invented runtime behavior', () => {
 	assert.match(errors, /tempo display is interactive/u)
 	assert.match(errors, /claims Shared Audio/u)
 	assert.match(errors, /playback state is toggled locally/u)
+})
+
+test('keeps application, projector and style facades as composition roots', () => {
+	const valid = {
+		studioApplicationSource:
+			'useStudioNavigation() useTransportCommandHandlers() <ActiveStudioView <CommandProvider',
+		projectorFacadeSource:
+			'projectHome(context) projectLayers(context) projectContext(context) projectPianoRoll(context) projectDrums(context) projectArrangement(context) projectSoundSculpt(context) projectTransport(context)',
+		styleFacadeSource: [
+			"@import './styles/shell-layout.css';",
+			"@import './styles/workflow-views.css';",
+			"@import './styles/editor-views.css';",
+			"@import './styles/drawers.css';",
+			"@import './styles/responsive.css';"
+		].join('\n')
+	}
+	assert.deepEqual(validateApplicationComposition(valid), [])
+	const invalid = {
+		...valid,
+		studioApplicationSource: `${valid.studioApplicationSource} projectSession.dispatch(`,
+		projectorFacadeSource: `${valid.projectorFacadeSource} drumRows`,
+		styleFacadeSource: `${valid.styleFacadeSource}\n.studio-shell {}`
+	}
+	const errors = validateApplicationComposition(invalid).join('\n')
+	assert.match(errors, /owns implementation detail/u)
+	assert.match(errors, /owns feature detail/u)
+	assert.match(errors, /only the ordered owned style imports/u)
 })

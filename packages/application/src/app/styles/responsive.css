@@ -1,0 +1,124 @@
+@media (max-width: 74.999rem) {
+	.studio-shell__content-grid {
+		grid-template-columns: 13rem minmax(0, 1fr);
+	}
+
+	.studio-shell__context {
+		display: none;
+	}
+
+	.title-bar__context-control {
+		display: block;
+	}
+
+	.sound-chooser-view__grid {
+		grid-template-columns: repeat(2, minmax(12rem, 1fr));
+	}
+}
+
+@media (max-width: 44.999rem) {
+	.studio-shell {
+		grid-template-rows: 3rem minmax(0, 1fr);
+	}
+
+	.title-bar {
+		grid-template-columns: auto minmax(0, 1fr) auto;
+	}
+
+	.title-bar__compact-control,
+	.title-bar__context-control {
+		display: block;
+	}
+
+	.title-bar__target {
+		display: none;
+	}
+
+	.title-bar__identity {
+		justify-self: center;
+	}
+
+	.studio-shell__body {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.studio-shell__body > .activity-rail,
+	.studio-shell__layers {
+		display: none;
+	}
+
+	.studio-shell__content-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.transport-bar {
+		padding: 0 var(--ti-space-2);
+	}
+
+	.transport-bar__position,
+	.transport-bar__tempo,
+	.transport-bar__audio {
+		display: none;
+	}
+
+	.studio-view {
+		padding: var(--ti-space-5) var(--ti-space-4);
+	}
+
+	.home-view,
+	.first-layer-view,
+	.sculpt-view__body {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.home-view {
+		align-content: start;
+	}
+
+	.first-layer-view {
+		align-content: start;
+	}
+
+	.first-layer-view__roles,
+	.sound-chooser-view__grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.sound-chooser-view__heading {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.editor-view__heading {
+		align-items: start;
+		flex-direction: column;
+	}
+
+	.editor-view,
+	.sculpt-view {
+		grid-template-rows: auto minmax(20rem, 1fr) auto;
+	}
+
+	.sculpt-orbit {
+		width: min(15rem, 70vw);
+	}
+}
+
+@media (max-height: 34.999rem) {
+	.studio-shell {
+		grid-template-rows: 2.4rem minmax(0, 1fr);
+	}
+
+	.studio-shell__work-area {
+		grid-template-rows: 3rem minmax(0, 1fr);
+	}
+
+	.layers-panel > footer,
+	.context-panel__note,
+	.studio-hint {
+		display: none;
+	}
+
+	.studio-view {
+		padding-block: var(--ti-space-4);
+	}
+}
