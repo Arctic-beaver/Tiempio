@@ -29,11 +29,14 @@ const eagerHomeModules = Object.freeze([
 	'packages/application/src/features/home/useHomeActions.ts'
 ])
 const futureRuntimeTokens = Object.freeze([
-	'packages/engine-client/',
 	'/runtime/audio/',
 	'audioworklet',
 	'web-worklet',
 	'.wasm'
+])
+const webForbiddenRuntimeTokens = Object.freeze([
+	'packages/engine-client/',
+	'applicationruntimecontroller.ts'
 ])
 
 function normalizedModuleId(module) {
@@ -128,7 +131,11 @@ export function validateChunkTopology(report) {
 
 	for (const module of initialModules) {
 		const normalized = normalizedModuleId(module)
-		for (const token of futureRuntimeTokens) {
+		const forbiddenTokens =
+			report.bundleClass === 'web'
+				? [...futureRuntimeTokens, ...webForbiddenRuntimeTokens]
+				: futureRuntimeTokens
+		for (const token of forbiddenTokens) {
 			if (normalized.includes(token)) {
 				errors.push(`initial graph contains future runtime module ${module}`)
 			}

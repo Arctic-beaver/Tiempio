@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { constants } from 'node:fs'
 import { access, link, mkdir, open, realpath, rename, rm, stat } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { PersistenceBoundaryError } from './persistence-error.js'
 
 export type PersistenceFaultPoint =
@@ -182,6 +183,35 @@ async function syncParentDirectory(path: string): Promise<void> {
 	}
 }
 
+async function replaceExistingFile(
+	temporary: string,
+	destination: string,
+	expectedFingerprint: string
+): Promise<void> {
+	const retryDelaysMs = process.platform === 'win32' ? [0, 10, 25, 50] : [0]
+	for (let attempt = 0; attempt < retryDelaysMs.length; attempt += 1) {
+		if (attempt > 0) {
+			await delay(retryDelaysMs[attempt])
+			const observed = await fingerprintFile(destination, maxAtomicComparisonBytes, noFaults)
+			if (observed !== expectedFingerprint) {
+				throw new PersistenceBoundaryError(
+					'PROJECT_CHANGED',
+					'The project changed outside Tiempio.',
+					true
+				)
+			}
+		}
+		try {
+			await rename(temporary, destination)
+			return
+		} catch (error) {
+			const code = nodeErrorCode(error)
+			const canRetry = process.platform === 'win32' && (code === 'EPERM' || code === 'EBUSY')
+			if (!canRetry || attempt === retryDelaysMs.length - 1) throw error
+		}
+	}
+}
+
 export async function atomicReplaceFile(
 	destination: string,
 	bytes: Uint8Array,
@@ -237,7 +267,7 @@ export async function atomicReplaceFile(
 			await rm(temporary)
 			temporaryExists = false
 		} else {
-			await rename(temporary, destination)
+			await replaceExistingFile(temporary, destination, options.expectedFingerprint)
 			temporaryExists = false
 		}
 		await syncParentDirectory(destination)

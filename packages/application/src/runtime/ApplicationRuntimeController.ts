@@ -17,6 +17,10 @@ import {
 	type ProjectSession,
 	type ProjectSessionSnapshot
 } from '../../../project-core/src/index.js'
+import {
+	type ApplicationController,
+	type ApplicationControllerSnapshot
+} from './ApplicationController.js'
 
 const applicationEngineCapabilities = Object.freeze<readonly EngineCapabilityCode[]>([
 	'protocol.typed-json',
@@ -53,18 +57,7 @@ export interface ApplicationRuntimeControllerOptions {
 	readonly projectCodec?: ProjectDocumentCodec
 }
 
-export interface ApplicationRuntimeControllerSnapshot {
-	readonly acknowledgedProjectRevision: number | null
-	readonly available: boolean
-	readonly diagnostic: ApplicationError | null
-	readonly health: AudioHealthSnapshot | null
-	readonly playing: boolean
-	readonly tick: number
-}
-
-function freezeSnapshot(
-	snapshot: ApplicationRuntimeControllerSnapshot
-): ApplicationRuntimeControllerSnapshot {
+function freezeSnapshot(snapshot: ApplicationControllerSnapshot): ApplicationControllerSnapshot {
 	return Object.freeze({ ...snapshot })
 }
 
@@ -84,7 +77,7 @@ function editableTarget(target: EventTarget | null): boolean {
 	)
 }
 
-export class ApplicationRuntimeController {
+export class ApplicationRuntimeController implements ApplicationController {
 	readonly #client: EngineClient | null
 	readonly #listeners = new Set<() => void>()
 	readonly #options: ApplicationRuntimeControllerOptions
@@ -143,7 +136,7 @@ export class ApplicationRuntimeController {
 		return () => this.#listeners.delete(listener)
 	}
 
-	public readonly getSnapshot = (): ApplicationRuntimeControllerSnapshot => this.#snapshot
+	public readonly getSnapshot = (): ApplicationControllerSnapshot => this.#snapshot
 
 	public bindProjectSession(session: ProjectSession): void {
 		this.#projectUnsubscribe?.()
@@ -535,7 +528,7 @@ export class ApplicationRuntimeController {
 		this.#publish({ ...this.#snapshot, available: false, diagnostic: error, playing: false })
 	}
 
-	#publish(snapshot: ApplicationRuntimeControllerSnapshot): void {
+	#publish(snapshot: ApplicationControllerSnapshot): void {
 		this.#snapshot = freezeSnapshot(snapshot)
 		for (const listener of this.#listeners) listener()
 	}

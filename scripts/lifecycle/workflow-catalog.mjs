@@ -200,6 +200,12 @@ const steps = Object.freeze({
 			'scripts/package-content-policy.mjs',
 			requireBuild ? ['--require-build'] : []
 		),
+	packagedNativeResources: () =>
+		nodeFileStep(
+			'Desktop packaged native resource policy',
+			'scripts/package-content-policy.mjs',
+			['--require-build', '--require-package']
+		),
 	bundleBudget: (target = 'all') =>
 		nodeFileStep('empty-shell bundle budgets', 'scripts/bundle-budget.mjs', [target]),
 	chunkTopology: (target = 'all') =>
@@ -416,7 +422,8 @@ function desktopPackageSteps() {
 		steps.bundleBudget('desktop'),
 		steps.chunkTopology('desktop'),
 		steps.packageContents(true),
-		steps.desktopPackage()
+		steps.desktopPackage(),
+		steps.packagedNativeResources()
 	]
 }
 

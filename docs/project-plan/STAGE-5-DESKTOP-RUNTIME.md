@@ -5,8 +5,9 @@
 This document is the implementation plan for Stage 5 of
 `APPLICATION_SKELETON.md`.
 
-**Implementation status:** in progress. Stages A through D are complete; Stage E Desktop runtime
-composition and existing-command integration is next.
+**Implementation status:** Stages A through F are implemented. Automated acceptance is complete;
+real Windows Shared Audio coexistence/device-loss evidence and an interactive packaged-GUI
+open/save smoke remain explicit manual acceptance gates.
 
 **Task integration branch:** `feature/skeleton-desktop-runtime`.
 
@@ -647,9 +648,21 @@ visual state, stop for user review instead of designing it inside Stage 5.
 **Stage exit:** a production Desktop renderer can reach real engine and persistence adapters through
 the existing application architecture while all seven prototype states remain visually unchanged.
 
+**Implementation record — 2026-08-11:** complete. Electron main composes the project registry,
+settings store, recovery store and supervised engine IPC behind the versioned preload membrane, and
+waits on bounded project/recovery and engine shutdown barriers before closing. The Desktop renderer
+creates one `ApplicationRuntimeController` outside React Strict Mode duplication, routes transport,
+seek, loop and keyboard audition through the typed `EngineClient`, rejects stale revision
+acknowledgements, releases held notes on every lifecycle boundary and restores the newest render
+plan after a supervised restart. Web retains an unavailable neutral controller and no longer imports
+the concrete engine client graph. Existing audio-chip and command availability states are populated
+dynamically; no CSS, token, typography, spacing, layout, reference image or prototype file changed.
+`npm run check:quick` passed all 19 stages with 100 compiled unit/contract tests and 85 policy tests,
+and its post-run lifecycle audit was clean.
+
 ### Stage F — Packaging, hardware smoke and acceptance evidence
 
-**Branch:** `feature/desktop-runtime-acceptance`.
+**Branch:** `feature/desktop-runtime-verification`.
 
 - Build the native host through the lifecycle owner for the intended platform/architecture and place
   it in one explicit packaged resource location outside `app.asar`.
@@ -674,6 +687,20 @@ the existing application architecture while all seven prototype states remain vi
 **Stage exit:** all Stage 5 definition-of-done items have reproducible evidence and the task branch
 is clean, audited and ready for explicit review without merging to `main`, pushing or opening a pull
 request.
+
+**Implementation record — 2026-08-11:** complete at the automated boundary. Native staging now
+validates the executable architecture, writes one exact target directory and binds its bytes to a
+SHA-256 manifest. Runtime resolution independently rejects missing, duplicate, oversized,
+wrong-target, wrong-architecture or hash-mismatched resources. Electron Builder places only the
+executable/manifest pair outside `app.asar`, applies the reviewed production fuse profile and passes
+an 11-step packaged-content workflow. Bundle attribution keeps the concrete controller and
+`EngineClient` out of Web; measured production outputs remain within recorded headroom. The locked
+prototype hash and all 14 retained references remain unchanged, and a browser smoke covered Home,
+first-layer, sound chooser, the shared settings dropdown and Light/Dark presentation at standard,
+compact/constrained and ultrawide sizes with no console errors. Controlled null-audio passes. Real
+Windows device coexistence, device-loss/restore timing, first-audible latency and the interactive
+packaged-dialog path were not simulated or fabricated; they remain the manual gates documented in
+`docs/evidence/STAGE-5-DESKTOP-RUNTIME.md`.
 
 ## Edge cases and failure modes
 

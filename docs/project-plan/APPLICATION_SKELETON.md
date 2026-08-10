@@ -2,9 +2,9 @@
 
 ## Status and ownership
 
-**Status:** implementation and pre-Stage-5 architecture alignment completed through Stage 4; the
-detailed Stage 5 implementation plan is prepared, but Stage 5 production work and Stages 6-8 have
-not started.
+**Status:** implementation is complete through the automated Stage 5 acceptance boundary. The
+remaining Stage 5 acceptance gates require a real Windows audio device/independent audio source and
+an interactive packaged-GUI smoke; Stages 6-8 have not started.
 
 **Original planned integration branch:** `feature/application-skeleton`.
 
@@ -27,7 +27,7 @@ truthful states, but it may not redesign or visually drift from the approved pro
 | 2 - Design system and shared shell | Complete; retained evidence exists |
 | 3 - Project core and logical format | Complete; retained evidence exists |
 | 4 - Engine core and offline proof | Complete; retained evidence exists |
-| 5 - Desktop runtime | Detailed plan prepared; implementation not started |
+| 5 - Desktop runtime | Implemented; automated acceptance complete, manual Windows hardware and packaged-GUI gates retained |
 | 6 - Web runtime | Not started |
 | 7 - Primary audible vertical slice | Not started |
 | 8 - Acceptance hardening | Not started |

@@ -86,12 +86,31 @@
 		"productName": "Tiempio",
 		"asar": true,
 		"npmRebuild": false,
+		"electronFuses": {
+			"runAsNode": false,
+			"enableCookieEncryption": true,
+			"enableNodeOptionsEnvironmentVariable": false,
+			"enableNodeCliInspectArguments": false,
+			"enableEmbeddedAsarIntegrityValidation": true,
+			"onlyLoadAppFromAsar": true
+		},
 		"directories": {
 			"output": "artifacts/packages"
 		},
 		"files": [
 			"dist/desktop/**/*",
 			"package.json"
+		],
+		"extraResources": [
+			{
+				"from": "build/native/${platform}-${arch}",
+				"to": "native/${platform}-${arch}",
+				"filter": [
+					"tiempio-engine-native-host",
+					"tiempio-engine-native-host.exe",
+					"manifest.json"
+				]
+			}
 		]
 	}
 }

@@ -11,13 +11,13 @@ import { ProjectSession } from '../../project-core/src/index.js'
 import { ApplicationRoot } from './app/ApplicationRoot.js'
 import { createSeedProject } from './project/seed-project.js'
 import {
-	ApplicationRuntimeController,
-	type ApplicationRuntimeControllerOptions
-} from './runtime/ApplicationRuntimeController.js'
+	createUnavailableApplicationController,
+	type ApplicationMountOptions
+} from './runtime/ApplicationController.js'
 
 export function mountApplication(
 	runtime: ApplicationRuntime,
-	options: ApplicationRuntimeControllerOptions = {}
+	options: ApplicationMountOptions = {}
 ): ApplicationResult<null> {
 	const compatible = validateApplicationRuntime(runtime)
 	if (!compatible.ok) return compatible
@@ -29,7 +29,9 @@ export function mountApplication(
 		})
 	}
 	const session = new ProjectSession(createSeedProject())
-	const controller = new ApplicationRuntimeController(compatible.value, session, options)
+	const controller =
+		options.createController?.(compatible.value, session) ??
+		createUnavailableApplicationController(compatible.value)
 	createRoot(container).render(
 		createElement(ApplicationRoot, {
 			controller,
