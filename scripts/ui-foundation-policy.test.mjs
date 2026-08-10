@@ -31,7 +31,7 @@ function validFixture() {
 		cssFiles: [
 			{
 				path: 'packages/design-system/src/foundation.css',
-				source: `:root[data-theme="light"]{} :root[data-theme="dark"]{} ${tokens} @media (prefers-reduced-motion: reduce){}`
+				source: `:root[data-theme="light"]{} :root[data-theme="dark"]{} ${tokens} @media (prefers-reduced-motion: reduce){} @media (max-width: 44.999rem){.ti-tooltip[data-placement] .ti-tooltip__content{position: fixed;inset: auto var(--ti-space-3) var(--ti-space-3);}}`
 			}
 		],
 		applicationSource,
@@ -56,6 +56,15 @@ test('rejects native selects, component scrollbars and fixed pixel geometry', ()
 	assert.match(errors, /native select/u)
 	assert.match(errors, /component-local scrollbar/u)
 	assert.match(errors, /fixed pixel geometry/u)
+})
+
+test('requires compact tooltips to stay inside the viewport', () => {
+	const fixture = validFixture()
+	fixture.cssFiles[0].source = fixture.cssFiles[0].source.replace(
+		'inset: auto var(--ti-space-3) var(--ti-space-3);',
+		''
+	)
+	assert.match(validateUiFoundation(fixture).join('\n'), /compact tooltip containment/u)
 })
 
 test('rejects component-local canonical project mutation', () => {

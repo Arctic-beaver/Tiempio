@@ -305,6 +305,21 @@ button {
 	transform: translate(0, -50%);
 }
 
+@media (max-width: 44.999rem) {
+	.ti-tooltip[data-placement] .ti-tooltip__content {
+		position: fixed;
+		inset: auto var(--ti-space-3) var(--ti-space-3);
+		width: auto;
+		max-width: none;
+		transform: translateY(0.2rem);
+	}
+
+	.ti-tooltip[data-placement]:hover .ti-tooltip__content,
+	.ti-tooltip[data-placement]:focus-within .ti-tooltip__content {
+		transform: translateY(0);
+	}
+}
+
 .ti-popover,
 .ti-select {
 	position: relative;

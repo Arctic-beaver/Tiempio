@@ -64,6 +64,16 @@ export function validateUiFoundation({
 		if (!foundation.source.includes('@media (prefers-reduced-motion: reduce)')) {
 			errors.push('reduced-motion treatment is missing')
 		}
+		for (const mechanism of [
+			'@media (max-width: 44.999rem)',
+			'.ti-tooltip[data-placement] .ti-tooltip__content',
+			'position: fixed;',
+			'inset: auto var(--ti-space-3) var(--ti-space-3);'
+		]) {
+			if (!foundation.source.includes(mechanism)) {
+				errors.push(`compact tooltip containment is missing: ${mechanism}`)
+			}
+		}
 	}
 	for (const file of cssFiles) {
 		if (
