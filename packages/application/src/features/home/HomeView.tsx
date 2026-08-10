@@ -1,55 +1,102 @@
-import { ArrowRight, FileMusic, FolderOpen, Plus } from 'lucide-react'
+import { ArrowRight, FolderOpen, Headphones, Plus, Waves } from 'lucide-react'
 import type { JSX } from 'react'
-import { TextButton } from '../../../../design-system/src/index.js'
 import { useLocalization } from '../../../../localization/src/index.js'
 import { homeViewModel, type HomeViewModel } from './view-model.js'
+
+const visualRecentPieces = Object.freeze([
+	Object.freeze({ name: 'Night Drive', metaKey: 'home.recentNight', bpm: 128 }),
+	Object.freeze({ name: 'Quiet Signal', metaKey: 'home.recentQuiet', bpm: 112 }),
+	Object.freeze({ name: 'Glass Room', metaKey: 'home.recentGlass', bpm: 96 })
+] as const)
 
 export interface HomeViewProperties {
 	readonly model?: HomeViewModel
 	readonly onCreate: () => void
+	readonly onStartWithSound: () => void
 }
 
-export function HomeView({ model = homeViewModel, onCreate }: HomeViewProperties): JSX.Element {
+export function HomeView({
+	model = homeViewModel,
+	onCreate,
+	onStartWithSound
+}: HomeViewProperties): JSX.Element {
 	const { t } = useLocalization()
 	return (
 		<section className="studio-view home-view" data-testid="view-home">
-			<div className="home-view__hero">
-				<p className="studio-eyebrow">{t('home.eyebrow')}</p>
-				<h1>{t('home.title')}</h1>
-				<p className="studio-lede">{t('home.description')}</p>
-				<div className="home-view__actions">
-					<TextButton icon={<Plus />} onClick={onCreate} tone="accent">
-						{t('home.newProject')}
-					</TextButton>
-					<TextButton disabled icon={<FolderOpen />} title={t('common.notAvailable')}>
-						{t('home.openProject')}
-					</TextButton>
-				</div>
-			</div>
-			<div className="home-view__recent">
-				<div className="studio-section-heading">
-					<div>
-						<span className="studio-kicker">02</span>
-						<h2>{t('home.recent')}</h2>
-					</div>
-					<FileMusic aria-hidden="true" />
-				</div>
-				<div className="home-view__piece-list">
-					{model.recentPieces.map((piece) => (
-						<button className="home-view__piece" disabled key={piece.id} type="button">
-							<span>
-								<strong>{piece.name}</strong>
-								<small>
-									{t('home.recentDetail', {
-										bpm: piece.bpm,
-										count: piece.layerCount
-									})}
-								</small>
+			<div className="home">
+				<div className="home-main">
+					<div className="eyebrow">{t('home.eyebrow')}</div>
+					<h1>
+						{t('home.titleLead')} <em>{t('home.titleEmphasis')}</em>
+					</h1>
+					<p className="home-intro">{t('home.description')}</p>
+					<div className="start-actions">
+						<button className="start-row" onClick={onCreate} type="button">
+							<span className="round-symbol">
+								<Plus aria-hidden="true" />
 							</span>
-							<ArrowRight aria-hidden="true" />
+							<span>
+								<strong>{t('home.newProject')}</strong>
+								<small>{t('home.newProjectDescription')}</small>
+							</span>
+							<ArrowRight aria-hidden="true" className="arrow" />
 						</button>
-					))}
+						<button className="start-row" onClick={onStartWithSound} type="button">
+							<span className="round-symbol">
+								<Waves aria-hidden="true" />
+							</span>
+							<span>
+								<strong>{t('home.startWithSound')}</strong>
+								<small>{t('home.startWithSoundDescription')}</small>
+							</span>
+							<ArrowRight aria-hidden="true" className="arrow" />
+						</button>
+						<button
+							aria-disabled="true"
+							className="start-row"
+							disabled
+							title={t('common.notAvailable')}
+							type="button"
+						>
+							<span className="round-symbol">
+								<FolderOpen aria-hidden="true" />
+							</span>
+							<span>
+								<strong>{t('home.openProject')}</strong>
+								<small>{t('home.openProjectDescription')}</small>
+							</span>
+							<ArrowRight aria-hidden="true" className="arrow" />
+						</button>
+					</div>
 				</div>
+				<aside className="recent-panel" data-project-revision={model.recentPieces.length}>
+					<div className="panel-title">
+						<span>{t('home.recent')}</span>
+						<span>{visualRecentPieces.length}</span>
+					</div>
+					<div className="recent-list">
+						{visualRecentPieces.map((piece) => (
+							<div className="recent-item" key={piece.name}>
+								<span className="round-symbol">
+									<Waves aria-hidden="true" />
+								</span>
+								<span>
+									<span className="recent-name">{piece.name}</span>
+									<span className="recent-meta">{t(piece.metaKey)}</span>
+								</span>
+								<span className="recent-bpm">{piece.bpm}</span>
+							</div>
+						))}
+					</div>
+					<div className="inspiration-note">
+						<Headphones aria-hidden="true" />
+						<span>
+							<strong>{t('home.inspirationTitle')}</strong>
+							<br />
+							{t('home.inspirationDescription')}
+						</span>
+					</div>
+				</aside>
 			</div>
 		</section>
 	)

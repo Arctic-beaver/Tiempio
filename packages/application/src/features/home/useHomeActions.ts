@@ -4,7 +4,10 @@ import { useCommands } from '../../commands/CommandContext.js'
 import { commandForView } from '../../commands/command-registry.js'
 import { useProjectSession } from '../../project/ProjectSessionContext.js'
 
-export function useHomeActions(): { readonly createProject: () => void } {
+export function useHomeActions(): {
+	readonly createProject: () => void
+	readonly startWithSound: () => void
+} {
 	const { t } = useLocalization()
 	const { execute } = useCommands()
 	const projectSession = useProjectSession()
@@ -12,5 +15,8 @@ export function useHomeActions(): { readonly createProject: () => void } {
 		projectSession.createNewProject(t('home.untitledProject'))
 		execute(commandForView('first-layer'))
 	}, [execute, projectSession, t])
-	return { createProject }
+	const startWithSound = useCallback((): void => {
+		execute(commandForView('sound-chooser'))
+	}, [execute])
+	return { createProject, startWithSound }
 }

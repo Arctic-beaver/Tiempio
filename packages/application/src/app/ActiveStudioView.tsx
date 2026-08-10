@@ -32,7 +32,13 @@ export function ActiveStudioView({ activeView }: ActiveStudioViewProperties): JS
 	const home = useHomeActions()
 
 	if (activeView === 'home') {
-		return <HomeView model={projections.home} onCreate={home.createProject} />
+		return (
+			<HomeView
+				model={projections.home}
+				onCreate={home.createProject}
+				onStartWithSound={home.startWithSound}
+			/>
+		)
 	}
 	return (
 		<Suspense fallback={<LazyViewFallback />}>
