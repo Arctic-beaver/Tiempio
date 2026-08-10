@@ -2,8 +2,9 @@
 
 ## Status and ownership
 
-**Status:** implementation and pre-Stage-5 architecture alignment completed through Stage 4;
-Stages 5-8 have not started.
+**Status:** implementation and pre-Stage-5 architecture alignment completed through Stage 4; the
+detailed Stage 5 implementation plan is prepared, but Stage 5 production work and Stages 6-8 have
+not started.
 
 **Original planned integration branch:** `feature/application-skeleton`.
 
@@ -14,6 +15,11 @@ architecture alignment before Stage 5 was completed through
 `docs/project-plan/ARCHITECTURE-ALIGNMENT.md` on branch `fix/architecture-alignment`; it does not
 implement or claim any Stage 5 runtime behavior.
 
+The detailed Stage 5 delivery plan is recorded in
+`docs/project-plan/STAGE-5-DESKTOP-RUNTIME.md`. It treats the prototype-exact UI restored at
+`9ee5191` as an immutable implementation baseline: Desktop runtime work may activate existing
+truthful states, but it may not redesign or visually drift from the approved prototype.
+
 | Stage | Current state |
 | --- | --- |
 | 0 - Lifecycle foundation | Complete |
@@ -21,7 +27,7 @@ implement or claim any Stage 5 runtime behavior.
 | 2 - Design system and shared shell | Complete; retained evidence exists |
 | 3 - Project core and logical format | Complete; retained evidence exists |
 | 4 - Engine core and offline proof | Complete; retained evidence exists |
-| 5 - Desktop runtime | Not started |
+| 5 - Desktop runtime | Detailed plan prepared; implementation not started |
 | 6 - Web runtime | Not started |
 | 7 - Primary audible vertical slice | Not started |
 | 8 - Acceptance hardening | Not started |
