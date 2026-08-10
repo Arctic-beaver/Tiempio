@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
 	activityCommandDefinitions,
+	commandDefinition,
 	commandDefinitions,
 	commandForShortcut,
 	commandForView,
@@ -28,6 +29,11 @@ test('command ids, definitions and activity placements stay unique', () => {
 		activityCommandDefinitions.map(({ view }) => view),
 		['home', 'piano-roll', 'drums', 'arrangement', 'sound-sculpt']
 	)
+	assert.equal(
+		commandDefinitions.every(({ disabledReasonKey }) => disabledReasonKey.length > 0),
+		true
+	)
+	assert.equal(commandDefinition('transport.stop').availability, 'engine')
 })
 
 test('every studio view resolves through the registry', () => {

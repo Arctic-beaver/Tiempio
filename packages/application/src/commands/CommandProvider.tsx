@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, type JSX, type ReactNode } from 'react'
 import { useApplicationRuntime } from '../providers/RuntimeContext.js'
+import {
+	executeResolvedCommand,
+	resolveCommandStates,
+	type CommandAvailabilityContext,
+	type CommandHandlerMap
+} from './command-availability.js'
 import { CommandContext, type CommandContextValue } from './CommandContext.js'
 import { commandForShortcut, isCommandId, type CommandId } from './command-registry.js'
 
 export interface CommandProviderProperties {
+	readonly availability: CommandAvailabilityContext
 	readonly children: ReactNode
-	readonly handlers: Readonly<Partial<Record<CommandId, () => void>>>
+	readonly handlers: CommandHandlerMap
 	readonly looping: boolean
-	readonly playing: boolean
 }
 
 function acceptsTextInput(target: EventTarget | null): boolean {
@@ -19,20 +25,19 @@ function acceptsTextInput(target: EventTarget | null): boolean {
 }
 
 export function CommandProvider({
+	availability,
 	children,
 	handlers,
-	looping,
-	playing
+	looping
 }: CommandProviderProperties): JSX.Element {
 	const runtime = useApplicationRuntime()
+	const commands = useMemo(
+		() => resolveCommandStates(availability, handlers),
+		[availability, handlers]
+	)
 	const execute = useCallback(
-		(commandId: CommandId): boolean => {
-			const handler = handlers[commandId]
-			if (handler === undefined) return false
-			handler()
-			return true
-		},
-		[handlers]
+		(commandId: CommandId): boolean => executeResolvedCommand(commandId, commands, handlers),
+		[commands, handlers]
 	)
 
 	useEffect(() => {
@@ -56,8 +61,8 @@ export function CommandProvider({
 	}, [execute, runtime.commands])
 
 	const value = useMemo<CommandContextValue>(
-		() => ({ execute, looping, playing }),
-		[execute, looping, playing]
+		() => ({ commands, execute, looping }),
+		[commands, execute, looping]
 	)
 	return <CommandContext.Provider value={value}>{children}</CommandContext.Provider>
 }

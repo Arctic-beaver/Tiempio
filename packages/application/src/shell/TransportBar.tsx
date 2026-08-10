@@ -1,13 +1,15 @@
-import { CircleStop, Pause, Play, Repeat2, Settings2, Volume2 } from 'lucide-react'
+import { CircleStop, Play, Repeat2, Settings2, Volume2 } from 'lucide-react'
 import type { JSX } from 'react'
-import { IconButton, Popover, Select, Tooltip } from '../../../design-system/src/index.js'
+import { Popover, Select } from '../../../design-system/src/index.js'
 import {
 	useLocalization,
 	type LocalizationKey,
 	type SupportedLocale
 } from '../../../localization/src/index.js'
+import { CommandIconButton } from '../commands/CommandIconButton.js'
 import { useCommands } from '../commands/CommandContext.js'
 import { useProjectSession } from '../project/ProjectSessionContext.js'
+import { useApplicationRuntime } from '../providers/RuntimeContext.js'
 import {
 	usePresentationSettings,
 	type PresentationSettingsContextValue,
@@ -27,47 +29,47 @@ const persistenceLabelKeys: Readonly<Record<SettingsPersistenceState, Localizati
 export function TransportBar(): JSX.Element {
 	const { t } = useLocalization()
 	const settings = usePresentationSettings()
-	const { execute, looping, playing } = useCommands()
+	const { looping } = useCommands()
 	const { projections } = useProjectSession()
+	const runtime = useApplicationRuntime()
+	const engineAvailable = runtime.engine.availability === 'available'
 	return (
 		<div aria-label={t('transport.toolbar')} className="transport-bar" role="toolbar">
 			<div className="transport-bar__primary">
-				<Tooltip content={playing ? t('transport.pause') : t('transport.play')}>
-					<IconButton
-						icon={playing ? <Pause /> : <Play />}
-						label={playing ? t('transport.pause') : t('transport.play')}
-						onClick={() => execute('transport.toggle-playback')}
-						tone="accent"
-					/>
-				</Tooltip>
-				<Tooltip content={t('transport.stop')}>
-					<IconButton
-						icon={<CircleStop />}
-						label={t('transport.stop')}
-						onClick={() => execute('transport.stop')}
-					/>
-				</Tooltip>
+				<CommandIconButton
+					commandId="transport.toggle-playback"
+					icon={<Play />}
+					label={t('transport.play')}
+					tone="accent"
+				/>
+				<CommandIconButton
+					commandId="transport.stop"
+					icon={<CircleStop />}
+					label={t('transport.stop')}
+				/>
 			</div>
 			<div className="transport-bar__position">
 				<span>{t('transport.position')}</span>
 				<strong>01 · 01 · 000</strong>
 			</div>
-			<button className="transport-bar__tempo" type="button">
+			<div className="transport-bar__tempo">
 				<span>{t('transport.tempo')}</span>
 				<strong>{projections.transport.bpm}</strong>
-			</button>
-			<Tooltip content={t('transport.loop')}>
-				<IconButton
-					icon={<Repeat2 />}
-					label={t('transport.loop')}
-					onClick={() => execute('transport.toggle-loop')}
-					selected={looping}
-				/>
-			</Tooltip>
+			</div>
+			<CommandIconButton
+				commandId="transport.toggle-loop"
+				icon={<Repeat2 />}
+				label={t('transport.loop')}
+				selected={looping}
+			/>
 			<div className="transport-bar__spacer" />
-			<div className="transport-bar__audio" role="status">
+			<div
+				className="transport-bar__audio"
+				data-availability={engineAvailable ? 'available' : 'unavailable'}
+				role="status"
+			>
 				<Volume2 aria-hidden="true" />
-				<span>{t('transport.audioShared')}</span>
+				<span>{t(engineAvailable ? 'engine.available' : 'engine.unavailable')}</span>
 			</div>
 			<Popover icon={<Settings2 />} label={t('common.settings')}>
 				<div className="settings-popover">

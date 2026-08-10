@@ -106,9 +106,9 @@ export const englishCatalog = Object.freeze({
 	'transport.tempo': 'Tempo',
 	'transport.position': 'Position',
 	'transport.loop': 'Loop',
-	'transport.audioShared': 'Shared audio',
 	'transport.toolbar': 'Transport',
-	'engine.ready': 'Audio engine status: ready',
+	'engine.available': 'Audio capability available',
+	'engine.unavailable': 'Audio engine unavailable',
 	'settings.sessionOnly': 'Saved for this session',
 	'settings.loading': 'Saving settings',
 	'settings.saved': 'Settings saved',
@@ -122,7 +122,11 @@ export const englishCatalog = Object.freeze({
 	'layout.openContext': 'Open details',
 	'layout.closeDrawer': 'Close panel',
 	'command.palette': 'Command palette',
-	'command.shortcut': 'Shortcut: {{shortcut}}'
+	'command.shortcut': 'Shortcut: {{shortcut}}',
+	'command.disabled.unavailable': 'This command is unavailable.',
+	'command.disabled.engineUnavailable': 'The audio engine is not available yet.',
+	'command.disabled.projectUnavailable': 'Open or create a project to use this command.',
+	'command.disabled.noDrawer': 'No panel is open.'
 } as const)
 
 export type LocalizationKey = keyof typeof englishCatalog
@@ -236,9 +240,9 @@ export const russianCatalog = Object.freeze({
 	'transport.tempo': 'Темп',
 	'transport.position': 'Позиция',
 	'transport.loop': 'Зациклить',
-	'transport.audioShared': 'Общее аудио',
 	'transport.toolbar': 'Транспорт',
-	'engine.ready': 'Состояние аудиодвижка: готов',
+	'engine.available': 'Аудиовозможности доступны',
+	'engine.unavailable': 'Аудиодвижок недоступен',
 	'settings.sessionOnly': 'Сохранено на эту сессию',
 	'settings.loading': 'Настройки сохраняются',
 	'settings.saved': 'Настройки сохранены',
@@ -252,7 +256,12 @@ export const russianCatalog = Object.freeze({
 	'layout.openContext': 'Открыть параметры',
 	'layout.closeDrawer': 'Закрыть панель',
 	'command.palette': 'Палитра команд',
-	'command.shortcut': 'Сочетание клавиш: {{shortcut}}'
+	'command.shortcut': 'Сочетание клавиш: {{shortcut}}',
+	'command.disabled.unavailable': 'Эта команда недоступна.',
+	'command.disabled.engineUnavailable': 'Аудиодвижок пока недоступен.',
+	'command.disabled.projectUnavailable':
+		'Откройте или создайте проект, чтобы использовать эту команду.',
+	'command.disabled.noDrawer': 'Ни одна панель не открыта.'
 } as const satisfies LocalizationCatalog)
 
 export const spanishCatalog = Object.freeze({
@@ -366,9 +375,9 @@ export const spanishCatalog = Object.freeze({
 	'transport.tempo': 'Tempo',
 	'transport.position': 'Posición',
 	'transport.loop': 'Bucle',
-	'transport.audioShared': 'Audio compartido',
 	'transport.toolbar': 'Transporte',
-	'engine.ready': 'Estado del motor de audio: listo',
+	'engine.available': 'Audio disponible',
+	'engine.unavailable': 'Motor de audio no disponible',
 	'settings.sessionOnly': 'Guardado durante esta sesión',
 	'settings.loading': 'Guardando ajustes',
 	'settings.saved': 'Ajustes guardados',
@@ -382,7 +391,11 @@ export const spanishCatalog = Object.freeze({
 	'layout.openContext': 'Abrir detalles',
 	'layout.closeDrawer': 'Cerrar panel',
 	'command.palette': 'Paleta de comandos',
-	'command.shortcut': 'Atajo: {{shortcut}}'
+	'command.shortcut': 'Atajo: {{shortcut}}',
+	'command.disabled.unavailable': 'Este comando no está disponible.',
+	'command.disabled.engineUnavailable': 'El motor de audio aún no está disponible.',
+	'command.disabled.projectUnavailable': 'Abre o crea un proyecto para usar este comando.',
+	'command.disabled.noDrawer': 'No hay ningún panel abierto.'
 } as const satisfies LocalizationCatalog)
 
 export const catalogs = Object.freeze({

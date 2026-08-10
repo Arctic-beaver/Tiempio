@@ -50,7 +50,6 @@ export function StudioApplication(): JSX.Element {
 	const runtime = useApplicationRuntime()
 	const projectSession = useProjectSession()
 	const [navigation, setNavigation] = useState(initialStudioNavigationState)
-	const [playing, setPlaying] = useState(false)
 	const navigate = useCallback((activeView: StudioViewId): void => {
 		setNavigation({ activeView, activeDrawer: null })
 	}, [])
@@ -69,7 +68,6 @@ export function StudioApplication(): JSX.Element {
 			'studio.drums': () => navigate('drums'),
 			'studio.arrangement': () => navigate('arrangement'),
 			'studio.sound-sculpt': () => navigate('sound-sculpt'),
-			'transport.toggle-playback': () => setPlaying((current) => !current),
 			'transport.toggle-loop': () => {
 				const snapshot = projectSession.getSnapshot()
 				const loop = snapshot.project.transport.loop
@@ -81,19 +79,26 @@ export function StudioApplication(): JSX.Element {
 					endTick: loop.endTick
 				})
 			},
-			'transport.stop': () => setPlaying(false),
 			'layout.open-navigation': () => openDrawer('navigation'),
 			'layout.open-context': () => openDrawer('context'),
 			'layout.close-drawer': closeDrawer
 		}),
 		[closeDrawer, navigate, openDrawer, projectSession]
 	)
+	const commandAvailability = useMemo(
+		() => ({
+			activeDrawer: navigation.activeDrawer,
+			engineAvailable: runtime.engine.availability === 'available',
+			projectRevision: projectSession.snapshot.revision
+		}),
+		[navigation.activeDrawer, projectSession.snapshot.revision, runtime.engine]
+	)
 
 	return (
 		<CommandProvider
+			availability={commandAvailability}
 			handlers={handlers}
 			looping={projectSession.projections.transport.looping}
-			playing={playing}
 		>
 			<StudioShell
 				activeDrawer={navigation.activeDrawer}

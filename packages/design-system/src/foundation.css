@@ -146,25 +146,29 @@ button {
 		transform var(--ti-duration-fast) var(--ti-ease-out);
 }
 
-.ti-icon-button:hover,
-.ti-text-button:hover,
-.ti-popover__trigger:hover,
-.ti-select__trigger:hover {
+.ti-icon-button:not(:disabled):not([aria-disabled="true"]):hover,
+.ti-text-button:not(:disabled):not([aria-disabled="true"]):hover,
+.ti-popover__trigger:not(:disabled):not([aria-disabled="true"]):hover,
+.ti-select__trigger:not(:disabled):not([aria-disabled="true"]):hover {
 	background: var(--ti-surface-2);
 	color: var(--ti-text);
 }
 
-.ti-icon-button:active,
-.ti-text-button:active,
-.ti-popover__trigger:active,
-.ti-select__trigger:active {
+.ti-icon-button:not(:disabled):not([aria-disabled="true"]):active,
+.ti-text-button:not(:disabled):not([aria-disabled="true"]):active,
+.ti-popover__trigger:not(:disabled):not([aria-disabled="true"]):active,
+.ti-select__trigger:not(:disabled):not([aria-disabled="true"]):active {
 	transform: translateY(0.06rem);
 }
 
 .ti-icon-button:disabled,
+.ti-icon-button[aria-disabled="true"],
 .ti-text-button:disabled,
+.ti-text-button[aria-disabled="true"],
 .ti-popover__trigger:disabled,
-.ti-select__trigger:disabled {
+.ti-popover__trigger[aria-disabled="true"],
+.ti-select__trigger:disabled,
+.ti-select__trigger[aria-disabled="true"] {
 	cursor: not-allowed;
 	opacity: 0.46;
 	transform: none;

@@ -13,7 +13,7 @@ function validFixture() {
 			'view-arrangement',
 			'view-sound-sculpt'
 		].map((view) => `data-testid="${view}"`),
-		'CommandProvider commandForShortcut runtime.commands.api.onRequested ProjectSessionProvider useSyncExternalStore projectStudio('
+		'CommandProvider CommandIconButton commandForShortcut resolveCommandStates( executeResolvedCommand( aria-disabled={!command.available runtime.commands.api.onRequested ProjectSessionProvider useSyncExternalStore projectStudio('
 	].join(' ')
 	const tokens = [
 		'--ti-canvas',
@@ -62,4 +62,14 @@ test('rejects component-local canonical project mutation', () => {
 	const fixture = validFixture()
 	fixture.applicationSource += ' setNotes('
 	assert.match(validateUiFoundation(fixture).join('\n'), /escaped ProjectSession/u)
+})
+
+test('rejects command controls that present invented runtime behavior', () => {
+	const fixture = validFixture()
+	fixture.applicationSource +=
+		' <button className="transport-bar__tempo"> t(\'transport.audioShared\') setPlaying((current) => !current)'
+	const errors = validateUiFoundation(fixture).join('\n')
+	assert.match(errors, /tempo display is interactive/u)
+	assert.match(errors, /claims Shared Audio/u)
+	assert.match(errors, /playback state is toggled locally/u)
 })

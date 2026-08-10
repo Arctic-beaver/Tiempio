@@ -88,7 +88,11 @@ export function validateUiFoundation({
 	}
 	for (const mechanism of [
 		'CommandProvider',
+		'CommandIconButton',
 		'commandForShortcut',
+		'resolveCommandStates(',
+		'executeResolvedCommand(',
+		'aria-disabled={!command.available',
 		'runtime.commands.api.onRequested',
 		'ProjectSessionProvider',
 		'useSyncExternalStore',
@@ -96,6 +100,15 @@ export function validateUiFoundation({
 	]) {
 		if (!applicationSource.includes(mechanism))
 			errors.push(`command mechanism is missing: ${mechanism}`)
+	}
+	if (/<button\b[^>]*className="transport-bar__tempo"/su.test(applicationSource)) {
+		errors.push('tempo display is interactive without a registered command')
+	}
+	if (applicationSource.includes("t('transport.audioShared')")) {
+		errors.push('audio status claims Shared Audio without runtime evidence')
+	}
+	if (applicationSource.includes('setPlaying((current) => !current)')) {
+		errors.push('playback state is toggled locally instead of following the engine')
 	}
 	for (const forbidden of [
 		'setNotes(',
@@ -134,6 +147,7 @@ export function auditUiFoundation({ repositoryRoot = resolve('.'), report = cons
 		resolve(repositoryRoot, 'packages/application/src'),
 		/\.(?:ts|tsx)$/u
 	)
+		.filter(({ path }) => !path.includes('.test.'))
 		.map(({ source }) => source)
 		.join('\n')
 	const localizationSource = collectFiles(
@@ -158,7 +172,7 @@ export function auditUiFoundation({ repositoryRoot = resolve('.'), report = cons
 	})
 	if (errors.length > 0) throw new Error(`UI foundation policy failed:\n- ${errors.join('\n- ')}`)
 	const message =
-		'PASS UI foundation: shared themes, controls, scrollbars, commands, one ProjectSession, EN/RU/ES i18n and seven states are present.'
+		'PASS UI foundation: shared themes, controls, scrollbars, availability-gated commands, one ProjectSession, EN/RU/ES i18n and seven states are present.'
 	report(message)
 	return message
 }

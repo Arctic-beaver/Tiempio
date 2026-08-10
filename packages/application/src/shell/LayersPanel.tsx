@@ -1,7 +1,8 @@
 import { AudioWaveform, Drum, Music2, Plus } from 'lucide-react'
 import type { JSX, ReactNode } from 'react'
-import { IconButton, ScrollSurface, Tooltip } from '../../../design-system/src/index.js'
+import { ScrollSurface } from '../../../design-system/src/index.js'
 import { useLocalization } from '../../../localization/src/index.js'
+import { CommandIconButton } from '../commands/CommandIconButton.js'
 import { useCommands } from '../commands/CommandContext.js'
 import { commandForView } from '../commands/command-registry.js'
 import { useProjectSession } from '../project/ProjectSessionContext.js'
@@ -15,7 +16,7 @@ function layerIcon(layer: ProjectedLayerItem): ReactNode {
 
 export function LayersPanel(): JSX.Element {
 	const { t } = useLocalization()
-	const { execute } = useCommands()
+	const { commands, execute } = useCommands()
 	const { projections, selectLayer } = useProjectSession()
 	const model = projections.layers
 	return (
@@ -25,38 +26,42 @@ export function LayersPanel(): JSX.Element {
 					<span>{String(model.items.length).padStart(2, '0')}</span>
 					<h2>{t('layers.title')}</h2>
 				</div>
-				<Tooltip content={t('layers.add')} placement="right">
-					<IconButton
-						icon={<Plus />}
-						label={t('layers.add')}
-						onClick={() => execute('studio.first-layer')}
-						size="small"
-					/>
-				</Tooltip>
+				<CommandIconButton
+					commandId="studio.first-layer"
+					icon={<Plus />}
+					label={t('layers.add')}
+					size="small"
+					tooltipPlacement="right"
+				/>
 			</header>
 			<ScrollSurface className="layers-panel__list">
-				{model.items.map((layer) => (
-					<button
-						aria-current={model.activeLayerId === layer.id ? 'page' : undefined}
-						className="layer-item"
-						data-color={layer.color}
-						key={layer.id}
-						onClick={() => {
-							selectLayer(layer.id)
-							execute(commandForView(layer.view))
-						}}
-						type="button"
-					>
-						<span aria-hidden="true" className="layer-item__icon">
-							{layerIcon(layer)}
-						</span>
-						<span>
-							<strong>{t(layer.labelKey)}</strong>
-							<small>{layer.soundName}</small>
-						</span>
-						<i aria-hidden="true" />
-					</button>
-				))}
+				{model.items.map((layer) => {
+					const commandId = commandForView(layer.view)
+					const command = commands[commandId]
+					return (
+						<button
+							aria-current={model.activeLayerId === layer.id ? 'page' : undefined}
+							className="layer-item"
+							data-color={layer.color}
+							disabled={!command.available}
+							key={layer.id}
+							onClick={() => {
+								selectLayer(layer.id)
+								execute(commandId)
+							}}
+							type="button"
+						>
+							<span aria-hidden="true" className="layer-item__icon">
+								{layerIcon(layer)}
+							</span>
+							<span>
+								<strong>{t(layer.labelKey)}</strong>
+								<small>{layer.soundName}</small>
+							</span>
+							<i aria-hidden="true" />
+						</button>
+					)
+				})}
 			</ScrollSurface>
 			<footer>
 				<span>{model.projectTitle}</span>

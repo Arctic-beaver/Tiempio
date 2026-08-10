@@ -73,6 +73,7 @@ const compiledTestFiles = Object.freeze([
 	resolve('.test-out/packages/contracts/src/engine-render-plan.test.js'),
 	resolve('.test-out/packages/engine-client/src/EngineClient.test.js'),
 	resolve('.test-out/packages/application/src/shell/layout-model.test.js'),
+	resolve('.test-out/packages/application/src/commands/command-availability.test.js'),
 	resolve('.test-out/packages/application/src/commands/command-registry.test.js'),
 	resolve('.test-out/packages/application/src/project/projectors.test.js'),
 	resolve('.test-out/packages/design-system/src/theme.test.js'),

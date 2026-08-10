@@ -19,6 +19,8 @@ export const commandIds = Object.freeze([
 
 export type CommandId = (typeof commandIds)[number]
 export type CommandPlacement = 'activity' | 'layer' | 'transport' | 'window' | 'workflow'
+export type CommandEffectOwner = 'engine' | 'presentation' | 'project'
+export type CommandAvailabilityRequirement = 'always' | 'drawer-open' | 'engine' | 'project'
 
 export interface CommandShortcut {
 	readonly key: string
@@ -27,6 +29,9 @@ export interface CommandShortcut {
 }
 
 export interface CommandDefinition {
+	readonly availability: CommandAvailabilityRequirement
+	readonly disabledReasonKey: LocalizationKey
+	readonly effectOwner: CommandEffectOwner
 	readonly id: CommandId
 	readonly labelKey: LocalizationKey
 	readonly placements: readonly CommandPlacement[]
@@ -40,6 +45,9 @@ function defineCommand(definition: CommandDefinition): Readonly<CommandDefinitio
 
 export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 	defineCommand({
+		availability: 'always',
+		disabledReasonKey: 'command.disabled.unavailable',
+		effectOwner: 'presentation',
 		id: 'studio.home',
 		labelKey: 'nav.home',
 		placements: ['activity'],
@@ -47,18 +55,27 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		view: 'home'
 	}),
 	defineCommand({
+		availability: 'always',
+		disabledReasonKey: 'command.disabled.unavailable',
+		effectOwner: 'presentation',
 		id: 'studio.first-layer',
 		labelKey: 'layers.add',
 		placements: ['workflow'],
 		view: 'first-layer'
 	}),
 	defineCommand({
+		availability: 'always',
+		disabledReasonKey: 'command.disabled.unavailable',
+		effectOwner: 'presentation',
 		id: 'studio.sound-chooser',
 		labelKey: 'soundChooser.title',
 		placements: ['workflow'],
 		view: 'sound-chooser'
 	}),
 	defineCommand({
+		availability: 'always',
+		disabledReasonKey: 'command.disabled.unavailable',
+		effectOwner: 'presentation',
 		id: 'studio.piano-roll',
 		labelKey: 'nav.piano',
 		placements: ['activity', 'layer'],
@@ -66,6 +83,9 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		view: 'piano-roll'
 	}),
 	defineCommand({
+		availability: 'always',
+		disabledReasonKey: 'command.disabled.unavailable',
+		effectOwner: 'presentation',
 		id: 'studio.drums',
 		labelKey: 'nav.drums',
 		placements: ['activity', 'layer'],
@@ -73,6 +93,9 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		view: 'drums'
 	}),
 	defineCommand({
+		availability: 'always',
+		disabledReasonKey: 'command.disabled.unavailable',
+		effectOwner: 'presentation',
 		id: 'studio.arrangement',
 		labelKey: 'nav.arrangement',
 		placements: ['activity'],
@@ -80,6 +103,9 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		view: 'arrangement'
 	}),
 	defineCommand({
+		availability: 'always',
+		disabledReasonKey: 'command.disabled.unavailable',
+		effectOwner: 'presentation',
 		id: 'studio.sound-sculpt',
 		labelKey: 'nav.soundSculpt',
 		placements: ['activity'],
@@ -87,34 +113,52 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		view: 'sound-sculpt'
 	}),
 	defineCommand({
+		availability: 'engine',
+		disabledReasonKey: 'command.disabled.engineUnavailable',
+		effectOwner: 'engine',
 		id: 'transport.toggle-playback',
 		labelKey: 'transport.play',
 		placements: ['transport'],
 		shortcut: { key: ' ' }
 	}),
 	defineCommand({
+		availability: 'project',
+		disabledReasonKey: 'command.disabled.projectUnavailable',
+		effectOwner: 'project',
 		id: 'transport.toggle-loop',
 		labelKey: 'transport.loop',
 		placements: ['transport'],
 		shortcut: { key: 'l' }
 	}),
 	defineCommand({
+		availability: 'engine',
+		disabledReasonKey: 'command.disabled.engineUnavailable',
+		effectOwner: 'engine',
 		id: 'transport.stop',
 		labelKey: 'transport.stop',
 		placements: ['transport'],
 		shortcut: { key: 'Escape', shift: true }
 	}),
 	defineCommand({
+		availability: 'always',
+		disabledReasonKey: 'command.disabled.unavailable',
+		effectOwner: 'presentation',
 		id: 'layout.open-navigation',
 		labelKey: 'layout.openNavigation',
 		placements: ['window']
 	}),
 	defineCommand({
+		availability: 'always',
+		disabledReasonKey: 'command.disabled.unavailable',
+		effectOwner: 'presentation',
 		id: 'layout.open-context',
 		labelKey: 'layout.openContext',
 		placements: ['window']
 	}),
 	defineCommand({
+		availability: 'drawer-open',
+		disabledReasonKey: 'command.disabled.noDrawer',
+		effectOwner: 'presentation',
 		id: 'layout.close-drawer',
 		labelKey: 'layout.closeDrawer',
 		placements: ['window'],
@@ -123,6 +167,9 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 ] as const)
 
 const commandIdSet: ReadonlySet<string> = new Set(commandIds)
+const commandDefinitionById: ReadonlyMap<CommandId, CommandDefinition> = new Map(
+	commandDefinitions.map((definition) => [definition.id, definition])
+)
 
 export const activityCommandDefinitions = Object.freeze(
 	commandDefinitions.filter(({ placements }) => placements.includes('activity'))
@@ -130,6 +177,12 @@ export const activityCommandDefinitions = Object.freeze(
 
 export function isCommandId(value: string): value is CommandId {
 	return commandIdSet.has(value)
+}
+
+export function commandDefinition(commandId: CommandId): CommandDefinition {
+	const definition = commandDefinitionById.get(commandId)
+	if (definition === undefined) throw new Error(`No command definition exists for ${commandId}.`)
+	return definition
 }
 
 export function commandForView(view: StudioViewId): CommandId {

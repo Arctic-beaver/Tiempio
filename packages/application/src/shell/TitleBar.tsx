@@ -3,7 +3,7 @@ import { useState, type JSX } from 'react'
 import type { ApplicationTarget } from '../../../contracts/src/index.js'
 import { IconButton } from '../../../design-system/src/index.js'
 import { useLocalization } from '../../../localization/src/index.js'
-import { useCommands } from '../commands/CommandContext.js'
+import { CommandIconButton } from '../commands/CommandIconButton.js'
 import { useApplicationRuntime } from '../providers/RuntimeContext.js'
 import { useProjectSession } from '../project/ProjectSessionContext.js'
 
@@ -13,7 +13,6 @@ export interface TitleBarProperties {
 
 export function TitleBar({ target }: TitleBarProperties): JSX.Element {
 	const { t } = useLocalization()
-	const { execute } = useCommands()
 	const runtime = useApplicationRuntime()
 	const { snapshot } = useProjectSession()
 	const [maximized, setMaximized] = useState(false)
@@ -40,10 +39,10 @@ export function TitleBar({ target }: TitleBarProperties): JSX.Element {
 			data-window-chrome={runtime.windowChrome}
 		>
 			<div className="title-bar__compact-control title-bar__no-drag">
-				<IconButton
+				<CommandIconButton
+					commandId="layout.open-navigation"
 					icon={<Menu />}
 					label={t('layout.openNavigation')}
-					onClick={() => execute('layout.open-navigation')}
 				/>
 			</div>
 			<div className="title-bar__identity">
@@ -56,10 +55,10 @@ export function TitleBar({ target }: TitleBarProperties): JSX.Element {
 			</span>
 			<div className="title-bar__actions title-bar__no-drag">
 				<div className="title-bar__context-control">
-					<IconButton
+					<CommandIconButton
+						commandId="layout.open-context"
 						icon={<PanelRight />}
 						label={t('layout.openContext')}
-						onClick={() => execute('layout.open-context')}
 					/>
 				</div>
 				{customChrome ? (

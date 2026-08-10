@@ -1,10 +1,11 @@
 import { createContext, useContext } from 'react'
+import type { ResolvedCommandStates } from './command-availability.js'
 import type { CommandId } from './command-registry.js'
 
 export interface CommandContextValue {
+	readonly commands: ResolvedCommandStates
 	readonly execute: (commandId: CommandId) => boolean
 	readonly looping: boolean
-	readonly playing: boolean
 }
 
 export const CommandContext = createContext<CommandContextValue | null>(null)

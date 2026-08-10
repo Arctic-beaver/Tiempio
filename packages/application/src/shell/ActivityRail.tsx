@@ -1,10 +1,10 @@
 import { AudioWaveform, Drum, Home, ListMusic, SlidersHorizontal } from 'lucide-react'
 import type { JSX, ReactNode } from 'react'
-import { IconButton, Tooltip } from '../../../design-system/src/index.js'
 import { useLocalization } from '../../../localization/src/index.js'
 import type { StudioViewId } from '../app/studio-state.js'
-import { useCommands } from '../commands/CommandContext.js'
+import { CommandIconButton } from '../commands/CommandIconButton.js'
 import { activityCommandDefinitions, type CommandId } from '../commands/command-registry.js'
+import { useApplicationRuntime } from '../providers/RuntimeContext.js'
 
 const activityIcons: Readonly<Partial<Record<CommandId, ReactNode>>> = Object.freeze({
 	'studio.home': <Home />,
@@ -20,7 +20,8 @@ export interface ActivityRailProperties {
 
 export function ActivityRail({ activeView }: ActivityRailProperties): JSX.Element {
 	const { t } = useLocalization()
-	const { execute } = useCommands()
+	const runtime = useApplicationRuntime()
+	const engineAvailable = runtime.engine.availability === 'available'
 	return (
 		<nav aria-label={t('nav.studio')} className="activity-rail">
 			<div aria-hidden="true" className="activity-rail__mark">
@@ -28,17 +29,22 @@ export function ActivityRail({ activeView }: ActivityRailProperties): JSX.Elemen
 			</div>
 			<div className="activity-rail__items">
 				{activityCommandDefinitions.map((command) => (
-					<Tooltip content={t(command.labelKey)} key={command.id} placement="right">
-						<IconButton
-							icon={activityIcons[command.id]}
-							label={t(command.labelKey)}
-							onClick={() => execute(command.id)}
-							selected={activeView === command.view}
-						/>
-					</Tooltip>
+					<CommandIconButton
+						commandId={command.id}
+						icon={activityIcons[command.id]}
+						key={command.id}
+						label={t(command.labelKey)}
+						selected={activeView === command.view}
+						tooltipPlacement="right"
+					/>
 				))}
 			</div>
-			<span aria-label={t('engine.ready')} className="activity-rail__status" role="status" />
+			<span
+				aria-label={t(engineAvailable ? 'engine.available' : 'engine.unavailable')}
+				className="activity-rail__status"
+				data-availability={engineAvailable ? 'available' : 'unavailable'}
+				role="status"
+			/>
 		</nav>
 	)
 }
