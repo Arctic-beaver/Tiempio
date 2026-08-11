@@ -969,6 +969,37 @@ mod tests {
     }
 
     #[test]
+    fn opens_the_latest_plan_when_an_initially_missing_output_appears() {
+        let backend = SwitchingBackend::new(false);
+        let backend_control = backend.clone();
+        let (event_tx, _event_rx) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
+        let mut controller = HostController::new(backend, event_tx);
+        controller
+            .dispatch(EngineCommand::ConfigureAudio(requested_configuration()))
+            .unwrap();
+        controller.dispatch(EngineCommand::StartAudio).unwrap();
+        controller
+            .dispatch(EngineCommand::LoadRenderPlan(fixture_plan()))
+            .unwrap();
+        assert_eq!(controller.backend_state, "starting");
+        assert!(controller.stream.is_none());
+        assert!(controller.latest_plan.is_some());
+
+        backend_control.set_output(true, "device.test-speakers", 44_100);
+        thread::sleep(RECOVERY_BASE_DELAY + Duration::from_millis(25));
+        controller
+            .dispatch(EngineCommand::RequestDiagnostics)
+            .unwrap();
+        assert_eq!(controller.backend_state, "ready");
+        assert_eq!(
+            controller.active_device_id.as_deref(),
+            Some("device.test-speakers")
+        );
+        assert!(controller.latest_plan.is_some());
+        assert_eq!(backend_control.starts(), 1);
+    }
+
+    #[test]
     fn recovers_the_latest_plan_on_a_new_default_output() {
         let backend = SwitchingBackend::new(true);
         let backend_control = backend.clone();
