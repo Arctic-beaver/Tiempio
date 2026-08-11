@@ -1,12 +1,12 @@
 .transport__palette {
 	display: flex;
-	height: 2.125rem;
+	height: var(--ti-control-height);
 	align-items: center;
 	border-left: var(--ti-hairline) solid var(--ti-border);
 }
 
 .transport__palette .ti-popover__trigger {
-	min-height: 2.125rem;
+	min-height: var(--ti-control-height);
 	padding: 0 0.625rem;
 	border: 0;
 	border-radius: 999rem;
