@@ -52,6 +52,34 @@ describe('studio project projections', () => {
 		assert.equal(session.getSnapshot().revision, 1)
 	})
 
+	it('projects the selected synth family, its characters and committed macro values', () => {
+		const session = new ProjectSession(createSeedProject())
+		const selected = layerId('layer.melody')
+		let projections = projectStudio(session.getSnapshot(), selected)
+		assert.equal(projections.sculpt.familyName, 'Lead')
+		assert.equal(projections.sculpt.presetId, 'lead.glass')
+		assert.equal(projections.sculpt.characters.length, 7)
+		assert.equal(projections.sculpt.characters[1]?.id, 'lead.neon')
+
+		session.dispatch({
+			type: 'layer.character.select',
+			baseRevision: 0,
+			layerId: selected,
+			presetId: 'lead.neon'
+		})
+		session.dispatch({
+			type: 'layer.macro.commit',
+			baseRevision: 1,
+			layerId: selected,
+			macro: 'brightness',
+			value: 0.31
+		})
+		projections = projectStudio(session.getSnapshot(), selected)
+		assert.equal(projections.sculpt.soundName, 'Neon')
+		assert.equal(projections.sculpt.presetId, 'lead.neon')
+		assert.equal(projections.sculpt.dimensions.find(({ id }) => id === 'brightness')?.value, 31)
+	})
+
 	it('keeps every canonical chromatic note visible in the piano-roll range', () => {
 		const session = new ProjectSession(createSeedProject())
 		const melody = session.getSnapshot().project.layers[0]

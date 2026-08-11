@@ -10,6 +10,7 @@ import {
 	Square,
 	Waves
 } from 'lucide-react'
+import { SemanticSlider } from '../../../../design-system/src/index.js'
 import {
 	useEffect,
 	useMemo,
@@ -21,9 +22,16 @@ import {
 	type KeyboardEvent as ReactKeyboardEvent,
 	type ReactNode
 } from 'react'
-import { useLocalization, type LocalizationKey } from '../../../../localization/src/index.js'
+import { useLocalization } from '../../../../localization/src/index.js'
 import { songPalette } from '../../../../music-theory/src/index.js'
-import type { LayerPerformanceMapping, ProjectKey } from '../../../../project-core/src/index.js'
+import type {
+	LayerPerformanceMapping,
+	ProjectKey,
+	SemanticSynthMacrosV2,
+	SoundFamily,
+	SynthMacroId,
+	SynthPresetId
+} from '../../../../project-core/src/index.js'
 import { PerformanceKeyboard } from '../../performance/PerformanceKeyboard.js'
 import { useApplicationRuntimeController } from '../../runtime/ApplicationRuntimeControllerContext.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
@@ -31,36 +39,24 @@ import { soundDemoProgram } from './sound-demo-model.js'
 import { SoundWaveform } from './SoundWaveform.js'
 import { soundChooserViewModel, type SoundChooserViewModel } from './view-model.js'
 
-const categories: readonly {
-	readonly count: string
-	readonly icon: ReactNode
-	readonly name: string
-}[] = Object.freeze([
-	Object.freeze({ name: 'Bass', count: '06', icon: <CircleDot /> }),
-	Object.freeze({ name: 'Lead', count: '07', icon: <Waves /> }),
-	Object.freeze({ name: 'Pad', count: '05', icon: <AudioLines /> }),
-	Object.freeze({ name: 'Pluck', count: '04', icon: <Music2 /> }),
-	Object.freeze({ name: 'Texture', count: '05', icon: <Waves /> })
-])
-
-const presets: readonly {
-	readonly descriptionKey: LocalizationKey
-	readonly name: string
-}[] = Object.freeze([
-	Object.freeze({ name: 'Deep', descriptionKey: 'soundChooser.presetDeep' }),
-	Object.freeze({ name: 'Punchy', descriptionKey: 'soundChooser.presetPunchy' }),
-	Object.freeze({ name: 'Warm', descriptionKey: 'soundChooser.presetWarm' }),
-	Object.freeze({ name: 'Dirty', descriptionKey: 'soundChooser.presetDirty' }),
-	Object.freeze({ name: 'Soft', descriptionKey: 'soundChooser.presetSoft' }),
-	Object.freeze({ name: 'Retro', descriptionKey: 'soundChooser.presetRetro' })
-])
+const categoryIcons = Object.freeze({
+	bass: <CircleDot />,
+	lead: <Waves />,
+	pad: <AudioLines />,
+	pluck: <Music2 />,
+	texture: <Waves />
+} as const satisfies Readonly<Record<SoundFamily, ReactNode>>)
 
 const axes = Object.freeze([
-	Object.freeze({ left: 'Dark', right: 'Bright', value: '34%' }),
-	Object.freeze({ left: 'Soft', right: 'Hard', value: '42%' }),
-	Object.freeze({ left: 'Clean', right: 'Dirty', value: '22%' }),
-	Object.freeze({ left: 'Short', right: 'Long', value: '58%' })
-])
+	Object.freeze({ id: 'brightness', left: 'Dark', right: 'Bright' }),
+	Object.freeze({ id: 'hardness', left: 'Soft', right: 'Hard' }),
+	Object.freeze({ id: 'dirt', left: 'Clean', right: 'Dirty' }),
+	Object.freeze({ id: 'length', left: 'Short', right: 'Long' })
+] as const satisfies readonly {
+	readonly id: SynthMacroId
+	readonly left: string
+	readonly right: string
+}[])
 
 const defaultPerformance = Object.freeze({
 	key: Object.freeze({ tonic: 9, mode: 'minor' as const }),
@@ -81,6 +77,10 @@ export interface SoundChooserViewProperties {
 	readonly model?: SoundChooserViewModel
 	readonly onBack: () => void
 	readonly onChoose: (performance: LayerPerformanceMapping) => void
+	readonly onCommitMacro: (macro: SynthMacroId, value: number) => void
+	readonly onSelectPreset: (presetId: SynthPresetId) => void
+	readonly selectedMacros: SemanticSynthMacrosV2
+	readonly selectedPresetId: SynthPresetId
 }
 
 export function SoundChooserView({
@@ -88,7 +88,11 @@ export function SoundChooserView({
 	layerId,
 	model = soundChooserViewModel,
 	onBack,
-	onChoose
+	onChoose,
+	onCommitMacro,
+	onSelectPreset,
+	selectedMacros,
+	selectedPresetId
 }: SoundChooserViewProperties): JSX.Element {
 	const { t } = useLocalization()
 	const controller = useApplicationRuntimeController()
@@ -106,7 +110,19 @@ export function SoundChooserView({
 	const [dockView, setDockView] = useState<SoundMappingDockView>('keys')
 	const [key, setKey] = useState<ProjectKey>(() => ({ ...initialPerformance.key }))
 	const [octave, setOctave] = useState(initialPerformance.octave)
+	const [macroPreview, setMacroPreview] = useState<Partial<Record<SynthMacroId, number>>>({})
 	const dockTabRefs = useRef(new Map<SoundMappingDockView, HTMLButtonElement>())
+	const activeFamily =
+		model.families.find((family) =>
+			family.presets.some((preset) => preset.id === selectedPresetId)
+		) ?? model.families[0]
+	const activePreset =
+		activeFamily?.presets.find((preset) => preset.id === selectedPresetId) ??
+		activeFamily?.presets[0]
+	const soundName =
+		activeFamily === undefined || activePreset === undefined
+			? 'Sound'
+			: `${activePreset.name} ${activeFamily.name}`
 	const palette = useMemo(() => songPalette(key), [key])
 	const rootOptions = useMemo(
 		() =>
@@ -170,10 +186,16 @@ export function SoundChooserView({
 		controller.performanceInput.releaseAll()
 		onChoose({ key: { ...key }, octave })
 	}
+	const selectPreset = (presetId: SynthPresetId): void => {
+		releaseForMappingChange()
+		setMacroPreview({})
+		onSelectPreset(presetId)
+	}
+	const soundCount = model.families.reduce((total, family) => total + family.presets.length, 0)
 	return (
 		<section
 			className="studio-view sound-chooser-view"
-			data-sound-count={model.sounds.length}
+			data-sound-count={soundCount}
 			data-testid="view-sound-chooser"
 		>
 			<StudioTopBar
@@ -185,26 +207,36 @@ export function SoundChooserView({
 			<div className="chooser-layout">
 				<aside className="chooser-categories">
 					<div className="chooser-kicker">{t('soundChooser.instrument')}</div>
-					{categories.map((category, index) => (
-						<button
-							aria-current={index === 0 ? 'true' : undefined}
-							className={`category-row${index === 0 ? ' active' : ''}`}
-							disabled={index !== 0}
-							key={category.name}
-							title={index === 0 ? undefined : t('common.notAvailable')}
-							type="button"
-						>
-							<span aria-hidden="true">{category.icon}</span>
-							<strong>{category.name}</strong>
-							<span>{category.count}</span>
-						</button>
-					))}
+					{model.families.map((category) => {
+						const active = category.id === activeFamily?.id
+						const firstPreset = category.presets[0]
+						return (
+							<button
+								aria-current={active ? 'true' : undefined}
+								className={`category-row${active ? ' active' : ''}`}
+								disabled={firstPreset === undefined}
+								key={category.id}
+								onClick={() => {
+									if (firstPreset !== undefined) selectPreset(firstPreset.id)
+								}}
+								type="button"
+							>
+								<span aria-hidden="true">{categoryIcons[category.id]}</span>
+								<strong>{category.name}</strong>
+								<span>{String(category.presets.length).padStart(2, '0')}</span>
+							</button>
+						)
+					})}
 				</aside>
 				<div className="sound-stage">
 					<div className="sound-title">
 						<div>
-							<h1>Deep Bass</h1>
-							<p>{t('soundChooser.deepBassDescription')}</p>
+							<h1>{soundName}</h1>
+							<p>
+								{activePreset === undefined
+									? t('soundChooser.description')
+									: t(activePreset.descriptionKey)}
+							</p>
 						</div>
 					</div>
 					<div className="audition">
@@ -215,7 +247,7 @@ export function SoundChooserView({
 									soundDemoActive
 										? 'soundChooser.stopDemoAria'
 										: 'soundChooser.hearSoundAria',
-									{ palette: palette.name, sound: 'Deep Bass' }
+									{ palette: palette.name, sound: soundName }
 								)}
 								aria-pressed={soundDemoActive}
 								className="sound-demo-action"
@@ -238,23 +270,25 @@ export function SoundChooserView({
 						<SoundWaveform ownerId={performanceOwnerId} />
 					</div>
 					<div className="preset-lines">
-						{presets.map((preset, index) => (
-							<button
-								aria-current={index === 0 ? 'true' : undefined}
-								className={`preset-row${index === 0 ? ' active' : ''}`}
-								disabled
-								key={preset.name}
-								title={t('common.notAvailable')}
-								type="button"
-							>
-								<span className="tone-dot" />
-								<span>
-									<strong>{preset.name}</strong>{' '}
-									<small>{t(preset.descriptionKey)}</small>
-								</span>
-								<span aria-hidden="true">↗</span>
-							</button>
-						))}
+						{(activeFamily?.presets ?? []).map((preset) => {
+							const active = preset.id === selectedPresetId
+							return (
+								<button
+									aria-current={active ? 'true' : undefined}
+									className={`preset-row${active ? ' active' : ''}`}
+									key={preset.id}
+									onClick={() => selectPreset(preset.id)}
+									type="button"
+								>
+									<span className="tone-dot" />
+									<span>
+										<strong>{preset.name}</strong>{' '}
+										<small>{t(preset.descriptionKey)}</small>
+									</span>
+									<span aria-hidden="true">↗</span>
+								</button>
+							)
+						})}
 					</div>
 					<div className="sound-mapping-dock" data-view={dockView}>
 						<div
@@ -425,18 +459,39 @@ export function SoundChooserView({
 				</div>
 				<aside className="semantic-panel">
 					<h2>{t('soundChooser.fineTune')}</h2>
-					{axes.map((axis) => (
-						<div className="semantic-row" key={axis.left}>
-							<div className="semantic-labels">
-								<span>{axis.left}</span>
-								<span>{axis.right}</span>
-							</div>
+					{axes.map((axis) => {
+						const value =
+							macroPreview[axis.id] ?? Math.round(selectedMacros[axis.id] * 100)
+						return (
 							<div
-								className="semantic-line"
-								style={{ '--semantic-value': axis.value } as CSSProperties}
-							/>
-						</div>
-					))}
+								className="semantic-row"
+								key={axis.id}
+								style={{ '--semantic-value': `${String(value)}%` } as CSSProperties}
+							>
+								<SemanticSlider
+									formatValue={() => axis.right}
+									label={axis.left}
+									max={100}
+									min={0}
+									onChange={(nextValue) =>
+										setMacroPreview((current) => ({
+											...current,
+											[axis.id]: nextValue
+										}))
+									}
+									onCommit={(nextValue) => {
+										releaseForMappingChange()
+										onCommitMacro(axis.id, nextValue / 100)
+										setMacroPreview((current) => ({
+											...current,
+											[axis.id]: undefined
+										}))
+									}}
+									value={value}
+								/>
+							</div>
+						)
+					})}
 					<p className="semantic-help">{t('soundChooser.semanticHelp')}</p>
 				</aside>
 			</div>

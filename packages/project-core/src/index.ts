@@ -150,6 +150,7 @@ export {
 	synthPresetDefinition,
 	synthPresetRevision,
 	synthPresetsForFamily,
+	type SynthPresetDefinition,
 	updateDeepBassMacro,
 	updateDrumVoiceVariant,
 	updateSynthMacro

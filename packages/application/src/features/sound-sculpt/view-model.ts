@@ -1,4 +1,5 @@
 import type { LocalizationKey } from '../../../../localization/src/index.js'
+import type { SynthPresetId } from '../../../../project-core/src/index.js'
 
 export interface SculptDimensionViewModel {
 	readonly id: 'brightness' | 'movement' | 'space' | 'texture'
@@ -7,12 +8,22 @@ export interface SculptDimensionViewModel {
 }
 
 export interface SoundSculptViewModel {
+	readonly characters: readonly {
+		readonly descriptionKey: LocalizationKey
+		readonly id: SynthPresetId
+		readonly name: string
+	}[]
 	readonly dimensions: readonly SculptDimensionViewModel[]
+	readonly familyName: string
+	readonly presetId: SynthPresetId | null
 	readonly soundName: string
 }
 
 export const soundSculptViewModel: SoundSculptViewModel = Object.freeze({
-	soundName: 'Felt Signal',
+	characters: Object.freeze([]),
+	familyName: 'Bass',
+	presetId: 'bass.deep',
+	soundName: 'Deep',
 	dimensions: Object.freeze([
 		Object.freeze({ id: 'brightness', labelKey: 'sculpt.brightness', value: 58 }),
 		Object.freeze({ id: 'movement', labelKey: 'sculpt.movement', value: 36 }),

@@ -1,4 +1,95 @@
+const englishSoundCharacterCatalog = Object.freeze({
+	'soundChooser.character.bass.deep': 'Low, smooth and steady',
+	'soundChooser.character.bass.punchy': 'Tight attack with a clear low-end pulse',
+	'soundChooser.character.bass.warm': 'Rounded weight with a soft edge',
+	'soundChooser.character.bass.dirty': 'Rough harmonics and saturated movement',
+	'soundChooser.character.bass.soft': 'Calm, airy and gentle under the mix',
+	'soundChooser.character.bass.retro': 'Compact vintage synth weight',
+	'soundChooser.character.lead.glass': 'Clear top with a patient shimmer',
+	'soundChooser.character.lead.neon': 'Bright, lively and sharply outlined',
+	'soundChooser.character.lead.velvet': 'Smooth body with a forgiving attack',
+	'soundChooser.character.lead.hollow': 'Open center with a distant tone',
+	'soundChooser.character.lead.razor': 'Hard edge and immediate presence',
+	'soundChooser.character.lead.voice': 'Vocal color with gentle movement',
+	'soundChooser.character.lead.solar': 'Warm brilliance and a wide glow',
+	'soundChooser.character.pad.soft': 'Slow, quiet and gently layered',
+	'soundChooser.character.pad.warm': 'Rounded harmony with a close glow',
+	'soundChooser.character.pad.air': 'Light texture with open space',
+	'soundChooser.character.pad.motion': 'Broad tone with a living pulse',
+	'soundChooser.character.pad.dust': 'Muted atmosphere with a grainy edge',
+	'soundChooser.character.pluck.glass': 'Bright strike with a clean tail',
+	'soundChooser.character.pluck.wood': 'Dry, natural and softly resonant',
+	'soundChooser.character.pluck.bell': 'Focused chime with a clear decay',
+	'soundChooser.character.pluck.short': 'Very tight and rhythmically precise',
+	'soundChooser.character.texture.grain': 'Scattered detail with tactile noise',
+	'soundChooser.character.texture.mist': 'Soft haze with slow movement',
+	'soundChooser.character.texture.pulse': 'Textured rhythm with a steady core',
+	'soundChooser.character.texture.dust': 'Dry particles and a faded body',
+	'soundChooser.character.texture.wire': 'Thin tension with metallic motion'
+} as const)
+
+const russianSoundCharacterCatalog = Object.freeze({
+	'soundChooser.character.bass.deep': 'Глубокий, гладкий и устойчивый низ',
+	'soundChooser.character.bass.punchy': 'Плотная атака и чёткий низкий пульс',
+	'soundChooser.character.bass.warm': 'Округлый вес с мягким краем',
+	'soundChooser.character.bass.dirty': 'Грубые гармоники и насыщенное движение',
+	'soundChooser.character.bass.soft': 'Спокойный, воздушный и деликатный',
+	'soundChooser.character.bass.retro': 'Компактный винтажный синтовый низ',
+	'soundChooser.character.lead.glass': 'Чистый верх с долгим мерцанием',
+	'soundChooser.character.lead.neon': 'Яркий, живой и чётко очерченный',
+	'soundChooser.character.lead.velvet': 'Гладкая основа с мягкой атакой',
+	'soundChooser.character.lead.hollow': 'Открытая середина и далёкий тон',
+	'soundChooser.character.lead.razor': 'Жёсткий край и мгновенное присутствие',
+	'soundChooser.character.lead.voice': 'Вокальный оттенок с мягким движением',
+	'soundChooser.character.lead.solar': 'Тёплый блеск и широкое свечение',
+	'soundChooser.character.pad.soft': 'Медленный, тихий и деликатно слоистый',
+	'soundChooser.character.pad.warm': 'Округлая гармония с близким свечением',
+	'soundChooser.character.pad.air': 'Лёгкая текстура с открытым пространством',
+	'soundChooser.character.pad.motion': 'Широкий тон с живым пульсом',
+	'soundChooser.character.pad.dust': 'Приглушённая атмосфера с зернистым краем',
+	'soundChooser.character.pluck.glass': 'Яркий щелчок с чистым хвостом',
+	'soundChooser.character.pluck.wood': 'Сухой, естественный и мягко резонансный',
+	'soundChooser.character.pluck.bell': 'Собранный звон с чистым затуханием',
+	'soundChooser.character.pluck.short': 'Очень короткий и ритмически точный',
+	'soundChooser.character.texture.grain': 'Рассеянные детали и осязаемый шум',
+	'soundChooser.character.texture.mist': 'Мягкая дымка с медленным движением',
+	'soundChooser.character.texture.pulse': 'Фактурный ритм с устойчивой основой',
+	'soundChooser.character.texture.dust': 'Сухие частицы и выцветшая основа',
+	'soundChooser.character.texture.wire': 'Тонкое напряжение с металлическим движением'
+} as const)
+
+const spanishSoundCharacterCatalog = Object.freeze({
+	'soundChooser.character.bass.deep': 'Grave profundo, suave y estable',
+	'soundChooser.character.bass.punchy': 'Ataque firme con un pulso grave claro',
+	'soundChooser.character.bass.warm': 'Peso redondo con un borde suave',
+	'soundChooser.character.bass.dirty': 'Armónicos ásperos y movimiento saturado',
+	'soundChooser.character.bass.soft': 'Calmo, aireado y delicado en la mezcla',
+	'soundChooser.character.bass.retro': 'Peso compacto de sintetizador vintage',
+	'soundChooser.character.lead.glass': 'Agudos claros con un brillo paciente',
+	'soundChooser.character.lead.neon': 'Brillante, vivo y bien definido',
+	'soundChooser.character.lead.velvet': 'Cuerpo suave con un ataque amable',
+	'soundChooser.character.lead.hollow': 'Centro abierto con un tono distante',
+	'soundChooser.character.lead.razor': 'Borde duro y presencia inmediata',
+	'soundChooser.character.lead.voice': 'Color vocal con movimiento suave',
+	'soundChooser.character.lead.solar': 'Brillo cálido y resplandor amplio',
+	'soundChooser.character.pad.soft': 'Lento, tranquilo y suavemente estratificado',
+	'soundChooser.character.pad.warm': 'Armonía redonda con brillo cercano',
+	'soundChooser.character.pad.air': 'Textura ligera con espacio abierto',
+	'soundChooser.character.pad.motion': 'Tono amplio con pulso vivo',
+	'soundChooser.character.pad.dust': 'Atmósfera apagada con borde granulado',
+	'soundChooser.character.pluck.glass': 'Golpe brillante con cola limpia',
+	'soundChooser.character.pluck.wood': 'Seco, natural y suavemente resonante',
+	'soundChooser.character.pluck.bell': 'Campana enfocada con caída clara',
+	'soundChooser.character.pluck.short': 'Muy corto y rítmicamente preciso',
+	'soundChooser.character.texture.grain': 'Detalle disperso con ruido táctil',
+	'soundChooser.character.texture.mist': 'Niebla suave con movimiento lento',
+	'soundChooser.character.texture.pulse': 'Ritmo texturizado con núcleo estable',
+	'soundChooser.character.texture.dust': 'Partículas secas y cuerpo desvanecido',
+	'soundChooser.character.texture.wire': 'Tensión fina con movimiento metálico'
+} as const)
+
 export const englishCatalog = Object.freeze({
+	...englishSoundCharacterCatalog,
 	'app.name': 'Tiempio',
 	'app.tagline': 'Make the music you can already hear.',
 	'app.desktop': 'Desktop studio',
@@ -328,6 +419,7 @@ export type LocalizationKey = keyof typeof englishCatalog
 export type LocalizationCatalog = Readonly<Record<LocalizationKey, string>>
 
 export const russianCatalog = Object.freeze({
+	...russianSoundCharacterCatalog,
 	'app.name': 'Tiempio',
 	'app.tagline': 'Создай музыку, которую уже слышишь внутри.',
 	'app.desktop': 'Студия для компьютера',
@@ -655,6 +747,7 @@ export const russianCatalog = Object.freeze({
 } as const satisfies LocalizationCatalog)
 
 export const spanishCatalog = Object.freeze({
+	...spanishSoundCharacterCatalog,
 	'app.name': 'Tiempio',
 	'app.tagline': 'Crea la música que ya puedes oír.',
 	'app.desktop': 'Estudio de escritorio',

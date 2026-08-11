@@ -1218,9 +1218,17 @@
 }
 
 .character-panel {
+	display: flex;
+	min-height: 0;
+	flex-direction: column;
 	padding: 1.625rem 1.375rem;
 	border-left: var(--ti-hairline) solid var(--ti-border);
 	background: color-mix(in srgb, var(--ti-canvas), var(--ti-surface-1) 42%);
+}
+
+.character-list {
+	min-height: 0;
+	overflow-y: auto;
 }
 
 .character-panel h2 {
@@ -1252,6 +1260,11 @@
 .character-row:disabled {
 	cursor: default;
 	opacity: 1;
+}
+
+.character-row:not(.active):hover {
+	padding-left: 0.25rem;
+	background: color-mix(in srgb, var(--ti-accent-soft), transparent 48%);
 }
 
 .character-row.active {

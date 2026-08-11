@@ -3,15 +3,10 @@ import { FirstLayerView } from '../../features/first-layer/FirstLayerView.js'
 import { useFirstLayerActions } from '../../features/first-layer/useFirstLayerActions.js'
 import { SoundChooserView } from '../../features/sound-chooser/SoundChooserView.js'
 import { useSoundChooserActions } from '../../features/sound-chooser/useSoundChooserActions.js'
-import { soundChooserViewModel } from '../../features/sound-chooser/view-model.js'
 import { SongPaletteSetupView } from '../../features/song-palette/SongPaletteSetupView.js'
 import { useSongPaletteActions } from '../../features/song-palette/useSongPaletteActions.js'
 import { useProjectSession } from '../../project/ProjectSessionContext.js'
 import type { StudioViewId } from '../studio-state.js'
-
-const deepSoundChooserModel = Object.freeze({
-	sounds: Object.freeze(soundChooserViewModel.sounds.filter((sound) => sound.id === 'low-ember'))
-})
 
 export interface WorkflowSurfaceProperties {
 	readonly activeView: Extract<StudioViewId, 'first-layer' | 'sound-chooser' | 'song-palette'>
@@ -43,9 +38,12 @@ export default function WorkflowSurface({ activeView }: WorkflowSurfacePropertie
 				octave: projections.transport.octave
 			}}
 			layerId={projections.pianoRoll.layerId}
-			model={deepSoundChooserModel}
 			onBack={soundChooser.returnToLayerChoice}
 			onChoose={soundChooser.chooseSound}
+			onCommitMacro={soundChooser.commitMacro}
+			onSelectPreset={soundChooser.selectCharacter}
+			selectedMacros={soundChooser.selectedMacros}
+			selectedPresetId={soundChooser.selectedPresetId}
 		/>
 	)
 }
