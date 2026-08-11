@@ -526,3 +526,125 @@ user's current editing resolution.
 - a first-time user can explain what the numbered bars do after using seek and metronome, without
   reading music theory documentation;
 - existing note editing, A-Z performance input, transport, Undo/Redo and shared audio do not regress.
+
+## D-003 - Sound-reactive instrument wave
+
+Status: `Partially approved`. The user approved the product intent: the existing orange wave on the
+sound-selection surface should visibly move while the user plays and create a restrained wow effect.
+The concrete motion mapping below is recommended for approval before implementation.
+
+### Product role
+
+Keep the existing two-line orange visual as part of the selected instrument's identity. It should
+feel dormant but alive at rest, respond immediately to actual playing, and settle naturally after
+release. It is not a scientific oscilloscope, spectrum analyzer or generic looping screensaver.
+
+The wave reacts in these audition contexts:
+
+- physical laptop performance keys;
+- clickable mouse/pen/touch performance keys;
+- Song palette scale preview and chord suggestion audition;
+- the first-sound selection surface where the visual already exists.
+
+Do not automatically add the animated wave to every Piano Roll or arrangement surface. Reuse it only
+where live instrument audition is the primary action, avoiding decorative motion competing with note
+editing.
+
+### Recommended motion language
+
+Preserve the recognizable base paths and apply bounded deformation rather than replacing them with a
+new visualizer:
+
+- note attack: the foreground orange curve expands promptly and gains brightness;
+- held sound: the curve travels smoothly and continues to bend with current output energy;
+- release/tail: amplitude eases back over roughly 350-500 milliseconds, following the instrument's
+  audible decay instead of snapping to the idle path;
+- pitch/register: lower notes use slightly broader/slower bends and higher notes slightly tighter
+  bends, within a narrow artistic range rather than literal audio frequency;
+- strength/output energy: actual engine peak controls the bounded deformation and glow amount;
+- chords: combine held-register and output-energy information into one stable curve instead of
+  drawing one competing line per voice;
+- pale secondary curve: acts as a slower echo/trail of the foreground envelope, giving depth without
+  doubling visual noise.
+
+The maximum movement, speed, glow and line thickness must be capped. Strong notes should feel more
+alive, not make the surface flicker or obscure surrounding controls.
+
+### Truthful signal and architecture boundary
+
+The native engine already publishes bounded stereo `meter-snapshot` events. Use them as the truth for
+audible energy, combined with the shared held-input state for pitch/register and source identity.
+
+- Do not copy raw audio samples, FFT arrays or per-sample data across IPC.
+- Do not animate only from keydown, because that would imply audible output when audio is unavailable
+  or the engine rejected the audition.
+- Held input may prepare the pitch/attack shape, but full motion requires available audio and current
+  meter energy.
+- Interpolate bounded meter snapshots on the renderer animation frame; never schedule sound or derive
+  transport timing from the visualizer.
+- Stop animation work when the surface is hidden and stop requesting frames after the release reaches
+  the stable idle shape.
+- Keep one presentation model shared by physical, pointer, scale-preview and chord-preview audition
+  instead of separate component-local animations.
+
+The wave remains `aria-hidden`; accessible input state comes from the playable keys and truthful
+audio status. It must not create screen-reader announcements for animation frames.
+
+### Idle, unavailable and reduced-motion states
+
+- Idle with available audio: show the recognizable static base curves with no perpetual travelling
+  animation.
+- Audio unavailable: retain the static dimmed visual and existing unavailable-audio status; key input
+  feedback may still depress the key, but the wave must not pretend that sound is present.
+- Reduced motion: do not deform or travel the paths. Use one bounded change of opacity/color while a
+  confirmed audible note is active, then return without pulsing.
+- Window blur, palette/instrument change and device loss safely clear the active visualization target
+  together with held audition sources.
+
+### Implementation candidate
+
+Retain SVG rather than introduce Canvas or a visualization dependency. Generate a small bounded set
+of path control points from:
+
+- smoothed mean/peak of `leftPeak` and `rightPeak`;
+- aggregate held-note register;
+- number of held voices, capped to the engine's supported audition bound;
+- a renderer-only visual phase advanced by `requestAnimationFrame` while active.
+
+This keeps the design responsive and themeable, allows deterministic pure path-generation tests and
+avoids a new rendering subsystem. The visual phase is presentation state only and never enters the
+project file, engine plan or Undo/Redo history.
+
+### Failure modes and compatibility risks
+
+- A keydown-only animation continues while audio is unavailable and falsely implies sound.
+- Unsafely mapping literal pitch frequency creates frantic motion for high notes and imperceptible
+  movement for low notes.
+- One curve per held voice becomes unreadable during chords and increases renderer work.
+- Direct unsmoothed peak values make the line jitter instead of breathe with the instrument.
+- A permanent idle animation consumes resources and turns a special response into background noise.
+- Renderer animation can continue in a hidden surface unless its frame lifecycle is explicitly owned.
+- Large flashes, scaling or rapid contrast changes violate reduced-motion and photosensitivity needs.
+- Replacing the existing path style would lose the reviewed instrument-selection visual identity.
+
+### Open decisions
+
+1. Should the wave respond only to confirmed output energy, or use a very small immediate keydown
+   impulse before the first meter snapshot when audio is available?
+2. Should pitch subtly affect wavelength, or should the first delivery react only to loudness and
+   held/released state for a calmer result?
+3. Should the same visual appear in the future project `Play` drawer, or remain exclusive to sound
+   and palette selection until that drawer has its own approved composition?
+
+### Acceptance outline after approval
+
+- foreground motion begins and settles with confirmed audition audio without becoming a raw waveform;
+- physical, pointer, scale-preview and chord-preview sources produce the same visual contract;
+- audio unavailable, rejected audition, blur, device loss and hidden surfaces leave a stable idle
+  path and no running animation loop;
+- pitch/energy/chord extremes remain finite, bounded and visually calm;
+- reduced-motion mode has no travelling/deforming path;
+- SVG path generation, smoothing and release are deterministic under synthetic meter snapshots;
+- Light, Dark, compact and tablet layouts preserve the existing curve identity and surrounding
+  control readability;
+- performance profiling shows no meaningful idle CPU work and no unbounded per-frame allocation.
