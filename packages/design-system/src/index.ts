@@ -1,6 +1,23 @@
 import './foundation.css'
 
 export { IconButton, type IconButtonProperties } from './IconButton.js'
+export {
+	FloatingOverlay,
+	OverlayBoundary,
+	type FloatingOverlayProperties,
+	type OverlayBoundaryProperties
+} from './FloatingOverlay.js'
+export {
+	calculateFloatingOverlayPlacement,
+	floatingOverlayPathIsOwned,
+	type FloatingOverlayAlignment,
+	type FloatingOverlayPlacement,
+	type FloatingOverlayPlacementInput,
+	type FloatingOverlayRectangle,
+	type FloatingOverlaySide,
+	type FloatingOverlaySize,
+	type FloatingOverlayViewport
+} from './floating-overlay.js'
 export { Popover, type PopoverProperties } from './Popover.js'
 export { ScrollSurface, type ScrollSurfaceProperties } from './ScrollSurface.js'
 export { SemanticSlider, type SemanticSliderProperties } from './SemanticSlider.js'
@@ -16,4 +33,4 @@ export {
 	type ResolvedColorScheme
 } from './theme.js'
 
-export const designSystemVersion = 2 as const
+export const designSystemVersion = 3 as const

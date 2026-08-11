@@ -7,6 +7,8 @@ import {
 	type KeyboardEvent,
 	type ReactNode
 } from 'react'
+import { FloatingOverlay } from './FloatingOverlay.js'
+import { floatingOverlayPathIsOwned } from './floating-overlay.js'
 
 export interface PopoverProperties {
 	readonly children: ReactNode
@@ -27,11 +29,15 @@ export function Popover({
 	const popoverId = useId()
 	const rootReference = useRef<HTMLDivElement>(null)
 	const triggerReference = useRef<HTMLButtonElement>(null)
+	const panelReference = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
 		if (!open) return
 		const dismissOutside = (event: PointerEvent): void => {
-			if (rootReference.current?.contains(event.target as Node) === false) setOpen(false)
+			const owners = [rootReference.current, panelReference.current].filter(
+				(owner): owner is HTMLDivElement => owner !== null
+			)
+			if (!floatingOverlayPathIsOwned(event.composedPath(), owners)) setOpen(false)
 		}
 		document.addEventListener('pointerdown', dismissOutside)
 		return () => document.removeEventListener('pointerdown', dismissOutside)
@@ -64,15 +70,18 @@ export function Popover({
 				<span>{label}</span>
 			</button>
 			{open ? (
-				<div
+				<FloatingOverlay
+					alignment={placement}
+					anchorRef={triggerReference}
 					aria-label={label}
 					className="ti-popover__panel"
-					data-placement={placement}
 					id={popoverId}
+					onAnchorMissing={() => setOpen(false)}
+					panelRef={panelReference}
 					role="dialog"
 				>
 					{children}
-				</div>
+				</FloatingOverlay>
 			) : null}
 		</div>
 	)
