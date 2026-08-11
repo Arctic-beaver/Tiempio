@@ -61,6 +61,29 @@ pub struct IdentifierPayload {
     pub audition_id: String,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PreviewEventPayload {
+    pub offset_ms: u32,
+    pub duration_ms: u32,
+    pub pitches: Vec<u8>,
+    pub velocity: u8,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PreviewProgramPayload {
+    pub preview_id: String,
+    pub program_version: u32,
+    pub events: Vec<PreviewEventPayload>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PreviewIdentifierPayload {
+    pub preview_id: String,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MacroPayload {

@@ -35,7 +35,10 @@ describe('engine protocol generation', () => {
 					maxBlockFrames: 1,
 					minSampleRate: 1,
 					maxSampleRate: 1,
-					maxOfflineSeconds: 1
+					maxOfflineSeconds: 1,
+					maxPreviewEvents: 1,
+					maxPreviewChordSize: 1,
+					maxPreviewDurationMs: 1
 				},
 				commands: ['handshake'],
 				events: ['ready'],
@@ -69,7 +72,10 @@ describe('engine protocol generation', () => {
 							maxBlockFrames: 1,
 							minSampleRate: 1,
 							maxSampleRate: 1,
-							maxOfflineSeconds: 1
+							maxOfflineSeconds: 1,
+							maxPreviewEvents: 1,
+							maxPreviewChordSize: 1,
+							maxPreviewDurationMs: 1
 						},
 						commands: ['play', 'play'],
 						events: ['ready'],

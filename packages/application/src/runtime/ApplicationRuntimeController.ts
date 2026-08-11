@@ -22,6 +22,7 @@ import {
 	type ApplicationControllerSnapshot
 } from './ApplicationController.js'
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
+import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
 
 const applicationEngineCapabilities = Object.freeze<readonly EngineCapabilityCode[]>([
 	'protocol.typed-json',
@@ -30,6 +31,7 @@ const applicationEngineCapabilities = Object.freeze<readonly EngineCapabilityCod
 	'transport.loop',
 	'synth.bass.deep',
 	'audition.notes',
+	'preview.programs',
 	'diagnostics.health',
 	'supervision.heartbeat',
 	'audio.native.shared',
@@ -61,6 +63,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	readonly #options: ApplicationRuntimeControllerOptions
 	readonly #runtime: ApplicationRuntime
 	public readonly performanceInput: PerformanceInputSession
+	public readonly previewCoordinator: AuditionPreviewCoordinator
 	#currentHandle: ProjectHandle | null = null
 	#disposed = false
 	#engineRestarting = false
@@ -96,12 +99,24 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.#projectSession = initialSession
 		this.performanceInput = new PerformanceInputSession({
 			noteOn: (auditionId, pitch, velocity) => {
+				this.previewCoordinator.interrupt()
 				if (this.#snapshot.available) {
 					void this.#send('note-on', { auditionId, pitch, velocity })
 				}
 			},
 			noteOff: (auditionId) => {
 				if (this.#snapshot.available) void this.#send('note-off', { auditionId })
+			}
+		})
+		this.previewCoordinator = new AuditionPreviewCoordinator({
+			cancel: (previewId) => {
+				if (this.#snapshot.available) void this.#send('cancel-preview', { previewId })
+			},
+			start: (program) => {
+				if (!this.#snapshot.available || this.#snapshot.playing) return false
+				this.performanceInput.releaseAll()
+				void this.#send('start-preview', program)
+				return true
 			}
 		})
 		this.#client =
@@ -126,6 +141,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	public readonly getSnapshot = (): ApplicationControllerSnapshot => this.#snapshot
 
 	public bindProjectSession(session: ProjectSession): void {
+		this.previewCoordinator.interrupt()
 		this.performanceInput.releaseAll()
 		this.#projectUnsubscribe?.()
 		this.#projectGeneration += 1
@@ -154,7 +170,10 @@ export class ApplicationRuntimeController implements ApplicationController {
 
 	public togglePlayback(): void {
 		if (this.#snapshot.playing) void this.#send('stop', {})
-		else void this.#send('play', { startTick: this.#snapshot.tick })
+		else {
+			this.previewCoordinator.interrupt()
+			void this.#send('play', { startTick: this.#snapshot.tick })
+		}
 	}
 
 	public stop(): void {
@@ -163,6 +182,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 
 	public seek(tick: number): void {
 		if (!Number.isSafeInteger(tick) || tick < 0) return
+		this.previewCoordinator.interrupt()
 		void this.#send('seek', { tick })
 	}
 
@@ -176,6 +196,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 
 	public prepareToClose(): void {
 		if (this.#disposed) return
+		this.previewCoordinator.interrupt()
 		this.performanceInput.releaseAll()
 		this.#scheduleRecovery(true)
 		void this.dispose()
@@ -183,6 +204,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 
 	public async dispose(): Promise<void> {
 		if (this.#disposed) return
+		this.previewCoordinator.interrupt()
 		this.performanceInput.releaseAll()
 		this.#disposed = true
 		this.#detachWindowListeners()
@@ -206,6 +228,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 			this.#acceptEngineEvent(event)
 		)
 		this.#unsubscribeEngineFailures = this.#client.onFailure((error) => {
+			this.previewCoordinator.reset()
 			this.performanceInput.releaseAll()
 			this.#setDiagnostic(error)
 		})
@@ -255,6 +278,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	#projectChanged(): void {
 		const snapshot = this.#projectSession.getSnapshot()
 		if (snapshot.revision !== this.#observedProjectRevision) {
+			this.previewCoordinator.interrupt()
 			this.performanceInput.releaseAll()
 			this.#observedProjectRevision = snapshot.revision
 			this.#latestRequestedPlanRevision = snapshot.revision
@@ -388,6 +412,22 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	#acceptEngineEvent(event: AnyEngineEventEnvelope): void {
+		if (event.type === 'preview-started') {
+			this.previewCoordinator.acceptStarted(event.payload.previewId)
+			return
+		}
+		if (event.type === 'preview-state') {
+			this.previewCoordinator.acceptState(
+				event.payload.previewId,
+				event.payload.pitches,
+				event.payload.active
+			)
+			return
+		}
+		if (event.type === 'preview-ended') {
+			this.previewCoordinator.acceptEnded(event.payload.previewId)
+			return
+		}
 		if (event.type === 'render-plan-acknowledged') {
 			if (
 				event.payload.projectRevision < this.#latestRequestedPlanRevision ||
@@ -404,6 +444,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		}
 		if (event.type === 'transport-snapshot') {
 			if (event.payload.projectRevision < this.#latestRequestedPlanRevision) return
+			if (event.payload.playing) this.previewCoordinator.interrupt()
 			this.#publish({
 				...this.#snapshot,
 				playing: event.payload.playing,
@@ -417,7 +458,10 @@ export class ApplicationRuntimeController implements ApplicationController {
 					details: { diagnostic: event.payload.code }
 				})
 			)
-			if (event.type === 'fatal-error') this.performanceInput.releaseAll()
+			if (event.type === 'fatal-error') {
+				this.previewCoordinator.reset()
+				this.performanceInput.releaseAll()
+			}
 		}
 	}
 
@@ -426,7 +470,10 @@ export class ApplicationRuntimeController implements ApplicationController {
 			this.#engineRestarting = true
 		}
 		const available = health.backendState === 'ready' && health.deviceState === 'available'
-		if (!available) this.performanceInput.releaseAll()
+		if (!available) {
+			this.previewCoordinator.reset()
+			this.performanceInput.releaseAll()
+		}
 		this.#publish({
 			...this.#snapshot,
 			available,
@@ -471,6 +518,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	#setDiagnostic(error: ApplicationError): void {
+		this.previewCoordinator.reset()
 		this.performanceInput.releaseAll()
 		this.#publish({ ...this.#snapshot, available: false, diagnostic: error, playing: false })
 	}

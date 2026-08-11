@@ -5,6 +5,7 @@ import {
 } from '../../../contracts/src/index.js'
 import { type ProjectSession } from '../../../project-core/src/index.js'
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
+import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
 
 export interface ApplicationControllerSnapshot {
 	readonly acknowledgedProjectRevision: number | null
@@ -17,6 +18,7 @@ export interface ApplicationControllerSnapshot {
 
 export interface ApplicationController {
 	readonly performanceInput: PerformanceInputSession
+	readonly previewCoordinator: AuditionPreviewCoordinator
 	readonly getSnapshot: () => ApplicationControllerSnapshot
 	readonly subscribe: (listener: () => void) => () => void
 	bindProjectSession(session: ProjectSession): void
@@ -47,8 +49,13 @@ export function createUnavailableApplicationController(
 		noteOn: () => undefined,
 		noteOff: () => undefined
 	})
+	const previewCoordinator = new AuditionPreviewCoordinator({
+		cancel: () => undefined,
+		start: () => false
+	})
 	return Object.freeze({
 		performanceInput,
+		previewCoordinator,
 		getSnapshot: () => unavailableSnapshot,
 		subscribe: () => () => undefined,
 		bindProjectSession: () => undefined,

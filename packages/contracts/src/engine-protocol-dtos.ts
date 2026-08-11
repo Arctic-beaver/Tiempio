@@ -40,6 +40,13 @@ export type EngineRenderPlanDeltaChange =
 	| { readonly gain: number; readonly layerId: string; readonly type: 'layer-gain' }
 	| { readonly layerId: string; readonly pan: number; readonly type: 'layer-pan' }
 
+export interface EnginePreviewEvent {
+	readonly durationMs: number
+	readonly offsetMs: number
+	readonly pitches: readonly number[]
+	readonly velocity: number
+}
+
 export interface EngineCommandPayloadByType {
 	readonly handshake: EngineHandshake
 	readonly 'configure-audio': {
@@ -69,6 +76,12 @@ export interface EngineCommandPayloadByType {
 		readonly velocity: number
 	}
 	readonly 'note-off': { readonly auditionId: string }
+	readonly 'start-preview': {
+		readonly events: readonly EnginePreviewEvent[]
+		readonly previewId: string
+		readonly programVersion: 1
+	}
+	readonly 'cancel-preview': { readonly previewId: string }
 	readonly 'preview-macro': {
 		readonly baseRevision: number
 		readonly layerId: string
@@ -119,6 +132,20 @@ export interface EngineEventPayloadByType {
 		readonly tick: number
 	}
 	readonly 'meter-snapshot': { readonly leftPeak: number; readonly rightPeak: number }
+	readonly 'preview-started': {
+		readonly durationFrames: number
+		readonly previewId: string
+	}
+	readonly 'preview-state': {
+		readonly active: boolean
+		readonly pitches: readonly number[]
+		readonly previewId: string
+		readonly samplePosition: number
+	}
+	readonly 'preview-ended': {
+		readonly previewId: string
+		readonly reason: 'completed' | 'canceled' | 'interrupted'
+	}
 	readonly 'audio-devices-changed': {
 		readonly devices: readonly {
 			readonly default: boolean

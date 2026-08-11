@@ -78,6 +78,34 @@ function validEventPayload(type: EngineEventType, value: unknown): boolean {
 			finiteRange(value.rightPeak, 0, 1)
 		)
 	}
+	if (type === 'preview-started') {
+		return (
+			exactKeys(value, ['previewId', 'durationFrames']) &&
+			validIdentifier(value.previewId) &&
+			safeInteger(value.durationFrames) &&
+			value.durationFrames > 0
+		)
+	}
+	if (type === 'preview-state') {
+		return (
+			exactKeys(value, ['previewId', 'pitches', 'active', 'samplePosition']) &&
+			validIdentifier(value.previewId) &&
+			Array.isArray(value.pitches) &&
+			value.pitches.length >= 1 &&
+			value.pitches.length <= engineProtocolLimits.maxPreviewChordSize &&
+			new Set(value.pitches).size === value.pitches.length &&
+			value.pitches.every((pitch) => safeInteger(pitch) && pitch <= 127) &&
+			typeof value.active === 'boolean' &&
+			safeInteger(value.samplePosition)
+		)
+	}
+	if (type === 'preview-ended') {
+		return (
+			exactKeys(value, ['previewId', 'reason']) &&
+			validIdentifier(value.previewId) &&
+			['completed', 'canceled', 'interrupted'].includes(String(value.reason))
+		)
+	}
 	if (type === 'audio-devices-changed') {
 		return (
 			exactKeys(value, ['devices']) &&

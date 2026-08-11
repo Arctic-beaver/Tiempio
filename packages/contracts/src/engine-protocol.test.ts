@@ -18,8 +18,8 @@ const compatibleHandshake = {
 } as const
 
 describe('engine protocol contracts', () => {
-	it('advances the live Desktop protocol contract to version 2', () => {
-		assert.equal(engineProtocolVersion, 2)
+	it('advances the live Desktop protocol contract to version 3', () => {
+		assert.equal(engineProtocolVersion, 3)
 	})
 
 	it('rejects version mismatch before session creation', () => {
@@ -155,6 +155,61 @@ describe('engine protocol contracts', () => {
 				}
 			}).ok,
 			false
+		)
+	})
+
+	it('validates bounded transport-independent preview programs and state', () => {
+		const command = {
+			protocolVersion: engineProtocolVersion,
+			requestId: 'request-preview',
+			sequence: 4,
+			type: 'start-preview',
+			payload: {
+				previewId: 'preview.palette.1',
+				programVersion: 1,
+				events: [
+					{ offsetMs: 0, durationMs: 120, pitches: [57], velocity: 100 },
+					{ offsetMs: 120, durationMs: 180, pitches: [60, 64], velocity: 96 }
+				]
+			}
+		} as const
+		assert.equal(validateEngineCommandEnvelope(command).ok, true)
+		assert.equal(
+			validateEngineCommandEnvelope({
+				...command,
+				payload: {
+					...command.payload,
+					events: [
+						{ offsetMs: 120, durationMs: 120, pitches: [60], velocity: 100 },
+						{ offsetMs: 0, durationMs: 120, pitches: [57], velocity: 100 }
+					]
+				}
+			}).ok,
+			false
+		)
+		assert.equal(
+			validateEngineCommandEnvelope({
+				...command,
+				payload: {
+					...command.payload,
+					events: [{ offsetMs: 0, durationMs: 5_001, pitches: [57], velocity: 100 }]
+				}
+			}).ok,
+			false
+		)
+		assert.equal(
+			validateEngineEventEnvelope({
+				protocolVersion: engineProtocolVersion,
+				sequence: 5,
+				type: 'preview-state',
+				payload: {
+					active: true,
+					pitches: [57, 60, 64],
+					previewId: 'preview.palette.1',
+					samplePosition: 512
+				}
+			}).ok,
+			true
 		)
 	})
 })

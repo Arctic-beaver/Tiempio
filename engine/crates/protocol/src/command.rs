@@ -11,9 +11,10 @@ use crate::{
     AudioConfiguration, ENGINE_CAPABILITY_CODES, ENGINE_PROTOCOL_MAX_BATCH_ITEMS,
     ENGINE_PROTOCOL_MAX_FRAME_BYTES, ENGINE_PROTOCOL_MAX_PAYLOAD_BYTES, ENGINE_PROTOCOL_VERSION,
     EmptyPayload, EngineHandshake, HeartbeatPayload, IdentifierPayload, LoopPayload, MacroPayload,
-    NoteOnPayload, OfflineRenderPayload, PlayPayload, ProtocolDiagnostic, ProtocolError,
-    RawCommandEnvelope, RenderIdentifierPayload, RenderPlanDeltaChange, RenderPlanDeltaPayload,
-    TickPayload, WireRenderPlan,
+    NoteOnPayload, OfflineRenderPayload, PlayPayload, PreviewIdentifierPayload,
+    PreviewProgramPayload, ProtocolDiagnostic, ProtocolError, RawCommandEnvelope,
+    RenderIdentifierPayload, RenderPlanDeltaChange, RenderPlanDeltaPayload, TickPayload,
+    WireRenderPlan,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -30,6 +31,8 @@ pub enum EngineCommand {
     SetLoop(LoopPayload),
     NoteOn(NoteOnPayload),
     NoteOff(IdentifierPayload),
+    StartPreview(PreviewProgramPayload),
+    CancelPreview(PreviewIdentifierPayload),
     PreviewMacro(MacroPayload),
     CommitMacro(MacroPayload),
     RequestDiagnostics,
@@ -99,6 +102,44 @@ fn validate_note_on(payload: &NoteOnPayload) -> Result<(), ProtocolError> {
             ProtocolDiagnostic::InvalidEnvelope,
             "Note-on payload is invalid.",
         ));
+    }
+    Ok(())
+}
+
+fn validate_preview(payload: &PreviewProgramPayload) -> Result<(), ProtocolError> {
+    if !valid_identifier(&payload.preview_id)
+        || payload.program_version != 1
+        || payload.events.is_empty()
+        || payload.events.len() > crate::ENGINE_PROTOCOL_MAX_PREVIEW_EVENTS
+    {
+        return Err(ProtocolError::new(
+            ProtocolDiagnostic::InvalidEnvelope,
+            "Preview program is invalid.",
+        ));
+    }
+    let mut previous_offset = 0_u32;
+    for (index, event) in payload.events.iter().enumerate() {
+        let end = event.offset_ms.checked_add(event.duration_ms);
+        let mut unique = BTreeSet::new();
+        if (index > 0 && event.offset_ms < previous_offset)
+            || event.duration_ms == 0
+            || end
+                .is_none_or(|value| value as usize > crate::ENGINE_PROTOCOL_MAX_PREVIEW_DURATION_MS)
+            || event.pitches.is_empty()
+            || event.pitches.len() > crate::ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE
+            || event
+                .pitches
+                .iter()
+                .any(|pitch| *pitch > 127 || !unique.insert(*pitch))
+            || event.velocity == 0
+            || event.velocity > 127
+        {
+            return Err(ProtocolError::new(
+                ProtocolDiagnostic::InvalidEnvelope,
+                "Preview event is invalid.",
+            ));
+        }
+        previous_offset = event.offset_ms;
     }
     Ok(())
 }
@@ -289,6 +330,21 @@ fn decode_transport_command(
             }
             EngineCommand::NoteOff(payload)
         }
+        "start-preview" => {
+            let payload = parse_payload(payload_value, "Start preview")?;
+            validate_preview(&payload)?;
+            EngineCommand::StartPreview(payload)
+        }
+        "cancel-preview" => {
+            let payload: PreviewIdentifierPayload = parse_payload(payload_value, "Cancel preview")?;
+            if !valid_identifier(&payload.preview_id) {
+                return Err(ProtocolError::new(
+                    ProtocolDiagnostic::InvalidEnvelope,
+                    "Preview ID is invalid.",
+                ));
+            }
+            EngineCommand::CancelPreview(payload)
+        }
         _ => return Ok(None),
     };
     Ok(Some(command))
@@ -458,6 +514,44 @@ mod tests {
         assert_eq!(
             decode_command_body(&unsupported).unwrap_err().diagnostic,
             ProtocolDiagnostic::UnsupportedSource
+        );
+    }
+
+    #[test]
+    fn validates_bounded_preview_programs() {
+        let valid = command_body(
+            1,
+            "start-preview",
+            &serde_json::json!({
+                "previewId": "preview.palette.1",
+                "programVersion": 1,
+                "events": [
+                    {"offsetMs": 0, "durationMs": 120, "pitches": [57], "velocity": 100},
+                    {"offsetMs": 120, "durationMs": 180, "pitches": [60, 64], "velocity": 96}
+                ]
+            }),
+        );
+        assert!(matches!(
+            decode_command_body(&valid).unwrap().command,
+            EngineCommand::StartPreview(_)
+        ));
+
+        let duplicate_pitch = command_body(
+            2,
+            "start-preview",
+            &serde_json::json!({
+                "previewId": "preview.chord.1",
+                "programVersion": 1,
+                "events": [
+                    {"offsetMs": 0, "durationMs": 120, "pitches": [57, 57], "velocity": 100}
+                ]
+            }),
+        );
+        assert_eq!(
+            decode_command_body(&duplicate_pitch)
+                .unwrap_err()
+                .diagnostic,
+            ProtocolDiagnostic::InvalidEnvelope
         );
     }
 }
