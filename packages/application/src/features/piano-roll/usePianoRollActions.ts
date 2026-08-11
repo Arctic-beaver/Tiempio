@@ -3,50 +3,51 @@ import {
 	clipId,
 	createMidiClip,
 	createMidiNote,
-	defaultTicksPerQuarter,
 	noteId
 } from '../../../../project-core/src/index.js'
 import { useProjectSession } from '../../project/ProjectSessionContext.js'
+import type { EditableNoteValues } from './note-editor-geometry.js'
 
 export function usePianoRollActions(): {
-	readonly addNote: () => void
+	readonly addNote: (note: EditableNoteValues) => string | null
 	readonly deleteNote: (id: string) => void
+	readonly updateNote: (id: string, note: EditableNoteValues) => void
 } {
 	const projectSession = useProjectSession()
 	const { pianoRoll } = projectSession.projections
-	const addNote = useCallback((): void => {
-		const layer = pianoRoll.layerId
-		if (layer === null) return
-		let snapshot = projectSession.getSnapshot()
-		let targetClipId = pianoRoll.clipId
-		if (targetClipId === null) {
-			targetClipId = clipId(projectSession.nextId('clip.midi.ui'))
-			snapshot = projectSession.dispatch({
-				type: 'clip.place',
+	const addNote = useCallback(
+		(note: EditableNoteValues): string | null => {
+			const layer = pianoRoll.layerId
+			if (layer === null) return null
+			const snapshot = projectSession.getSnapshot()
+			const targetClipId = pianoRoll.clipId ?? clipId(projectSession.nextId('clip.midi.ui'))
+			const createdNoteId = projectSession.nextId('note.ui')
+			projectSession.dispatch({
+				type: 'note.add',
 				baseRevision: snapshot.revision,
 				layerId: layer,
-				clip: createMidiClip({
-					id: targetClipId,
-					startTick: 0,
-					lengthTicks: defaultTicksPerQuarter * 16
+				clipId: targetClipId,
+				...(pianoRoll.clipId === null
+					? {
+							clipWhenMissing: createMidiClip({
+								id: targetClipId,
+								startTick: 0,
+								lengthTicks: pianoRoll.totalTicks
+							})
+						}
+					: {}),
+				note: createMidiNote({
+					id: createdNoteId,
+					pitch: note.pitch,
+					startTick: note.startTick,
+					durationTicks: note.durationTicks,
+					velocity: note.velocity
 				})
 			})
-		}
-		const layerState = snapshot.project.layers.find((candidate) => candidate.id === layer)
-		const pitch = layerState?.role === 'bass' ? 48 : 72
-		projectSession.dispatch({
-			type: 'note.add',
-			baseRevision: snapshot.revision,
-			layerId: layer,
-			clipId: targetClipId,
-			note: createMidiNote({
-				id: projectSession.nextId('note.ui'),
-				pitch,
-				startTick: ((pianoRoll.notes.length * 2) % 15) * (defaultTicksPerQuarter / 2),
-				durationTicks: defaultTicksPerQuarter / 2
-			})
-		})
-	}, [pianoRoll, projectSession])
+			return createdNoteId
+		},
+		[pianoRoll, projectSession]
+	)
 	const deleteNote = useCallback(
 		(id: string): void => {
 			const { layerId: layer, clipId: clip } = pianoRoll
@@ -62,5 +63,24 @@ export function usePianoRollActions(): {
 		},
 		[pianoRoll, projectSession]
 	)
-	return { addNote, deleteNote }
+	const updateNote = useCallback(
+		(id: string, note: EditableNoteValues): void => {
+			const { layerId: layer, clipId: clip } = pianoRoll
+			if (layer === null || clip === null) return
+			const snapshot = projectSession.getSnapshot()
+			projectSession.dispatch({
+				type: 'note.update',
+				baseRevision: snapshot.revision,
+				layerId: layer,
+				clipId: clip,
+				noteId: noteId(id),
+				pitch: note.pitch,
+				startTick: note.startTick,
+				durationTicks: note.durationTicks,
+				velocity: note.velocity
+			})
+		},
+		[pianoRoll, projectSession]
+	)
+	return { addNote, deleteNote, updateNote }
 }

@@ -1,26 +1,53 @@
 export interface PianoNoteViewModel {
-	readonly beat: number
-	readonly duration: number
+	readonly durationTicks: number
 	readonly id: string
 	readonly pitch: string
+	readonly pitchValue: number
 	readonly row: number
+	readonly startTick: number
+	readonly velocity: number
+}
+
+export interface PianoPitchViewModel {
+	readonly black: boolean
+	readonly label: string
+	readonly pitch: number
 }
 
 export interface PianoRollViewModel {
 	readonly bars: number
+	readonly gridTicks: number
 	readonly notes: readonly PianoNoteViewModel[]
-	readonly pitches: readonly string[]
+	readonly pitches: readonly PianoPitchViewModel[]
+	readonly ticksPerQuarter: number
+	readonly totalTicks: number
 }
 
 export const pianoRollViewModel: PianoRollViewModel = Object.freeze({
 	bars: 4,
-	pitches: Object.freeze(['C5', 'B4', 'A4', 'G4', 'F4', 'E4', 'D4', 'C4']),
+	gridTicks: 240,
+	ticksPerQuarter: 960,
+	totalTicks: 15_360,
+	pitches: Object.freeze(
+		Array.from({ length: 25 }, (_, row) => {
+			const pitch = 72 - row
+			const pitchClass = pitch % 12
+			return Object.freeze({
+				pitch,
+				label: `${['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'][pitchClass]}${String(Math.floor(pitch / 12) - 1)}`,
+				black: [1, 3, 6, 8, 10].includes(pitchClass)
+			})
+		})
+	),
 	notes: Object.freeze([
-		Object.freeze({ id: 'n1', pitch: 'C4', row: 7, beat: 0, duration: 2 }),
-		Object.freeze({ id: 'n2', pitch: 'E4', row: 5, beat: 2, duration: 1 }),
-		Object.freeze({ id: 'n3', pitch: 'G4', row: 3, beat: 3, duration: 2 }),
-		Object.freeze({ id: 'n4', pitch: 'A4', row: 2, beat: 6, duration: 1 }),
-		Object.freeze({ id: 'n5', pitch: 'G4', row: 3, beat: 8, duration: 3 }),
-		Object.freeze({ id: 'n6', pitch: 'E4', row: 5, beat: 12, duration: 2 })
+		Object.freeze({
+			id: 'n1',
+			pitch: 'C4',
+			pitchValue: 60,
+			row: 12,
+			startTick: 0,
+			durationTicks: 960,
+			velocity: 80
+		})
 	])
 })

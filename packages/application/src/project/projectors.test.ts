@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { layerId, ProjectSession } from '../../../project-core/src/index.js'
+import { layerId, noteId, ProjectSession } from '../../../project-core/src/index.js'
 import { projectStudio } from './projectors.js'
 import { createSeedProject } from './seed-project.js'
 
@@ -46,6 +46,33 @@ describe('studio project projections', () => {
 		assert.equal(selectionOnly.revision, 1)
 		assert.equal(selectionOnly.layers.activeLayerId, 'layer.bass')
 		assert.equal(session.getSnapshot().revision, 1)
+	})
+
+	it('keeps every canonical chromatic note visible in the piano-roll range', () => {
+		const session = new ProjectSession(createSeedProject())
+		const melody = session.getSnapshot().project.layers[0]
+		const clip = melody?.clips[0]
+		const sourceNote = clip?.kind === 'midi' ? clip.notes[0] : undefined
+		assert.ok(melody)
+		assert.ok(clip?.kind === 'midi')
+		assert.ok(sourceNote)
+		if (melody === undefined || clip?.kind !== 'midi' || sourceNote === undefined) return
+		session.dispatch({
+			type: 'note.update',
+			baseRevision: 0,
+			layerId: melody.id,
+			clipId: clip.id,
+			noteId: noteId(sourceNote.id),
+			pitch: 73,
+			startTick: sourceNote.startTick,
+			durationTicks: sourceNote.durationTicks,
+			velocity: sourceNote.velocity
+		})
+
+		const note = projectStudio(session.getSnapshot(), melody.id).pianoRoll.notes[0]
+		assert.equal(note?.pitchValue, 73)
+		assert.equal(note?.pitch, 'C♯5')
+		assert.equal(note?.row, 0)
 	})
 
 	it('projects arrangement removal from the typed clip command', () => {

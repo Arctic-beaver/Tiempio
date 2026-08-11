@@ -22,7 +22,37 @@ body {
 	color: var(--ti-text);
 }
 
-.studio-shell[data-application-target="web"] {
+.studio-shell,
+.studio-shell * {
+	scrollbar-color: var(--ti-border-strong) var(--ti-surface-2);
+	scrollbar-width: thin;
+}
+
+.studio-shell ::-webkit-scrollbar {
+	width: 0.625rem;
+	height: 0.625rem;
+}
+
+.studio-shell ::-webkit-scrollbar-track,
+.studio-shell ::-webkit-scrollbar-corner {
+	background: var(--ti-surface-2);
+}
+
+.studio-shell ::-webkit-scrollbar-thumb {
+	border: 0.1875rem solid var(--ti-surface-2);
+	border-radius: 999rem;
+	background: var(--ti-border-strong);
+}
+
+.studio-shell ::-webkit-scrollbar-thumb:hover {
+	background: color-mix(in srgb, var(--ti-text-muted), var(--ti-border-strong) 45%);
+}
+
+.studio-shell ::-webkit-scrollbar-thumb:active {
+	background: var(--ti-text-muted);
+}
+
+.studio-shell[data-application-target='web'] {
 	width: calc(100% - 2.25rem);
 	height: calc(100dvh - 2.25rem);
 	margin: 1.125rem;
@@ -31,7 +61,7 @@ body {
 	box-shadow: var(--ti-shadow);
 }
 
-:root[data-theme="dark"] .studio-shell[data-application-target="web"] {
+:root[data-theme='dark'] .studio-shell[data-application-target='web'] {
 	border-color: rgb(255 255 255 / 5%);
 }
 
@@ -109,7 +139,7 @@ body {
 	font-size: 0.75rem;
 }
 
-.title-bar[data-window-chrome="native"] {
+.title-bar[data-window-chrome='native'] {
 	padding-left: 5rem;
 }
 
@@ -162,7 +192,7 @@ body {
 	color: var(--ti-text);
 }
 
-.activity-rail .rail-button[data-selected="true"] {
+.activity-rail .rail-button[data-selected='true'] {
 	background: var(--ti-accent-soft);
 	color: var(--ti-accent-strong);
 }
@@ -358,7 +388,7 @@ body {
 	box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--ti-text-subtle), transparent 82%);
 }
 
-.audio-chip[data-availability="available"] .status-dot {
+.audio-chip[data-availability='available'] .status-dot {
 	background: var(--ti-ok);
 	box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--ti-ok), transparent 82%);
 }
@@ -430,7 +460,7 @@ body {
 	text-align: left;
 }
 
-.layer-item[aria-current="page"] {
+.layer-item[aria-current='page'] {
 	border-color: var(--ti-border);
 	background: var(--ti-surface-1);
 }
