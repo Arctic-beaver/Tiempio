@@ -14,6 +14,10 @@ Stage 6 remains gated until this plan is implemented and its automated and manua
 pass. The completed non-note remediation stays intact and must not be rewritten as part of this
 work.
 
+New product ideas required before Stage 6 are retained in
+`PRE-PHASE-6-PRODUCT-DISCOVERY.md`. Discussion entries do not authorize implementation; approved
+entries extend the Stage 6 gate and require their own implementation and packaged acceptance.
+
 ### Implementation status — 2026-08-11
 
 - Stage A is complete and merged into the task integration history at `6eedf87` (`Add note command
