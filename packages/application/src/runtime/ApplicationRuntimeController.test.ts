@@ -297,7 +297,9 @@ describe('ApplicationRuntimeController', () => {
 
 			controller.setAuditionEnabled(true)
 			browser.windowSurface.dispatch('keydown', {
+				code: 'KeyA',
 				key: 'a',
+				isComposing: false,
 				repeat: false,
 				ctrlKey: false,
 				metaKey: false,
@@ -305,12 +307,90 @@ describe('ApplicationRuntimeController', () => {
 				target: null
 			} as unknown as KeyboardEvent)
 			await flush()
-			assert.equal(commands.at(-1)?.type, 'note-on')
-			browser.windowSurface.dispatch('keyup', { key: 'a' } as unknown as KeyboardEvent)
+			const latinNote = commands.at(-1)
+			assert.equal(latinNote?.type, 'note-on')
+			assert.equal(latinNote?.type === 'note-on' ? latinNote.payload.pitch : null, 45)
+			browser.windowSurface.dispatch('keyup', {
+				code: 'KeyA',
+				key: 'ф'
+			} as unknown as KeyboardEvent)
 			await flush()
 			assert.equal(commands.at(-1)?.type, 'note-off')
+
 			browser.windowSurface.dispatch('keydown', {
+				code: 'KeyA',
+				key: 'ф',
+				isComposing: false,
+				repeat: false,
+				ctrlKey: false,
+				metaKey: false,
+				altKey: false,
+				target: null
+			} as unknown as KeyboardEvent)
+			await flush()
+			const cyrillicNote = commands.at(-1)
+			assert.equal(cyrillicNote?.type, 'note-on')
+			assert.equal(cyrillicNote?.type === 'note-on' ? cyrillicNote.payload.pitch : null, 45)
+			browser.windowSurface.dispatch('keyup', {
+				code: 'KeyA',
+				key: 'a'
+			} as unknown as KeyboardEvent)
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'note-off')
+
+			const commandCount = commands.length
+			for (const blocked of [
+				{ repeat: true, ctrlKey: false, altKey: false, isComposing: false },
+				{ repeat: false, ctrlKey: true, altKey: false, isComposing: false },
+				{ repeat: false, ctrlKey: true, altKey: true, isComposing: false },
+				{ repeat: false, ctrlKey: false, altKey: false, isComposing: true }
+			]) {
+				browser.windowSurface.dispatch('keydown', {
+					code: 'KeyD',
+					key: 'δ',
+					metaKey: false,
+					target: null,
+					...blocked
+				} as unknown as KeyboardEvent)
+			}
+			await flush()
+			assert.equal(commands.length, commandCount)
+
+			for (const [code, key, pitch] of [
+				['KeyD', 'в', 48],
+				['KeyF', 'а', 50],
+				['KeyG', 'п', 52],
+				['KeyH', 'р', 53],
+				['KeyJ', 'ο', 55],
+				['KeyK', 'κ', 57],
+				['KeyL', 'ل', 59]
+			] as const) {
+				browser.windowSurface.dispatch('keydown', {
+					code,
+					key,
+					isComposing: false,
+					repeat: false,
+					ctrlKey: false,
+					metaKey: false,
+					altKey: false,
+					target: null
+				} as unknown as KeyboardEvent)
+				await flush()
+				const note = commands.at(-1)
+				assert.equal(note?.type, 'note-on')
+				assert.equal(note?.type === 'note-on' ? note.payload.pitch : null, pitch)
+				browser.windowSurface.dispatch('keyup', {
+					code,
+					key: 'layout-changed'
+				} as unknown as KeyboardEvent)
+				await flush()
+				assert.equal(commands.at(-1)?.type, 'note-off')
+			}
+
+			browser.windowSurface.dispatch('keydown', {
+				code: 'KeyS',
 				key: 's',
+				isComposing: false,
 				repeat: false,
 				ctrlKey: false,
 				metaKey: false,

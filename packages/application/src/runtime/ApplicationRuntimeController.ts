@@ -37,15 +37,15 @@ const applicationEngineCapabilities = Object.freeze<readonly EngineCapabilityCod
 
 const auditionKeys = Object.freeze(
 	new Map<string, number>([
-		['a', 45],
-		['s', 47],
-		['d', 48],
-		['f', 50],
-		['g', 52],
-		['h', 53],
-		['j', 55],
-		['k', 57],
-		['l', 59]
+		['KeyA', 45],
+		['KeyS', 47],
+		['KeyD', 48],
+		['KeyF', 50],
+		['KeyG', 52],
+		['KeyH', 53],
+		['KeyJ', 55],
+		['KeyK', 57],
+		['KeyL', 59]
 	])
 )
 
@@ -472,6 +472,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		if (
 			!this.#auditionEnabled ||
 			event.repeat ||
+			event.isComposing ||
 			event.ctrlKey ||
 			event.metaKey ||
 			event.altKey ||
@@ -479,19 +480,19 @@ export class ApplicationRuntimeController implements ApplicationController {
 		) {
 			return
 		}
-		const key = event.key.toLowerCase()
-		const pitch = auditionKeys.get(key)
-		if (pitch === undefined || this.#heldAuditions.has(key)) return
-		const auditionId = `keyboard-${key}-${String(Date.now())}`
-		this.#heldAuditions.set(key, auditionId)
+		const code = event.code
+		const pitch = auditionKeys.get(code)
+		if (pitch === undefined || this.#heldAuditions.has(code)) return
+		const auditionId = `keyboard-${code}-${String(Date.now())}`
+		this.#heldAuditions.set(code, auditionId)
 		void this.#send('note-on', { auditionId, pitch, velocity: 102 })
 	}
 
 	#keyUp = (event: KeyboardEvent): void => {
-		const key = event.key.toLowerCase()
-		const auditionId = this.#heldAuditions.get(key)
+		const code = event.code
+		const auditionId = this.#heldAuditions.get(code)
 		if (auditionId === undefined) return
-		this.#heldAuditions.delete(key)
+		this.#heldAuditions.delete(code)
 		void this.#send('note-off', { auditionId })
 	}
 
