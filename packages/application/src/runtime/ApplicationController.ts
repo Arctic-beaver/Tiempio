@@ -4,6 +4,7 @@ import {
 	type AudioHealthSnapshot
 } from '../../../contracts/src/index.js'
 import { type ProjectSession } from '../../../project-core/src/index.js'
+import { PerformanceInputSession } from '../performance/performance-input-session.js'
 
 export interface ApplicationControllerSnapshot {
 	readonly acknowledgedProjectRevision: number | null
@@ -15,11 +16,11 @@ export interface ApplicationControllerSnapshot {
 }
 
 export interface ApplicationController {
+	readonly performanceInput: PerformanceInputSession
 	readonly getSnapshot: () => ApplicationControllerSnapshot
 	readonly subscribe: (listener: () => void) => () => void
 	bindProjectSession(session: ProjectSession): void
 	seek(tick: number): void
-	setAuditionEnabled(enabled: boolean): void
 	setLoop(loop: {
 		readonly enabled: boolean
 		readonly startTick: number
@@ -42,12 +43,16 @@ const unavailableSnapshot = Object.freeze<ApplicationControllerSnapshot>({
 export function createUnavailableApplicationController(
 	runtime: ApplicationRuntime
 ): ApplicationController {
+	const performanceInput = new PerformanceInputSession({
+		noteOn: () => undefined,
+		noteOff: () => undefined
+	})
 	return Object.freeze({
+		performanceInput,
 		getSnapshot: () => unavailableSnapshot,
 		subscribe: () => () => undefined,
 		bindProjectSession: () => undefined,
 		seek: () => undefined,
-		setAuditionEnabled: () => undefined,
 		setLoop: () => undefined,
 		start: async () => {
 			if (runtime.lifecycle.availability === 'available') {
