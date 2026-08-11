@@ -34,21 +34,21 @@ const visualRows: readonly VisualDrumRow[] = Object.freeze([
 		ghostSteps: []
 	}),
 	Object.freeze({
-		instrument: 'hat',
+		instrument: 'closedHat',
 		name: 'Closed hat',
 		type: 'Fine',
 		previewSteps: [0, 2, 4, 6, 8, 10, 12, 14],
 		ghostSteps: []
 	}),
 	Object.freeze({
-		instrument: null,
+		instrument: 'openHat',
 		name: 'Open hat',
 		type: 'Air',
 		previewSteps: [7, 14],
 		ghostSteps: []
 	}),
 	Object.freeze({
-		instrument: 'snare',
+		instrument: 'perc',
 		name: 'Perc',
 		type: 'Glass',
 		previewSteps: [],

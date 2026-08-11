@@ -30,7 +30,7 @@ describe('studio project projections', () => {
 		assert.equal(projections.drums.totalTicks, 3840)
 		assert.equal(projections.arrangement.sections.length, 4)
 		assert.equal(projections.arrangement.endTick, 153_600)
-		assert.equal(projections.sculpt.soundName, 'Deep')
+		assert.equal(projections.sculpt.soundName, 'Glass')
 	})
 
 	it('reflects a semantic command everywhere without creating presentation revisions', () => {

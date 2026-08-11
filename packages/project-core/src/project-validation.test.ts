@@ -65,6 +65,71 @@ describe('project validation', () => {
 		)
 	})
 
+	it('rejects mismatched synth families and non-authoritative resolved patches', () => {
+		const project = createProject({ projectId: 'project.synth-patch', title: 'Synth patch' })
+		const layer = createLayer({ id: 'layer.synth-patch', name: 'Lead', role: 'melody' })
+		assert.equal(layer.source.type, 'synth')
+		if (layer.source.type !== 'synth') return
+		assert.ok(
+			issueCodes({
+				...project,
+				layers: [
+					{
+						...layer,
+						source: {
+							...layer.source,
+							instrument: { ...layer.source.instrument, family: 'bass' }
+						}
+					}
+				]
+			}).includes('INCOMPATIBLE_SOURCE')
+		)
+		assert.ok(
+			issueCodes({
+				...project,
+				layers: [
+					{
+						...layer,
+						source: {
+							...layer.source,
+							instrument: {
+								...layer.source.instrument,
+								resolvedPatch: {
+									...layer.source.instrument.resolvedPatch,
+									outputGain: 0.2
+								}
+							}
+						}
+					}
+				]
+			}).includes('INVALID_VALUE')
+		)
+	})
+
+	it('rejects drum variants that belong to another voice', () => {
+		const project = createProject({ projectId: 'project.drum-patch', title: 'Drum patch' })
+		const layer = createLayer({ id: 'layer.drum-patch', name: 'Drums', role: 'rhythm' })
+		assert.equal(layer.source.type, 'drum')
+		if (layer.source.type !== 'drum') return
+		assert.ok(
+			issueCodes({
+				...project,
+				layers: [
+					{
+						...layer,
+						source: {
+							...layer.source,
+							voiceVariants: {
+								...layer.source.voiceVariants,
+								kick: 'clap.clean'
+							}
+						}
+					}
+				]
+			}).includes('INVALID_VALUE')
+		)
+	})
+
 	it('rejects duplicate IDs and missing references', () => {
 		const project = createProject({ projectId: 'project.references', title: 'References' })
 		const first = createLayer({ id: 'layer.duplicate', name: 'First', role: 'bass' })

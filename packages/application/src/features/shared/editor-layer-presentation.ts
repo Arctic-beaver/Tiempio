@@ -9,9 +9,6 @@ export function editorLayerName(item: ProjectedLayerItem | undefined): string {
 
 export function editorLayerSound(item: ProjectedLayerItem | undefined): string {
 	if (item === undefined) return 'Deep'
-	if (item.labelKey === 'layers.drums') return 'Clean Pulse'
-	if (item.labelKey === 'layers.chords') return 'Soft Pad'
-	if (item.labelKey === 'layers.melody') return 'Glass Lead'
 	return item.soundName
 }
 

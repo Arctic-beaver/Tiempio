@@ -1,10 +1,14 @@
-export const projectCoreVersion = 2 as const
-export const projectSchemaVersion = 2 as const
-export const previousProjectSchemaVersion = 1 as const
+export const projectCoreVersion = 3 as const
+export const projectSchemaVersion = 3 as const
+export const previousProjectSchemaVersion = 2 as const
+export const firstProjectSchemaVersion = 1 as const
 export const legacyProjectSchemaVersion = 0 as const
-export const engineModelVersion = 1 as const
-export const patchModelVersion = 1 as const
-export const macroMappingVersion = 1 as const
+export const engineModelVersion = 2 as const
+export const patchModelVersion = 2 as const
+export const macroMappingVersion = 2 as const
+export const legacyEngineModelVersion = 1 as const
+export const legacyPatchModelVersion = 1 as const
+export const legacyMacroMappingVersion = 1 as const
 export const defaultTicksPerQuarter = 960 as const
 
 export const projectLimits = Object.freeze({
@@ -110,9 +114,45 @@ export function midiPitch(value: number): MidiPitch {
 export type ProjectRole = 'rhythm' | 'bass' | 'harmony' | 'melody' | 'custom' | 'reference'
 
 export type KeyMode = 'major' | 'minor'
-export type DrumInstrument = 'kick' | 'snare' | 'hat' | 'clap'
-export type BassPresetId = 'bass.deep'
-export type BassMacroId = 'brightness' | 'hardness' | 'dirt' | 'length' | 'width'
+export type DrumInstrument = 'kick' | 'clap' | 'closedHat' | 'openHat' | 'perc'
+export type LegacyDrumInstrument = 'kick' | 'snare' | 'hat' | 'clap'
+export type SoundFamily = 'bass' | 'lead' | 'pad' | 'pluck' | 'texture'
+export type BassPresetId =
+	'bass.deep' | 'bass.punchy' | 'bass.warm' | 'bass.dirty' | 'bass.soft' | 'bass.retro'
+export type LeadPresetId =
+	| 'lead.glass'
+	| 'lead.neon'
+	| 'lead.velvet'
+	| 'lead.hollow'
+	| 'lead.razor'
+	| 'lead.voice'
+	| 'lead.solar'
+export type PadPresetId = 'pad.soft' | 'pad.warm' | 'pad.air' | 'pad.motion' | 'pad.dust'
+export type PluckPresetId = 'pluck.glass' | 'pluck.wood' | 'pluck.bell' | 'pluck.short'
+export type TexturePresetId =
+	'texture.grain' | 'texture.mist' | 'texture.pulse' | 'texture.dust' | 'texture.wire'
+export type SynthPresetId =
+	BassPresetId | LeadPresetId | PadPresetId | PluckPresetId | TexturePresetId
+export type SynthMacroId = 'brightness' | 'hardness' | 'dirt' | 'length' | 'width'
+export type BassMacroId = SynthMacroId
+export type DrumKitId = 'drums.clean-pulse'
+export type DrumPatternCharacter = 'straight' | 'sparse' | 'driving' | 'broken' | 'custom'
+export type DrumVoiceVariantId =
+	| 'kick.deep'
+	| 'kick.tight'
+	| 'kick.soft'
+	| 'clap.clean'
+	| 'clap.wide'
+	| 'clap.dry'
+	| 'closedHat.fine'
+	| 'closedHat.dark'
+	| 'closedHat.crisp'
+	| 'openHat.air'
+	| 'openHat.short'
+	| 'openHat.bright'
+	| 'perc.glass'
+	| 'perc.wood'
+	| 'perc.low'
 
 export interface ProjectKey {
 	readonly mode: KeyMode
@@ -152,6 +192,8 @@ export interface SemanticBassMacrosV1 {
 	readonly width: number
 }
 
+export type SemanticSynthMacrosV2 = SemanticBassMacrosV1
+
 export interface ResolvedBassPatchV1 {
 	readonly amplifier: {
 		readonly attackMs: number
@@ -171,18 +213,59 @@ export interface ResolvedBassPatchV1 {
 		readonly waveform: 'saw'
 	}
 	readonly outputGain: number
-	readonly patchModelVersion: typeof patchModelVersion
+	readonly patchModelVersion: typeof legacyPatchModelVersion
 	readonly stereoWidth: number
 	readonly voice: 'subtractive-bass'
 }
 
 export interface BassInstrumentStateV1 {
 	readonly family: 'bass'
-	readonly macroMappingVersion: typeof macroMappingVersion
+	readonly macroMappingVersion: typeof legacyMacroMappingVersion
 	readonly macros: SemanticBassMacrosV1
 	readonly presetId: BassPresetId
 	readonly presetRevision: number
 	readonly resolvedPatch: ResolvedBassPatchV1
+}
+
+export type SynthWaveform = 'saw' | 'square' | 'triangle' | 'sine'
+
+export interface ResolvedSynthPatchV2 {
+	readonly amplifier: {
+		readonly attackMs: number
+		readonly decayMs: number
+		readonly releaseMs: number
+		readonly sustain: number
+	}
+	readonly drive: number
+	readonly filter: {
+		readonly cutoffHz: number
+		readonly envelopeAmount: number
+		readonly resonance: number
+	}
+	readonly movement: {
+		readonly depth: number
+		readonly rateHz: number
+	}
+	readonly oscillator: {
+		readonly detuneCents: number
+		readonly noiseLevel: number
+		readonly pulseWidth: number
+		readonly subLevel: number
+		readonly waveform: SynthWaveform
+	}
+	readonly outputGain: number
+	readonly patchModelVersion: typeof patchModelVersion
+	readonly stereoWidth: number
+	readonly voice: 'subtractive-synth'
+}
+
+export interface SynthInstrumentStateV2 {
+	readonly family: SoundFamily
+	readonly macroMappingVersion: typeof macroMappingVersion
+	readonly macros: SemanticSynthMacrosV2
+	readonly presetId: SynthPresetId
+	readonly presetRevision: number
+	readonly resolvedPatch: ResolvedSynthPatchV2
 }
 
 export interface LayerPerformanceMapping {
@@ -191,15 +274,32 @@ export interface LayerPerformanceMapping {
 }
 
 export interface SynthSource {
-	readonly instrument: BassInstrumentStateV1
+	readonly instrument: SynthInstrumentStateV2
 	readonly performance: LayerPerformanceMapping
 	readonly type: 'synth'
 }
 
-export interface DrumSource {
-	readonly kitId: 'drums.basic'
-	readonly kitRevision: 1
+export interface ResolvedDrumVoicePatchV2 {
+	readonly algorithm: 'kick' | 'clap' | 'closed-hat' | 'open-hat' | 'perc'
+	readonly decayMs: number
+	readonly drive: number
+	readonly gain: number
+	readonly noise: number
+	readonly pitchHz: number
+	readonly tone: number
+	readonly variantId: DrumVoiceVariantId
+}
+
+export interface ResolvedDrumKitPatchV2 {
 	readonly patchModelVersion: typeof patchModelVersion
+	readonly voices: Readonly<Record<DrumInstrument, ResolvedDrumVoicePatchV2>>
+}
+
+export interface DrumSource {
+	readonly kitId: DrumKitId
+	readonly kitRevision: 1
+	readonly resolvedPatch: ResolvedDrumKitPatchV2
+	readonly voiceVariants: Readonly<Record<DrumInstrument, DrumVoiceVariantId>>
 	readonly type: 'drum'
 }
 
@@ -239,12 +339,15 @@ export interface MidiClip extends ProjectClipBase {
 }
 
 export interface DrumClip extends ProjectClipBase {
+	readonly character: DrumPatternCharacter
+	readonly density: number
 	readonly events: readonly DrumEvent[]
 	readonly kind: 'drum'
 	readonly pattern: {
 		readonly stepCount: number
 		readonly stepsPerQuarter: 1 | 2 | 4 | 8
 	}
+	readonly swing: number
 }
 
 export type ProjectClip = MidiClip | DrumClip
@@ -277,7 +380,7 @@ export interface ProjectAssetReference {
 	readonly mediaType: string
 }
 
-export interface ProjectDocumentV2 {
+export interface ProjectDocumentV3 {
 	readonly assets: readonly ProjectAssetReference[]
 	readonly engineModelVersion: typeof engineModelVersion
 	readonly layers: readonly ProjectLayer[]
@@ -288,15 +391,47 @@ export interface ProjectDocumentV2 {
 	readonly transport: ProjectTransport
 }
 
-export type ProjectDocument = ProjectDocumentV2
+export type ProjectDocument = ProjectDocumentV3
 
-type SynthSourceV1 = Omit<SynthSource, 'performance'>
-type LayerSourceV1 = SynthSourceV1 | DrumSource | ReferenceSource
-type ProjectLayerV1 = Omit<ProjectLayer, 'source'> & { readonly source: LayerSourceV1 }
+interface LegacyDrumSourceV1 {
+	readonly kitId: 'drums.basic'
+	readonly kitRevision: 1
+	readonly patchModelVersion: typeof legacyPatchModelVersion
+	readonly type: 'drum'
+}
+
+interface SynthSourceV2 {
+	readonly instrument: BassInstrumentStateV1
+	readonly performance: LayerPerformanceMapping
+	readonly type: 'synth'
+}
+
+type LayerSourceV2 = SynthSourceV2 | LegacyDrumSourceV1 | ReferenceSource
+type ProjectLayerV2 = Omit<ProjectLayer, 'clips' | 'source'> & {
+	readonly clips: readonly (
+		| MidiClip
+		| (Omit<DrumClip, 'character' | 'density' | 'events' | 'swing'> & {
+				readonly events: readonly (Omit<DrumEvent, 'instrument'> & {
+					readonly instrument: LegacyDrumInstrument
+				})[]
+		  })
+	)[]
+	readonly source: LayerSourceV2
+}
+
+export type ProjectDocumentV2 = Omit<ProjectDocumentV3, 'layers' | 'schemaVersion'> & {
+	readonly engineModelVersion: typeof legacyEngineModelVersion
+	readonly layers: readonly ProjectLayerV2[]
+	readonly schemaVersion: typeof previousProjectSchemaVersion
+}
+
+type SynthSourceV1 = Omit<SynthSourceV2, 'performance'>
+type LayerSourceV1 = SynthSourceV1 | LegacyDrumSourceV1 | ReferenceSource
+type ProjectLayerV1 = Omit<ProjectLayerV2, 'source'> & { readonly source: LayerSourceV1 }
 
 export type ProjectDocumentV1 = Omit<ProjectDocumentV2, 'layers' | 'schemaVersion'> & {
 	readonly layers: readonly ProjectLayerV1[]
-	readonly schemaVersion: typeof previousProjectSchemaVersion
+	readonly schemaVersion: typeof firstProjectSchemaVersion
 }
 
 export interface LegacyProjectDocumentV0 {

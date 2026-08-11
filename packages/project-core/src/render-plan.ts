@@ -17,7 +17,8 @@ import {
 	type ProjectId,
 	type ProjectKey,
 	type ProjectLoop,
-	type ResolvedBassPatchV1
+	type ResolvedDrumKitPatchV2,
+	type ResolvedSynthPatchV2
 } from './model.js'
 import { validateProjectDocument } from './validation.js'
 
@@ -38,6 +39,7 @@ export interface RenderPlanDrumEvent {
 	readonly id: DrumEventId
 	readonly instrument: DrumInstrument
 	readonly startTick: number
+	readonly swing: number
 	readonly type: 'drum-hit'
 	readonly velocity: number
 }
@@ -50,10 +52,11 @@ export interface RenderPlanLayer {
 	readonly id: LayerId
 	readonly pan: number
 	readonly source:
-		| { readonly instrument: ResolvedBassPatchV1; readonly type: 'synth' }
+		| { readonly instrument: ResolvedSynthPatchV2; readonly type: 'synth' }
 		| {
-				readonly kitId: 'drums.basic'
+				readonly kitId: 'drums.clean-pulse'
 				readonly kitRevision: 1
+				readonly patch: ResolvedDrumKitPatchV2
 				readonly type: 'drum'
 		  }
 }
@@ -121,6 +124,7 @@ function layerEvents(layer: ProjectDocument['layers'][number]): readonly RenderP
 					id: event.id,
 					clipId: clip.id,
 					startTick: clip.startTick + event.step * ticksPerStep,
+					swing: clip.swing,
 					instrument: event.instrument,
 					velocity: event.velocity
 				})
@@ -190,7 +194,8 @@ export function compileProjectRenderPlan(
 				source: {
 					type: 'drum',
 					kitId: layer.source.kitId,
-					kitRevision: layer.source.kitRevision
+					kitRevision: layer.source.kitRevision,
+					patch: layer.source.resolvedPatch
 				},
 				events: layerEvents(layer)
 			}

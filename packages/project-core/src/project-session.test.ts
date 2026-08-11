@@ -217,6 +217,82 @@ describe('ProjectSession', () => {
 		assert.deepEqual(drumClip?.kind === 'drum' ? drumClip.events : null, [])
 	})
 
+	it('applies drum character, density, swing and voice changes deterministically', () => {
+		const session = new ProjectSession(
+			createProject({ projectId: 'project.drums', title: 'Drums' })
+		)
+		session.dispatch({
+			type: 'layer.add',
+			baseRevision: 0,
+			id: 'layer.drums',
+			name: 'Drums',
+			role: 'rhythm'
+		})
+		session.dispatch({
+			type: 'clip.place',
+			baseRevision: 1,
+			layerId: layerId('layer.drums'),
+			clip: createDrumClip({ id: 'clip.drums', startTick: 0, lengthTicks: 3840 })
+		})
+		const patterned = session.dispatch({
+			type: 'drum.pattern.set',
+			baseRevision: 2,
+			layerId: layerId('layer.drums'),
+			clipId: clipId('clip.drums'),
+			character: 'driving'
+		})
+		const firstEvents = patterned.project.layers[0]?.clips[0]
+		assert.equal(firstEvents?.kind === 'drum' ? firstEvents.character : null, 'driving')
+		assert.ok(firstEvents?.kind === 'drum' && firstEvents.events.length > 0)
+
+		const denser = session.dispatch({
+			type: 'drum.density.set',
+			baseRevision: 3,
+			layerId: layerId('layer.drums'),
+			clipId: clipId('clip.drums'),
+			density: 0.82
+		})
+		const denseClip = denser.project.layers[0]?.clips[0]
+		assert.ok(
+			denseClip?.kind === 'drum' &&
+				firstEvents?.kind === 'drum' &&
+				denseClip.events.length > firstEvents.events.length
+		)
+		assert.equal(
+			new Set(denseClip?.kind === 'drum' ? denseClip.events.map((event) => event.id) : [])
+				.size,
+			denseClip?.kind === 'drum' ? denseClip.events.length : 0
+		)
+
+		session.dispatch({
+			type: 'drum.swing.set',
+			baseRevision: 4,
+			layerId: layerId('layer.drums'),
+			clipId: clipId('clip.drums'),
+			swing: 0.2
+		})
+		const voiced = session.dispatch({
+			type: 'drum.voice.select',
+			baseRevision: 5,
+			layerId: layerId('layer.drums'),
+			instrument: 'kick',
+			variantId: 'kick.tight'
+		})
+		const layer = voiced.project.layers[0]
+		assert.equal(layer?.source.type, 'drum')
+		if (layer?.source.type === 'drum') {
+			assert.equal(layer.source.voiceVariants.kick, 'kick.tight')
+			assert.equal(layer.source.resolvedPatch.voices.kick.variantId, 'kick.tight')
+		}
+		const finalClip = layer?.clips[0]
+		assert.equal(finalClip?.kind === 'drum' ? finalClip.swing : null, 0.2)
+		const undone = session.undo(6).project.layers[0]
+		assert.equal(
+			undone?.source.type === 'drum' ? undone.source.voiceVariants.kick : null,
+			'kick.deep'
+		)
+	})
+
 	it('rejects an invalid create-project command at the command boundary', () => {
 		assert.throws(() =>
 			createProjectFromCommand({

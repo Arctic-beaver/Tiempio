@@ -1,6 +1,7 @@
 import {
 	defaultTicksPerQuarter,
 	engineModelVersion,
+	firstProjectSchemaVersion,
 	legacyProjectSchemaVersion,
 	macroMappingVersion,
 	patchModelVersion,
@@ -9,6 +10,7 @@ import {
 	projectTick,
 	type ProjectDocument
 } from './model.js'
+import { createCleanPulseDrumSource, createSynthInstrument } from './presets.js'
 import { validateProjectDocument, type ProjectValidationIssue } from './validation.js'
 
 export type ProjectLoadResult =
@@ -60,6 +62,14 @@ function highestFutureModelVersion(value: Record<string, unknown>): {
 			source.patchModelVersion > patchModelVersion
 		) {
 			discoveredPatch = Math.max(discoveredPatch ?? 0, source.patchModelVersion)
+		}
+		const sourceResolvedPatch = plainRecord(source.resolvedPatch)
+		if (
+			sourceResolvedPatch !== null &&
+			typeof sourceResolvedPatch.patchModelVersion === 'number' &&
+			sourceResolvedPatch.patchModelVersion > patchModelVersion
+		) {
+			discoveredPatch = Math.max(discoveredPatch ?? 0, sourceResolvedPatch.patchModelVersion)
 		}
 		const instrument = plainRecord(source.instrument)
 		if (instrument === null) continue
@@ -119,28 +129,69 @@ function loadCurrent(value: Record<string, unknown>): ProjectLoadResult {
 		: { status: 'invalid', issues: result.issues }
 }
 
-function migrateLayerPerformance(value: unknown, keyValue: unknown): readonly unknown[] {
+function migrateDrumInstrument(value: unknown): unknown {
+	if (value === 'snare') return 'clap'
+	if (value === 'hat') return 'closedHat'
+	return value
+}
+
+function migrateClips(value: unknown): unknown {
+	if (!Array.isArray(value)) return value
+	return value.map((entry) => {
+		const clip = plainRecord(entry)
+		if (clip === null || clip.kind !== 'drum') return entry
+		const events = Array.isArray(clip.events)
+			? clip.events.map((eventValue) => {
+					const event = plainRecord(eventValue)
+					return event === null
+						? eventValue
+						: { ...event, instrument: migrateDrumInstrument(event.instrument) }
+				})
+			: clip.events
+		return {
+			...clip,
+			character: typeof clip.character === 'string' ? clip.character : 'custom',
+			density: typeof clip.density === 'number' ? clip.density : 0.38,
+			swing: typeof clip.swing === 'number' ? clip.swing : 0.08,
+			events
+		}
+	})
+}
+
+function migrateLayers(value: unknown, keyValue: unknown): readonly unknown[] {
 	if (!Array.isArray(value)) return []
 	const fallbackKey = plainRecord(keyValue)
 	return value.map((entry) => {
 		const layer = plainRecord(entry)
 		const source = layer === null ? null : plainRecord(layer.source)
-		if (
-			layer === null ||
-			source === null ||
-			source.type !== 'synth' ||
-			Object.prototype.hasOwnProperty.call(source, 'performance')
-		) {
-			return entry
+		if (layer === null || source === null) return entry
+		const migratedLayer = { ...layer, clips: migrateClips(layer.clips) }
+		if (source.type === 'drum') {
+			return { ...migratedLayer, source: createCleanPulseDrumSource() }
 		}
+		if (source.type !== 'synth') return migratedLayer
+		const instrument = plainRecord(source.instrument)
+		const instrumentIsCurrent =
+			instrument !== null && instrument.macroMappingVersion === macroMappingVersion
+		const migratedInstrument = instrumentIsCurrent
+			? source.instrument
+			: createSynthInstrument(
+					'bass.deep',
+					(plainRecord(instrument?.macros) ?? undefined) as Parameters<
+						typeof createSynthInstrument
+					>[1]
+				)
 		return {
-			...layer,
+			...migratedLayer,
 			source: {
 				...source,
-				performance: {
-					key: { tonic: fallbackKey?.tonic, mode: fallbackKey?.mode },
-					octave: 2
-				}
+				instrument: migratedInstrument,
+				performance: Object.prototype.hasOwnProperty.call(source, 'performance')
+					? source.performance
+					: {
+							key: { tonic: fallbackKey?.tonic, mode: fallbackKey?.mode },
+							octave: 2
+						}
 			}
 		}
 	})
@@ -150,12 +201,12 @@ function migratePrevious(value: Record<string, unknown>): ProjectLoadResult {
 	const transport = plainRecord(value.transport)
 	const migrated = {
 		schemaVersion: projectSchemaVersion,
-		engineModelVersion: value.engineModelVersion,
+		engineModelVersion,
 		projectId: value.projectId,
 		title: value.title,
 		transport: value.transport,
 		sections: value.sections,
-		layers: migrateLayerPerformance(value.layers, transport?.key),
+		layers: migrateLayers(value.layers, transport?.key),
 		assets: value.assets
 	}
 	const futureModels = highestFutureModelVersion(migrated)
@@ -180,6 +231,36 @@ function migratePrevious(value: Record<string, unknown>): ProjectLoadResult {
 		: { status: 'invalid', issues: result.issues }
 }
 
+function migrateFirst(value: Record<string, unknown>): ProjectLoadResult {
+	const transport = plainRecord(value.transport)
+	const migrated = {
+		...value,
+		schemaVersion: projectSchemaVersion,
+		engineModelVersion,
+		layers: migrateLayers(value.layers, transport?.key)
+	}
+	const futureModels = highestFutureModelVersion(migrated)
+	if (
+		futureModels.engineVersion !== null ||
+		futureModels.macroVersion !== null ||
+		futureModels.patchVersion !== null
+	) {
+		return unsupported(
+			firstProjectSchemaVersion,
+			futureModels,
+			'The first project schema contains a newer engine, patch or macro model.'
+		)
+	}
+	const result = validateProjectDocument(migrated)
+	return result.ok
+		? {
+				status: 'loaded',
+				project: result.project,
+				migratedFromSchemaVersion: firstProjectSchemaVersion
+			}
+		: { status: 'invalid', issues: result.issues }
+}
+
 function migrateLegacy(value: Record<string, unknown>): ProjectLoadResult {
 	const migrated = {
 		schemaVersion: projectSchemaVersion,
@@ -198,7 +279,7 @@ function migrateLegacy(value: Record<string, unknown>): ProjectLoadResult {
 			}
 		},
 		sections: [],
-		layers: migrateLayerPerformance(value.layers ?? [], value.key),
+		layers: migrateLayers(value.layers ?? [], value.key),
 		assets: []
 	}
 	const futureModels = highestFutureModelVersion(migrated)
@@ -264,6 +345,7 @@ export function loadProjectDocument(value: unknown): ProjectLoadResult {
 		}
 		if (schemaVersion === projectSchemaVersion) return loadCurrent(candidate)
 		if (schemaVersion === previousProjectSchemaVersion) return migratePrevious(candidate)
+		if (schemaVersion === firstProjectSchemaVersion) return migrateFirst(candidate)
 		if (schemaVersion === legacyProjectSchemaVersion) return migrateLegacy(candidate)
 		return unsupported(
 			schemaVersion,

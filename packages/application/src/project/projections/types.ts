@@ -1,6 +1,11 @@
 import type { LocalizationKey } from '../../../../localization/src/index.js'
 import type { SongPalette } from '../../../../music-theory/src/index.js'
-import type { BassMacroId, ClipId, LayerId, SectionId } from '../../../../project-core/src/index.js'
+import type {
+	ClipId,
+	LayerId,
+	SectionId,
+	SynthMacroId
+} from '../../../../project-core/src/index.js'
 import type { StudioViewId } from '../../app/studio-state.js'
 import type { ArrangementViewModel } from '../../features/arrangement/view-model.js'
 import type { DrumsViewModel } from '../../features/drums/view-model.js'
@@ -59,7 +64,7 @@ export interface ArrangementProjection extends ArrangementViewModel {
 export interface SoundSculptProjection extends SoundSculptViewModel {
 	readonly layerId: LayerId | null
 	readonly macroByDimension: Readonly<
-		Record<'brightness' | 'movement' | 'space' | 'texture', BassMacroId>
+		Record<'brightness' | 'movement' | 'space' | 'texture', SynthMacroId>
 	>
 	readonly revision: number
 }
