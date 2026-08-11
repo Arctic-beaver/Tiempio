@@ -16,6 +16,7 @@ export interface PopoverProperties {
 	readonly icon?: ReactNode
 	readonly label: string
 	readonly placement?: 'start' | 'end'
+	readonly triggerContent?: ReactNode
 }
 
 export function Popover({
@@ -23,7 +24,8 @@ export function Popover({
 	disabled = false,
 	icon,
 	label,
-	placement = 'end'
+	placement = 'end',
+	triggerContent
 }: PopoverProperties): JSX.Element {
 	const [open, setOpen] = useState(false)
 	const popoverId = useId()
@@ -70,7 +72,7 @@ export function Popover({
 						{icon}
 					</span>
 				)}
-				<span>{label}</span>
+				{triggerContent ?? <span>{label}</span>}
 			</button>
 			{open ? (
 				<FloatingOverlay

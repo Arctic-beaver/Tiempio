@@ -6,7 +6,10 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use rtrb::{Consumer, Producer, PushError, RingBuffer};
-use tiempio_engine_core::{LayerSource, MAX_SAFE_INTEGER, PreparedPlan, RenderPlan, SynthPatchV2};
+use tiempio_engine_core::{
+    DrumInstrument, DrumKitPatchV2, LayerSource, MAX_SAFE_INTEGER, PreparedPlan, RenderPlan,
+    SynthPatchV2,
+};
 use tiempio_engine_protocol::{
     AudioConfiguration, ENGINE_PROTOCOL_MAX_FRAME_BYTES, ENGINE_PROTOCOL_VERSION, EngineCommand,
     EngineEvent, HandshakePeer, NoteOnPayload, PreviewIdentifierPayload, PreviewProgramPayload,
@@ -195,19 +198,31 @@ impl<Backend: OutputBackend> HostController<Backend> {
         let Some(patch) = self
             .latest_plan
             .as_ref()
-            .and_then(|plan| synth_patch_for_layer(plan, &payload.layer_id))
+            .and_then(|plan| audition_patch_for_layer(plan, &payload.layer_id))
         else {
             return self.emit_diagnostic(
                 "engine.invalid-plan",
-                "Audition requires the requested active synth layer.",
+                "Audition requires the requested active instrument layer.",
             );
         };
-        self.send_realtime(RealtimeCommand::NoteOn {
-            identifier: stable_audition_identifier(&payload.audition_id),
-            pitch: payload.pitch,
-            velocity: payload.velocity,
-            patch,
-        })
+        let identifier = stable_audition_identifier(&payload.audition_id);
+        match patch {
+            AuditionPatch::Synth(patch) => self.send_realtime(RealtimeCommand::NoteOn {
+                identifier,
+                pitch: payload.pitch,
+                velocity: payload.velocity,
+                patch,
+            }),
+            AuditionPatch::Drums(patch) => {
+                let instrument = drum_instrument_for_pitch(payload.pitch);
+                self.send_realtime(RealtimeCommand::DrumHit {
+                    identifier,
+                    instrument,
+                    velocity: payload.velocity,
+                    patch: patch.voice(instrument).clone(),
+                })
+            }
+        }
     }
 
     fn start_preview(&mut self, payload: PreviewProgramPayload) -> Result<(), ()> {
@@ -850,14 +865,36 @@ fn nonzero(value: u64) -> Option<u64> {
     (value > 0).then_some(value)
 }
 
+enum AuditionPatch {
+    Synth(SynthPatchV2),
+    Drums(DrumKitPatchV2),
+}
+
 fn synth_patch_for_layer(plan: &RenderPlan, layer_id: &str) -> Option<SynthPatchV2> {
+    match audition_patch_for_layer(plan, layer_id) {
+        Some(AuditionPatch::Synth(patch)) => Some(patch),
+        Some(AuditionPatch::Drums(_)) | None => None,
+    }
+}
+
+fn audition_patch_for_layer(plan: &RenderPlan, layer_id: &str) -> Option<AuditionPatch> {
     plan.layers
         .iter()
         .find(|layer| layer.id == layer_id)
-        .and_then(|layer| match &layer.source {
-            LayerSource::Synth { patch, .. } => Some(patch.clone()),
-            LayerSource::Drums { .. } => None,
+        .map(|layer| match &layer.source {
+            LayerSource::Synth { patch, .. } => AuditionPatch::Synth(patch.clone()),
+            LayerSource::Drums { patch, .. } => AuditionPatch::Drums(patch.clone()),
         })
+}
+
+const fn drum_instrument_for_pitch(pitch: u8) -> DrumInstrument {
+    match pitch {
+        36 => DrumInstrument::Kick,
+        39 => DrumInstrument::Clap,
+        42 => DrumInstrument::ClosedHat,
+        46 => DrumInstrument::OpenHat,
+        _ => DrumInstrument::Perc,
+    }
 }
 
 fn stable_audition_identifier(value: &str) -> u64 {
@@ -1073,6 +1110,15 @@ mod tests {
         assert_eq!(first, stable_audition_identifier("audition.keyboard.c1"));
         assert_ne!(first, stable_audition_identifier("audition.keyboard.c2"));
         assert!(first <= MAX_SAFE_INTEGER);
+    }
+
+    #[test]
+    fn maps_general_midi_drum_pitches_to_the_five_procedural_voices() {
+        assert_eq!(drum_instrument_for_pitch(36), DrumInstrument::Kick);
+        assert_eq!(drum_instrument_for_pitch(39), DrumInstrument::Clap);
+        assert_eq!(drum_instrument_for_pitch(42), DrumInstrument::ClosedHat);
+        assert_eq!(drum_instrument_for_pitch(46), DrumInstrument::OpenHat);
+        assert_eq!(drum_instrument_for_pitch(56), DrumInstrument::Perc);
     }
 
     #[test]

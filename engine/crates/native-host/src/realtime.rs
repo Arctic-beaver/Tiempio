@@ -4,7 +4,8 @@ use std::time::Instant;
 
 use rtrb::{Consumer, PopError, Producer, PushError};
 use tiempio_engine_core::{
-    CompositeVoiceBank, EngineKernel, PreparedPlan, SynthPatchV2, TransportState,
+    CompositeVoiceBank, DrumInstrument, DrumVoicePatchV2, EngineKernel, PreparedPlan, SynthPatchV2,
+    TransportState,
 };
 use tiempio_engine_drums::DrumVoicePool;
 use tiempio_engine_dsp::{DspConfiguration, StereoFrame};
@@ -187,6 +188,12 @@ pub enum RealtimeCommand {
         pitch: u8,
         velocity: u8,
         patch: SynthPatchV2,
+    },
+    DrumHit {
+        identifier: u64,
+        instrument: DrumInstrument,
+        velocity: u8,
+        patch: DrumVoicePatchV2,
     },
     NoteOff(u64),
     StartPreview(PreparedPreview),
@@ -473,6 +480,15 @@ impl RealtimeEngine {
                         .note_on_audition(identifier, pitch, velocity, &patch);
                     Ok(())
                 }
+                RealtimeCommand::DrumHit {
+                    identifier,
+                    instrument,
+                    velocity,
+                    patch,
+                } => {
+                    self.start_drum_audition(identifier, instrument, velocity, &patch);
+                    Ok(())
+                }
                 RealtimeCommand::NoteOff(identifier) => {
                     self.engine.note_off_audition(identifier);
                     Ok(())
@@ -507,6 +523,18 @@ impl RealtimeEngine {
                 break;
             }
         }
+    }
+
+    fn start_drum_audition(
+        &mut self,
+        identifier: u64,
+        instrument: DrumInstrument,
+        velocity: u8,
+        patch: &DrumVoicePatchV2,
+    ) {
+        self.end_preview(PreviewEndReason::Interrupted);
+        self.engine
+            .drum_hit_audition(identifier, instrument, velocity, patch);
     }
 
     fn has_pending_delivery(&self) -> bool {

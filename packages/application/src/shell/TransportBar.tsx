@@ -1,5 +1,5 @@
 import { AudioLines, Keyboard, Pause, Play, SkipBack, SkipForward, Volume2 } from 'lucide-react'
-import { useState, useSyncExternalStore, type JSX } from 'react'
+import { useState, useSyncExternalStore, type JSX, type ReactNode } from 'react'
 import { Popover, SemanticSlider } from '../../../design-system/src/index.js'
 import { useLocalization } from '../../../localization/src/index.js'
 import { CommandIconButton } from '../commands/CommandIconButton.js'
@@ -10,6 +10,7 @@ import { useApplicationRuntimeController } from '../runtime/ApplicationRuntimeCo
 import { transportBeatPresentation } from './transport-presentation.js'
 
 export interface TransportBarProperties {
+	readonly detailControl?: ReactNode
 	readonly detailLabel?: string
 	readonly detailValue?: string
 	readonly meterDescription?: string
@@ -98,6 +99,7 @@ function MetronomeControls({
 }
 
 export function TransportBar({
+	detailControl,
 	detailLabel,
 	detailValue,
 	meterDescription,
@@ -168,15 +170,19 @@ export function TransportBar({
 						<span>{t('transport.tempo')}</span>
 						<b>{projections.transport.bpm}</b>
 					</div>
-					{detailLabel === undefined && detailValue === undefined ? (
+					{detailControl === undefined &&
+					detailLabel === undefined &&
+					detailValue === undefined ? (
 						<div className="transport__palette">
 							<SongPalettePopover />
 						</div>
 					) : (
-						<div className="key-control">
-							<span>{projectDetailLabel}</span>
-							<b>{projectDetailValue}</b>
-						</div>
+						(detailControl ?? (
+							<div className="key-control">
+								<span>{projectDetailLabel}</span>
+								<b>{projectDetailValue}</b>
+							</div>
+						))
 					)}
 					<CommandIconButton
 						className="icon-button transport__keyboard"

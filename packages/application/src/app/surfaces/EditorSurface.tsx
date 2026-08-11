@@ -12,6 +12,7 @@ import { SoundSculptView } from '../../features/sound-sculpt/SoundSculptView.js'
 import { useSoundSculptActions } from '../../features/sound-sculpt/useSoundSculptActions.js'
 import { useProjectSession } from '../../project/ProjectSessionContext.js'
 import type { ProjectedLayerItem } from '../../project/projections/types.js'
+import { useApplicationRuntimeController } from '../../runtime/ApplicationRuntimeControllerContext.js'
 import type { StudioViewId } from '../studio-state.js'
 
 export interface EditorSurfaceProperties {
@@ -25,6 +26,7 @@ export default function EditorSurface({ activeView }: EditorSurfaceProperties): 
 	const projectSession = useProjectSession()
 	const { projections } = projectSession
 	const { execute } = useCommands()
+	const controller = useApplicationRuntimeController()
 	const arrangement = useArrangementActions()
 	const drums = useDrumsActions()
 	const pianoRoll = usePianoRollActions()
@@ -56,7 +58,15 @@ export default function EditorSurface({ activeView }: EditorSurfaceProperties): 
 				layers={projections.layers}
 				model={projections.drums}
 				onAddLayer={addLayer}
+				onAuditionVoice={(instrument) => {
+					const layer = projections.drums.layerId
+					if (layer !== null) controller.auditionDrum(layer, instrument)
+				}}
 				onSelectLayer={selectLayer}
+				onSelectPattern={drums.selectPattern}
+				onSelectVoiceVariant={drums.selectVoiceVariant}
+				onSetDensity={drums.setDensity}
+				onSetSwing={drums.setSwing}
 				onToggleStep={drums.toggleStep}
 			/>
 		)

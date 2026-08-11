@@ -88,8 +88,57 @@ const spanishSoundCharacterCatalog = Object.freeze({
 	'soundChooser.character.texture.wire': 'Tensión fina con movimiento metálico'
 } as const)
 
+const englishDrumControlsCatalog = Object.freeze({
+	'drums.closedHat': 'Closed hat',
+	'drums.openHat': 'Open hat',
+	'drums.perc': 'Perc',
+	'drums.swing': 'Swing',
+	'drums.swingControl': 'Swing {{value}}%',
+	'drums.swingHelp': 'Moves the off-beat sixteenth notes without moving the saved steps.',
+	'drums.openVoice': 'Choose {{instrument}} sound. Current variant: {{variant}}',
+	'drums.customPattern': 'Custom',
+	'drums.simple': 'Simple',
+	'drums.busy': 'Busy',
+	'drums.backToPatterns': 'Patterns',
+	'drums.voiceDescription': 'Choose a character for this voice. Each choice plays once.',
+	'drums.hearVariant': 'Choose and hear'
+} as const)
+
+const russianDrumControlsCatalog = Object.freeze({
+	'drums.closedHat': 'Закрытый хэт',
+	'drums.openHat': 'Открытый хэт',
+	'drums.perc': 'Перкуссия',
+	'drums.swing': 'Свинг',
+	'drums.swingControl': 'Свинг {{value}}%',
+	'drums.swingHelp': 'Сдвигает слабые шестнадцатые, не меняя сохранённые шаги.',
+	'drums.openVoice': 'Выбрать звук {{instrument}}. Сейчас: {{variant}}',
+	'drums.customPattern': 'Свой рисунок',
+	'drums.simple': 'Проще',
+	'drums.busy': 'Плотнее',
+	'drums.backToPatterns': 'Паттерны',
+	'drums.voiceDescription': 'Выбери характер этого голоса. Каждый вариант прозвучит один раз.',
+	'drums.hearVariant': 'Выбрать и послушать'
+} as const)
+
+const spanishDrumControlsCatalog = Object.freeze({
+	'drums.closedHat': 'Charles cerrado',
+	'drums.openHat': 'Charles abierto',
+	'drums.perc': 'Percusión',
+	'drums.swing': 'Swing',
+	'drums.swingControl': 'Swing {{value}}%',
+	'drums.swingHelp': 'Desplaza las semicorcheas débiles sin mover los pasos guardados.',
+	'drums.openVoice': 'Elegir sonido de {{instrument}}. Variante actual: {{variant}}',
+	'drums.customPattern': 'Personalizado',
+	'drums.simple': 'Simple',
+	'drums.busy': 'Denso',
+	'drums.backToPatterns': 'Patrones',
+	'drums.voiceDescription': 'Elige el carácter de esta voz. Cada opción suena una vez.',
+	'drums.hearVariant': 'Elegir y escuchar'
+} as const)
+
 export const englishCatalog = Object.freeze({
 	...englishSoundCharacterCatalog,
+	...englishDrumControlsCatalog,
 	'app.name': 'Tiempio',
 	'app.tagline': 'Make the music you can already hear.',
 	'app.desktop': 'Desktop studio',
@@ -420,6 +469,7 @@ export type LocalizationCatalog = Readonly<Record<LocalizationKey, string>>
 
 export const russianCatalog = Object.freeze({
 	...russianSoundCharacterCatalog,
+	...russianDrumControlsCatalog,
 	'app.name': 'Tiempio',
 	'app.tagline': 'Создай музыку, которую уже слышишь внутри.',
 	'app.desktop': 'Студия для компьютера',
@@ -748,6 +798,7 @@ export const russianCatalog = Object.freeze({
 
 export const spanishCatalog = Object.freeze({
 	...spanishSoundCharacterCatalog,
+	...spanishDrumControlsCatalog,
 	'app.name': 'Tiempio',
 	'app.tagline': 'Crea la música que ya puedes oír.',
 	'app.desktop': 'Estudio de escritorio',

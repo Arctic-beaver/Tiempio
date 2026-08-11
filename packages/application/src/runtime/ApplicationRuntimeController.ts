@@ -12,6 +12,7 @@ import { EngineClient, type EngineClientCommandType } from '../../../engine-clie
 import {
 	compileEngineWireRenderPlan,
 	compileProjectRenderPlan,
+	type DrumInstrument,
 	type ProjectDocument,
 	type ProjectSession,
 	type ProjectSessionSnapshot
@@ -53,6 +54,14 @@ function freezeSnapshot(snapshot: ApplicationControllerSnapshot): ApplicationCon
 	return Object.freeze({ ...snapshot })
 }
 
+const drumAuditionPitches = Object.freeze({
+	kick: 36,
+	clap: 39,
+	closedHat: 42,
+	openHat: 46,
+	perc: 56
+} as const satisfies Readonly<Record<DrumInstrument, number>>)
+
 export class ApplicationRuntimeController implements ApplicationController {
 	readonly #client: EngineClient | null
 	readonly #listeners = new Set<() => void>()
@@ -62,6 +71,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	public readonly previewCoordinator: AuditionPreviewCoordinator
 	#currentHandle: ProjectHandle | null = null
 	#disposed = false
+	#drumAuditionSequence = 0
 	#audioRetry: Promise<void> | null = null
 	#latestPlanGeneration = 0
 	#latestRequestedPlanRevision = -1
@@ -174,6 +184,23 @@ export class ApplicationRuntimeController implements ApplicationController {
 			this.#audioRetry = null
 		})
 		return this.#audioRetry
+	}
+
+	public auditionDrum(layerId: string, instrument: DrumInstrument): void {
+		if (!this.#snapshot.available || this.#disposed) return
+		this.previewCoordinator.interrupt()
+		this.performanceInput.releaseAll()
+		this.#drumAuditionSequence += 1
+		const auditionId = `drum-audition-${String(this.#drumAuditionSequence)}`
+		void this.#publishLatestPlan().then(async () => {
+			if (this.#disposed || !this.#snapshot.available) return
+			await this.#send('note-on', {
+				auditionId,
+				layerId,
+				pitch: drumAuditionPitches[instrument],
+				velocity: 112
+			})
+		})
 	}
 
 	public togglePlayback(): void {

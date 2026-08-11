@@ -26,6 +26,14 @@ describe('studio project projections', () => {
 		assert.equal(projections.pianoRoll.notes.length, 2)
 		assert.equal(projections.pianoRoll.startTick, 30_720)
 		assert.equal(projections.drums.rows[0]?.activeSteps.includes(0), true)
+		assert.equal(projections.drums.rows.length, 5)
+		assert.equal(projections.drums.rows[0]?.selectedVariantId, 'kick.deep')
+		assert.deepEqual(
+			projections.drums.rows[3]?.variants.map(({ id }) => id),
+			['openHat.air', 'openHat.short', 'openHat.bright']
+		)
+		assert.equal(projections.drums.density, 0.38)
+		assert.equal(projections.drums.swing, 0.08)
 		assert.equal(projections.drums.startTick, 0)
 		assert.equal(projections.drums.totalTicks, 3840)
 		assert.equal(projections.arrangement.sections.length, 4)

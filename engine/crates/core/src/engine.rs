@@ -430,6 +430,24 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
             .note_off(VoiceIdentity::Audition(identifier), self.render_clock);
     }
 
+    pub fn drum_hit_audition(
+        &mut self,
+        identifier: u64,
+        instrument: DrumInstrument,
+        velocity: u8,
+        voice_patch: &DrumVoicePatchV2,
+    ) {
+        self.voice_bank.drum_hit(DrumVoiceStart {
+            identity: VoiceIdentity::Audition(identifier),
+            instrument,
+            velocity,
+            patch: voice_patch,
+            layer_gain: 1.0,
+            layer_pan: 0.0,
+            started_at: self.render_clock,
+        });
+    }
+
     pub fn set_master_gain(&mut self, gain: f64) {
         self.master_gain.set_target(
             gain.clamp(0.0, 2.0),
