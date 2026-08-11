@@ -14,14 +14,15 @@ Status vocabulary:
 - `Discussing` - the product problem is retained but material choices remain open.
 - `Recommended` - a concrete direction is recorded for user review, but is not yet approved.
 - `Approved` - the user accepted the behavior and it may enter an implementation plan.
+- `Implemented` - the approved behavior is integrated and backed by retained acceptance evidence.
 - `Deferred` - deliberately outside the pre-Phase-6 gate.
 - `Rejected` - retained only to prevent the same unsuitable direction from returning unnoticed.
 
 ## D-001 - Scale-aware performance keyboard and song palette
 
-Status: `Approved for implementation`. The song-wide ownership and UI direction below are
-accepted pre-Phase-6 scope. Real-time recording into the Piano Roll remains a separate open product
-decision and is not implied by this approval.
+Status: `Implemented`. The song-wide ownership and UI direction below are integrated on
+`feature/note-editor-acceptance`. Real-time recording into the Piano Roll remains a separate open product
+decision and is not implied by this delivery.
 
 ### Approved decisions
 
@@ -413,8 +414,8 @@ Never silently move existing project notes when the palette changes.
 
 ## D-002 - Usable bars, beats and metronome
 
-Status: `Approved for implementation`. The optional beginner-helpful metronome, useful bar
-structure and concrete UI direction below are accepted pre-Phase-6 scope.
+Status: `Implemented`. The optional beginner-helpful metronome, useful bar structure and concrete UI
+direction below are integrated on `feature/note-editor-acceptance`.
 
 ### Product rationale
 
@@ -557,9 +558,8 @@ user's current editing resolution.
 
 ## D-003 - Sound-reactive instrument wave
 
-Status: `Approved for implementation`. The existing orange wave on the sound-selection surface
-should visibly move while the user plays and create a restrained wow effect. The concrete motion
-mapping below is accepted pre-Phase-6 scope.
+Status: `Implemented`. The existing orange wave on the sound-selection surface now reacts to
+confirmed output energy with the accepted bounded motion and idle behavior.
 
 ### Product role
 
@@ -679,9 +679,8 @@ project file, engine plan or Undo/Redo history.
 
 ## D-004 - Truthful sound-demo control
 
-Status: `Approved for implementation`. Manual review proved that the current compact
-`Play + Audition A2` control is not self-explanatory. The replacement below is accepted
-pre-Phase-6 scope.
+Status: `Implemented`. The ambiguous compact `Play + Audition A2` control is replaced by the
+transport-independent sound-demo interaction below.
 
 ### Current behavior and problem
 
@@ -771,11 +770,11 @@ rather than collapsing both into indistinguishable icons.
 
 ## D-005 - Collision-safe dropdowns and reachable language selection
 
-Status: `Approved blocker fix`. Manual review proved that the Language dropdown
-can open below its trigger into clipped space, leaving every option invisible and making the setting
-unusable. The screenshot came from the older packaged settings popover, but the current shared
-`Select` still always positions its list below the trigger and can also be clipped by the new
-settings dialog's overflow boundaries. This is therefore not only a stale-package artifact.
+Status: `Implemented`. Manual review proved that the Language dropdown could open below its trigger
+into clipped space, leaving every option invisible and making the setting
+unusable. The screenshot came from the older packaged settings popover, and the pre-remediation
+shared `Select` also always positioned its list below the trigger where the settings dialog could
+clip it. This confirmed that the issue was not only a stale-package artifact.
 
 ### Required behavior
 

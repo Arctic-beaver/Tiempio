@@ -11,5 +11,8 @@ ignored `artifacts/` directory.
 - `ARCHITECTURE-ALIGNMENT.md` — pre-Stage-5 contracts, command truthfulness, module boundaries and bundle-headroom acceptance.
 - `NOTE-EDITOR-INTERACTIONS.md` - canonical note editing, gesture/history, meter, shortcut settings
   and integrated Web acceptance evidence.
+- `PRE-PHASE-6-PRODUCT-GATE.md` - collision-safe overlays, song palette and performance input,
+  engine-owned previews, sound demo/wave, metronome, transport guidance, application branding and
+  integrated Desktop/Web acceptance evidence.
 - `prototype-visual-reference/` — user-provided light/dark full-page captures for all seven exact
   prototype states, with a hash manifest and usage boundary.
