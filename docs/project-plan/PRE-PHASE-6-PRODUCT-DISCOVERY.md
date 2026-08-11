@@ -648,3 +648,94 @@ project file, engine plan or Undo/Redo history.
 - Light, Dark, compact and tablet layouts preserve the existing curve identity and surrounding
   control readability;
 - performance profiling shows no meaningful idle CPU work and no unbounded per-frame allocation.
+
+## D-004 - Truthful sound-demo control
+
+Status: `Discussing`. Manual review proved that the current compact
+`Play + Audition A2` control is not self-explanatory. The factual defect and recommended replacement
+below are retained for approval.
+
+### Current behavior and problem
+
+The sound-selection surface currently reuses the global `TransportBar`. Its Play/Pause icon dispatches
+`transport.toggle-playback`, so it starts or stops the current project transport. The adjacent
+`Audition A2` text is static presentation and does not describe a separate A2-note action or the
+project notes that will sound.
+
+This combines three incompatible meanings:
+
+- the universal Play icon implies project playback;
+- `Audition` implies a temporary sound demonstration;
+- `A2` implies one specific preview note.
+
+The user cannot predict whether pressing it will play one note, a scale, a phrase or the existing
+project loop. A tooltip would not repair the conflicting visible semantics.
+
+### Recommended replacement
+
+Do not reuse the project transport on a sound-selection surface. Replace it with one audition-owned,
+visibly labeled action near the selected sound and wave:
+
+- idle label: `Hear sound`;
+- accessible label: `Play Deep Bass sound demo` using the selected sound name;
+- active label/icon: `Stop demo`, not a project Pause state;
+- secondary description when useful: `Short preview in A minor` using the current/default song
+  palette, never the unexplained `A2` token.
+
+The button plays one bounded 2-3 second instrument phrase through the selected sound. It is a
+presentation audition:
+
+- it does not start project transport or move the project playhead;
+- it does not create project notes, dirty state or Undo/Redo history;
+- it uses the current song palette when one exists and the clearly shown default palette during the
+  new-song sound-first flow;
+- it drives the same highlighted screen keys and sound-reactive orange wave as manual audition;
+- starting a different sound/palette preview cancels the current demo first;
+- manually pressing a physical or screen key stops the automatic demo before starting the user's
+  note, so the sound source remains understandable;
+- unavailable audio disables the action with the existing truthful audio explanation.
+
+Keep three separate actions visually and semantically distinct:
+
+1. `Hear sound`: automatic short demonstration for a user who does not want to play yet;
+2. physical/clickable/touch keys: direct live performance exploration;
+3. `Use sound`: accept the instrument and continue the creation flow.
+
+The global project Play/Pause control remains only on project editing/playback surfaces, where a
+playhead, loop and visible canonical notes make its effect predictable.
+
+### Placement and visual hierarchy
+
+Move `Hear sound` into the sound-content area, close to the title or sound-reactive wave. Do not keep
+it floating in the global transport position, which visually claims project-wide scope. It is a
+secondary action below `Use sound`: listening helps the decision, while `Use sound` commits it.
+
+The button must include visible text at ordinary and tablet widths. An icon-only Play control is not
+sufficient on this unfamiliar surface. On compact layouts, keep `Hear sound` and `Use sound` readable
+rather than collapsing both into indistinguishable icons.
+
+### Failure modes and compatibility risks
+
+- Reusing project transport can play canonical notes unrelated to the visible sound-demo promise.
+- A static `A2` label implies a note that the command does not explicitly own.
+- Automatic demo and manual keys can overlap and make it unclear which action produced the sound.
+- Demo cancellation can leave held audition voices or an active wave/key state without shared source
+  ownership.
+- A phrase in an unstated default scale can undermine the approved song-palette mental model.
+- Moving the control without preserving keyboard and screen-reader access can reduce usability.
+
+### Open decisions
+
+1. Should the first sound demo be one musically expressive note with its full envelope, or a short
+   2-3 second phrase that reveals more of the instrument character?
+2. Should `Hear sound` sit beside `Use sound` or directly above the reactive wave?
+
+### Acceptance outline after approval
+
+- a first-time user can predict that `Hear sound` plays a short non-project demonstration;
+- the action never changes project transport, playhead, notes, dirty state or history;
+- selected palette, highlighted keys, audible phrase and reactive wave agree;
+- manual input, another preview, navigation, blur and audio loss stop the demo without stuck voices;
+- `Hear sound`, live keys and `Use sound` remain visually distinct and accessible in Desktop and
+  tablet layouts;
+- the global Play/Pause command is absent from sound-selection and palette-only audition surfaces.
