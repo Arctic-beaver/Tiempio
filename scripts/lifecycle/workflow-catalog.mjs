@@ -95,6 +95,7 @@ const compiledTestFiles = Object.freeze([
 	resolve('.test-out/packages/application/src/features/piano-roll/note-editor-geometry.test.js'),
 	resolve('.test-out/packages/application/src/features/piano-roll/note-editor-keyboard.test.js'),
 	resolve('.test-out/packages/application/src/features/song-palette/song-palette-model.test.js'),
+	resolve('.test-out/packages/application/src/features/sound-chooser/sound-demo-model.test.js'),
 	resolve('.test-out/packages/application/src/performance/performance-input-session.test.js'),
 	resolve('.test-out/packages/application/src/preview/audition-preview-coordinator.test.js'),
 	resolve('.test-out/packages/application/src/project/projectors.test.js'),
