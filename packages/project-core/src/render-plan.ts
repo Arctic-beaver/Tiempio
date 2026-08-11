@@ -232,13 +232,6 @@ export function compileProjectRenderPlan(
 export function compileEngineWireRenderPlan(
 	projectPlan: ProjectRenderPlan
 ): EngineWirePlanCompilationResult {
-	if (projectPlan.layers.some((layer) => layer.source.type !== 'synth')) {
-		return {
-			status: 'rejected',
-			code: 'UNSUPPORTED_SOURCE',
-			message: 'Stage 4 accepts only subtractive Bass layers.'
-		}
-	}
 	const plan = cloneAndFreeze({
 		planVersion: engineRenderPlanVersion,
 		projectId: projectPlan.projectId,
@@ -252,36 +245,78 @@ export function compileEngineWireRenderPlan(
 		meterMap: projectPlan.meterMap,
 		loop: projectPlan.loop,
 		layers: projectPlan.layers.map((layer) => {
-			if (layer.source.type !== 'synth') {
-				throw new TypeError('Unsupported source crossed the Stage 4 wire-plan boundary.')
+			if (layer.source.type === 'synth') {
+				const patch = layer.source.instrument
+				return {
+					id: layer.id,
+					gain: layer.gain,
+					pan: layer.pan,
+					source: {
+						type: 'subtractive-synth' as const,
+						patch: {
+							patchModelVersion: enginePatchModelVersion,
+							oscillator: patch.oscillator,
+							filter: patch.filter,
+							amplifier: patch.amplifier,
+							movement: patch.movement,
+							drive: patch.drive,
+							stereoWidth: patch.stereoWidth,
+							outputGain: patch.outputGain
+						}
+					},
+					events: layer.events.flatMap((event) =>
+						event.type === 'midi-note'
+							? [
+									{
+										id: event.id,
+										startTick: event.startTick,
+										durationTicks: event.durationTicks,
+										pitch: event.pitch,
+										velocity: event.velocity
+									}
+								]
+							: []
+					)
+				}
 			}
+			const voices = layer.source.patch.voices
 			return {
 				id: layer.id,
 				gain: layer.gain,
 				pan: layer.pan,
 				source: {
-					type: 'subtractive-bass' as const,
+					type: 'procedural-drums' as const,
 					patch: {
 						patchModelVersion: enginePatchModelVersion,
-						oscillator: {
-							detuneCents: layer.source.instrument.oscillator.detuneCents,
-							subLevel: layer.source.instrument.oscillator.subLevel
-						},
-						filter: layer.source.instrument.filter,
-						amplifier: layer.source.instrument.amplifier,
-						drive: layer.source.instrument.drive,
-						stereoWidth: layer.source.instrument.stereoWidth,
-						outputGain: layer.source.instrument.outputGain
+						voices: Object.fromEntries(
+							Object.entries(voices).map(([instrument, voice]) => [
+								instrument,
+								{
+									algorithm: voice.algorithm,
+									pitchHz: voice.pitchHz,
+									tone: voice.tone,
+									decayMs: voice.decayMs,
+									noise: voice.noise,
+									drive: voice.drive,
+									gain: voice.gain
+								}
+							])
+						)
 					}
 				},
 				events: layer.events.flatMap((event) =>
-					event.type === 'midi-note'
+					event.type === 'drum-hit'
 						? [
 								{
 									id: event.id,
 									startTick: event.startTick,
-									durationTicks: event.durationTicks,
-									pitch: event.pitch,
+									swingTicks:
+										Math.floor(event.startTick / (engineTicksPerQuarter / 4)) %
+											2 ===
+										1
+											? Math.round((engineTicksPerQuarter / 4) * event.swing)
+											: 0,
+									instrument: event.instrument,
 									velocity: event.velocity
 								}
 							]

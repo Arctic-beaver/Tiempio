@@ -34,6 +34,7 @@ export function PlayPerformancePanel(): JSX.Element {
 			<PerformanceKeyboard
 				chord={chord}
 				layout={layout}
+				layerId={projections.pianoRoll.layerId}
 				octave={octave}
 				onLayoutChange={setLayout}
 				onOctaveChange={setOctave}

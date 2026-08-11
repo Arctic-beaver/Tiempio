@@ -90,8 +90,9 @@ function validMacroPayload(value: unknown): boolean {
 function validPreviewPayload(value: unknown): boolean {
 	if (
 		!record(value) ||
-		!exactKeys(value, ['previewId', 'programVersion', 'events']) ||
+		!exactKeys(value, ['previewId', 'layerId', 'programVersion', 'events']) ||
 		!validIdentifier(value.previewId) ||
+		!validIdentifier(value.layerId) ||
 		value.programVersion !== 1 ||
 		!Array.isArray(value.events) ||
 		value.events.length < 1 ||
@@ -241,8 +242,9 @@ function validCommandPayload(
 	}
 	if (type === 'note-on') {
 		return record(value) &&
-			exactKeys(value, ['auditionId', 'pitch', 'velocity']) &&
+			exactKeys(value, ['auditionId', 'layerId', 'pitch', 'velocity']) &&
 			validIdentifier(value.auditionId) &&
+			validIdentifier(value.layerId) &&
 			safeInteger(value.pitch) &&
 			value.pitch <= 127 &&
 			safeInteger(value.velocity) &&

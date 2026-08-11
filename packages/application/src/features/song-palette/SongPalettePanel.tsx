@@ -57,6 +57,7 @@ export function SongPalettePanel({
 	const [layout, setLayout] = useState<PerformanceLayout>('compact')
 	const [chord, setChord] = useState<BeginnerChordSuggestion | null>(selected.chords[0] ?? null)
 	const tonicMidi = (octave + 1) * 12 + selected.tonic
+	const layerId = projectSession.projections.pianoRoll.layerId
 
 	useEffect(() => {
 		return () => {
@@ -66,8 +67,10 @@ export function SongPalettePanel({
 	}, [controller, ownerId])
 
 	const startPalettePreview = (palette: SongPalette): void => {
+		if (layerId === null) return
 		controller.previewCoordinator.start(
 			'palette',
+			layerId,
 			palettePreviewProgram(palette, (octave + 1) * 12 + palette.tonic)
 		)
 	}
@@ -80,8 +83,10 @@ export function SongPalettePanel({
 	}
 	const auditionChord = (suggestion: BeginnerChordSuggestion): void => {
 		setChord(suggestion)
+		if (layerId === null) return
 		controller.previewCoordinator.start(
 			'chord',
+			layerId,
 			chordPreviewProgram(selected, suggestion, tonicMidi)
 		)
 	}
@@ -89,7 +94,6 @@ export function SongPalettePanel({
 		controller.previewCoordinator.interrupt()
 		controller.performanceInput.releaseAll()
 		const snapshot = projectSession.getSnapshot()
-		const layerId = projectSession.projections.pianoRoll.layerId
 		if (layerId === null) return
 		projectSession.dispatch({
 			type: 'layer.performance.set',
@@ -172,6 +176,7 @@ export function SongPalettePanel({
 				<PerformanceKeyboard
 					chord={chord}
 					layout={layout}
+					layerId={layerId}
 					octave={octave}
 					onLayoutChange={setLayout}
 					onOctaveChange={setOctave}

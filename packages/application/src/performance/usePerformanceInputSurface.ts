@@ -14,13 +14,14 @@ export interface PerformanceInputSurfaceBindings {
 
 export function usePerformanceInputSurface(
 	ownerId: string,
+	layerId: string | null,
 	mapping: readonly PerformanceKeyMapping[]
 ): PerformanceInputSurfaceBindings {
 	const { performanceInput } = useApplicationRuntimeController()
 
 	useEffect(() => {
-		performanceInput.remap(ownerId, mapping)
-	}, [mapping, ownerId, performanceInput])
+		if (layerId !== null) performanceInput.remap(ownerId, layerId, mapping)
+	}, [layerId, mapping, ownerId, performanceInput])
 
 	useEffect(() => {
 		return () => {
@@ -30,8 +31,12 @@ export function usePerformanceInputSurface(
 
 	return {
 		tabIndex: 0,
-		onFocusCapture: () => performanceInput.activate(ownerId, mapping),
-		onPointerDownCapture: () => performanceInput.activate(ownerId, mapping),
+		onFocusCapture: () => {
+			if (layerId !== null) performanceInput.activate(ownerId, layerId, mapping)
+		},
+		onPointerDownCapture: () => {
+			if (layerId !== null) performanceInput.activate(ownerId, layerId, mapping)
+		},
 		onBlurCapture: (event) => {
 			if (
 				event.relatedTarget !== null &&

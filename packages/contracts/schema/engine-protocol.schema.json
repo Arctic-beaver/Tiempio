@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 1,
-	"engineProtocolVersion": 4,
+	"engineProtocolVersion": 5,
 	"limits": {
 		"maxFrameBytes": 262144,
 		"maxPayloadBytes": 196608,
@@ -30,6 +30,8 @@
 		"transport.loop",
 		"metronome.native",
 		"synth.bass.deep",
+		"synth.catalog.v2",
+		"drums.procedural.v1",
 		"audition.notes",
 		"preview.programs",
 		"diagnostics.health",

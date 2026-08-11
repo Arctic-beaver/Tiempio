@@ -1,4 +1,4 @@
-use tiempio_engine_core::{BassPatchV1, VoiceIdentity, VoiceStart};
+use tiempio_engine_core::{SynthPatchV2, SynthWaveform, VoiceIdentity, VoiceStart};
 use tiempio_engine_dsp::{
     AdsrEnvelope, DspConfiguration, EnvelopeSettings, EnvelopeStage, LinearSmoother,
     PhaseOscillator, StateVariableLowPass, StereoFrame, apply_gain_pan, apply_stereo_width,
@@ -13,7 +13,7 @@ pub enum VoiceLifecycle {
     Released,
 }
 
-pub struct DeepBassVoice {
+pub struct SynthVoice {
     configuration: DspConfiguration,
     identity: Option<VoiceIdentity>,
     lifecycle: VoiceLifecycle,
@@ -22,7 +22,13 @@ pub struct DeepBassVoice {
     frequency_hz: f64,
     detune_cents: f64,
     sub_level: f64,
+    noise_level: f64,
+    pulse_width: f64,
+    waveform: SynthWaveform,
     filter_envelope_amount: f64,
+    movement_depth: f64,
+    movement_rate_hz: f64,
+    noise_state: u64,
     velocity_gain: f64,
     layer_gain: f64,
     layer_pan: f64,
@@ -31,6 +37,7 @@ pub struct DeepBassVoice {
     left_saw: PhaseOscillator,
     right_saw: PhaseOscillator,
     sub: PhaseOscillator,
+    movement: PhaseOscillator,
     left_filter: StateVariableLowPass,
     right_filter: StateVariableLowPass,
     cutoff: LinearSmoother,
@@ -40,7 +47,7 @@ pub struct DeepBassVoice {
     output_gain: LinearSmoother,
 }
 
-impl DeepBassVoice {
+impl SynthVoice {
     #[must_use]
     pub fn new(configuration: DspConfiguration) -> Self {
         Self {
@@ -52,7 +59,13 @@ impl DeepBassVoice {
             frequency_hz: 0.0,
             detune_cents: 0.0,
             sub_level: 0.0,
+            noise_level: 0.0,
+            pulse_width: 0.5,
+            waveform: SynthWaveform::Saw,
             filter_envelope_amount: 0.0,
+            movement_depth: 0.0,
+            movement_rate_hz: 0.0,
+            noise_state: 1,
             velocity_gain: 0.0,
             layer_gain: 0.0,
             layer_pan: 0.0,
@@ -61,6 +74,7 @@ impl DeepBassVoice {
             left_saw: PhaseOscillator::new(),
             right_saw: PhaseOscillator::new(),
             sub: PhaseOscillator::new(),
+            movement: PhaseOscillator::new(),
             left_filter: StateVariableLowPass::new(configuration),
             right_filter: StateVariableLowPass::new(configuration),
             cutoff: LinearSmoother::new(20.0),
@@ -99,7 +113,13 @@ impl DeepBassVoice {
         self.frequency_hz = midi_frequency(start.pitch);
         self.detune_cents = start.patch.oscillator.detune_cents;
         self.sub_level = start.patch.oscillator.sub_level;
+        self.noise_level = start.patch.oscillator.noise_level;
+        self.pulse_width = start.patch.oscillator.pulse_width;
+        self.waveform = start.patch.oscillator.waveform;
         self.filter_envelope_amount = start.patch.filter.envelope_amount;
+        self.movement_depth = start.patch.movement.depth;
+        self.movement_rate_hz = start.patch.movement.rate_hz;
+        self.noise_state = identity_seed(start.identity);
         self.velocity_gain = f64::from(start.velocity) / 127.0;
         self.layer_gain = start.layer_gain;
         self.layer_pan = start.layer_pan;
@@ -113,6 +133,7 @@ impl DeepBassVoice {
         self.left_saw.reset(0.0);
         self.right_saw.reset(0.5);
         self.sub.reset(0.25);
+        self.movement.reset(0.0);
         self.left_filter.reset();
         self.right_filter.reset();
         self.cutoff.reset(start.patch.filter.cutoff_hz);
@@ -141,11 +162,16 @@ impl DeepBassVoice {
         self.right_filter.reset();
     }
 
-    pub fn set_patch_targets(&mut self, patch: &BassPatchV1) {
+    pub fn set_patch_targets(&mut self, patch: &SynthPatchV2) {
         let rate = self.configuration.sample_rate_hz();
         self.detune_cents = patch.oscillator.detune_cents;
         self.sub_level = patch.oscillator.sub_level;
+        self.noise_level = patch.oscillator.noise_level;
+        self.pulse_width = patch.oscillator.pulse_width;
+        self.waveform = patch.oscillator.waveform;
         self.filter_envelope_amount = patch.filter.envelope_amount;
+        self.movement_depth = patch.movement.depth;
+        self.movement_rate_hz = patch.movement.rate_hz;
         self.cutoff.set_target(patch.filter.cutoff_hz, 10.0, rate);
         self.resonance
             .set_target(patch.filter.resonance, 10.0, rate);
@@ -166,24 +192,42 @@ impl DeepBassVoice {
             return StereoFrame::default();
         }
         let detune = 2.0_f64.powf(self.detune_cents / 2_400.0);
-        let left_saw = self
-            .left_saw
-            .next_saw(self.frequency_hz / detune, sample_rate);
-        let right_saw = self
-            .right_saw
-            .next_saw(self.frequency_hz * detune, sample_rate);
+        let left_oscillator = oscillator_sample(
+            &mut self.left_saw,
+            self.waveform,
+            self.pulse_width,
+            self.frequency_hz / detune,
+            sample_rate,
+        );
+        let right_oscillator = oscillator_sample(
+            &mut self.right_saw,
+            self.waveform,
+            self.pulse_width,
+            self.frequency_hz * detune,
+            sample_rate,
+        );
         let sub = self.sub.next_sine(self.frequency_hz * 0.5, sample_rate) * self.sub_level;
-        let normalization = 1.0 / (1.0 + self.sub_level);
-        let cutoff = self.cutoff.advance() * (1.0 + self.filter_envelope_amount * envelope * 4.0);
+        let noise = next_noise(&mut self.noise_state) * self.noise_level;
+        let normalization = 1.0 / (1.0 + self.sub_level + self.noise_level);
+        let movement =
+            self.movement.next_sine(self.movement_rate_hz, sample_rate) * self.movement_depth;
+        let cutoff = self.cutoff.advance()
+            * (1.0 + self.filter_envelope_amount * envelope * 4.0)
+            * 2.0_f64.powf(movement);
         let resonance = self.resonance.advance();
         self.left_filter.set_parameters(cutoff, resonance);
         self.right_filter.set_parameters(cutoff, resonance);
         let amplitude = envelope * self.velocity_gain * normalization;
         let drive = self.drive.advance();
         let mut frame = StereoFrame::new(
-            saturate(self.left_filter.process(left_saw + sub) * amplitude, drive),
             saturate(
-                self.right_filter.process(right_saw + sub) * amplitude,
+                self.left_filter.process(left_oscillator + sub + noise) * amplitude,
+                drive,
+            ),
+            saturate(
+                self.right_filter
+                    .process(right_oscillator + sub - noise * 0.35)
+                    * amplitude,
                 drive,
             ),
         );
@@ -194,6 +238,56 @@ impl DeepBassVoice {
             self.layer_pan,
         )
     }
+}
+
+pub type DeepBassVoice = SynthVoice;
+
+fn oscillator_sample(
+    oscillator: &mut PhaseOscillator,
+    waveform: SynthWaveform,
+    pulse_width: f64,
+    frequency_hz: f64,
+    sample_rate_hz: f64,
+) -> f64 {
+    let phase = oscillator.phase();
+    let saw = oscillator.next_saw(frequency_hz, sample_rate_hz);
+    match waveform {
+        SynthWaveform::Saw => saw,
+        SynthWaveform::Square => {
+            if phase < pulse_width {
+                1.0
+            } else {
+                -1.0
+            }
+        }
+        SynthWaveform::Triangle => 1.0 - 4.0 * (phase - 0.5).abs(),
+        SynthWaveform::Sine => (std::f64::consts::TAU * phase).sin(),
+    }
+}
+
+fn identity_seed(identity: VoiceIdentity) -> u64 {
+    match identity {
+        VoiceIdentity::Audition(value) => value.saturating_add(1),
+        VoiceIdentity::Scheduled {
+            generation,
+            layer_index,
+            event_index,
+        } => {
+            generation
+                ^ u64::try_from(layer_index).unwrap_or(0).rotate_left(17)
+                ^ u64::try_from(event_index).unwrap_or(0).rotate_left(33)
+                ^ 0x9E37_79B9_7F4A_7C15
+        }
+    }
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn next_noise(state: &mut u64) -> f64 {
+    *state = state
+        .wrapping_mul(6_364_136_223_846_793_005)
+        .wrapping_add(1);
+    let value = (*state >> 11) as f64 / ((1_u64 << 53) as f64);
+    value * 2.0 - 1.0
 }
 
 fn midi_frequency(pitch: u8) -> f64 {

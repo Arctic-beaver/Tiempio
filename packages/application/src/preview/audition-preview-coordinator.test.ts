@@ -13,10 +13,10 @@ describe('AuditionPreviewCoordinator', () => {
 				return true
 			}
 		})
-		const palette = coordinator.start('palette', [
+		const palette = coordinator.start('palette', 'layer.bass', [
 			{ durationMs: 120, offsetMs: 0, pitches: [57], velocity: 100 }
 		])
-		const chord = coordinator.start('chord', [
+		const chord = coordinator.start('chord', 'layer.bass', [
 			{ durationMs: 120, offsetMs: 0, pitches: [57, 60, 64], velocity: 100 }
 		])
 
@@ -37,7 +37,7 @@ describe('AuditionPreviewCoordinator', () => {
 			cancel: (previewId) => commands.push(`cancel:${previewId}`),
 			start: () => true
 		})
-		const previewId = coordinator.start('sound', [
+		const previewId = coordinator.start('sound', 'layer.bass', [
 			{ durationMs: 200, offsetMs: 0, pitches: [45], velocity: 100 }
 		])
 		if (previewId === null) throw new Error('preview should be accepted')
@@ -62,7 +62,7 @@ describe('AuditionPreviewCoordinator', () => {
 			start: () => false
 		})
 		equal(
-			coordinator.start('palette', [
+			coordinator.start('palette', 'layer.bass', [
 				{ durationMs: 100, offsetMs: 0, pitches: [60], velocity: 100 }
 			]),
 			null

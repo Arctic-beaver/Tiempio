@@ -1,6 +1,9 @@
 use tiempio_engine_dsp::{DspConfiguration, LinearSmoother, OutputGuard, StereoFrame, clear_block};
 
-use crate::{BassPatchV1, PreparedActionKind, PreparedPlan, TempoError};
+use crate::{
+    DrumInstrument, DrumVoicePatchV2, LayerSource, PreparedActionKind, PreparedPlan, SynthPatchV2,
+    TempoError,
+};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum VoiceIdentity {
@@ -17,13 +20,24 @@ pub struct VoiceStart<'a> {
     pub identity: VoiceIdentity,
     pub pitch: u8,
     pub velocity: u8,
-    pub patch: &'a BassPatchV1,
+    pub patch: &'a SynthPatchV2,
     pub layer_gain: f64,
     pub layer_pan: f64,
     pub started_at: u64,
 }
 
-pub trait VoiceBank {
+#[derive(Clone, Copy, Debug)]
+pub struct DrumVoiceStart<'a> {
+    pub identity: VoiceIdentity,
+    pub instrument: DrumInstrument,
+    pub velocity: u8,
+    pub patch: &'a DrumVoicePatchV2,
+    pub layer_gain: f64,
+    pub layer_pan: f64,
+    pub started_at: u64,
+}
+
+pub trait SynthVoiceBank {
     fn note_on(&mut self, start: VoiceStart<'_>);
     fn note_off(&mut self, identity: VoiceIdentity, released_at: u64);
     fn reset_scheduled(&mut self);
@@ -31,6 +45,80 @@ pub trait VoiceBank {
     fn render_frame(&mut self) -> StereoFrame;
     fn active_voice_count(&self) -> usize;
     fn voice_steal_count(&self) -> u64;
+}
+
+pub trait DrumVoiceBank {
+    fn drum_hit(&mut self, start: DrumVoiceStart<'_>);
+    fn reset_scheduled(&mut self);
+    fn reset_all(&mut self);
+    fn render_frame(&mut self) -> StereoFrame;
+    fn active_voice_count(&self) -> usize;
+    fn voice_steal_count(&self) -> u64;
+}
+
+pub trait VoiceBank {
+    fn note_on(&mut self, start: VoiceStart<'_>);
+    fn drum_hit(&mut self, start: DrumVoiceStart<'_>);
+    fn note_off(&mut self, identity: VoiceIdentity, released_at: u64);
+    fn reset_scheduled(&mut self);
+    fn reset_all(&mut self);
+    fn render_frame(&mut self) -> StereoFrame;
+    fn active_voice_count(&self) -> usize;
+    fn voice_steal_count(&self) -> u64;
+}
+
+pub struct CompositeVoiceBank<Synth: SynthVoiceBank, Drums: DrumVoiceBank> {
+    synth: Synth,
+    drums: Drums,
+}
+
+impl<Synth: SynthVoiceBank, Drums: DrumVoiceBank> CompositeVoiceBank<Synth, Drums> {
+    #[must_use]
+    pub const fn new(synth: Synth, drums: Drums) -> Self {
+        Self { synth, drums }
+    }
+}
+
+impl<Synth: SynthVoiceBank, Drums: DrumVoiceBank> VoiceBank for CompositeVoiceBank<Synth, Drums> {
+    fn note_on(&mut self, start: VoiceStart<'_>) {
+        self.synth.note_on(start);
+    }
+
+    fn drum_hit(&mut self, start: DrumVoiceStart<'_>) {
+        self.drums.drum_hit(start);
+    }
+
+    fn note_off(&mut self, identity: VoiceIdentity, released_at: u64) {
+        self.synth.note_off(identity, released_at);
+    }
+
+    fn reset_scheduled(&mut self) {
+        self.synth.reset_scheduled();
+        self.drums.reset_scheduled();
+    }
+
+    fn reset_all(&mut self) {
+        self.synth.reset_all();
+        self.drums.reset_all();
+    }
+
+    fn render_frame(&mut self) -> StereoFrame {
+        let synth = self.synth.render_frame();
+        let drums = self.drums.render_frame();
+        StereoFrame::new(synth.left + drums.left, synth.right + drums.right)
+    }
+
+    fn active_voice_count(&self) -> usize {
+        self.synth
+            .active_voice_count()
+            .saturating_add(self.drums.active_voice_count())
+    }
+
+    fn voice_steal_count(&self) -> u64 {
+        self.synth
+            .voice_steal_count()
+            .saturating_add(self.drums.voice_steal_count())
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -324,7 +412,7 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
         identifier: u64,
         pitch: u8,
         velocity: u8,
-        voice_patch: &BassPatchV1,
+        voice_patch: &SynthPatchV2,
     ) {
         self.voice_bank.note_on(VoiceStart {
             identity: VoiceIdentity::Audition(identifier),
@@ -486,25 +574,42 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
                 break;
             }
             let layer = &plan.plan().layers[action.layer_index];
-            let event = &layer.events[action.event_index];
             let identity = VoiceIdentity::Scheduled {
                 generation: plan.generation(),
                 layer_index: action.layer_index,
                 event_index: action.event_index,
             };
-            match action.kind {
-                PreparedActionKind::NoteOff => {
+            match (&layer.source, action.kind) {
+                (LayerSource::Synth { .. }, PreparedActionKind::NoteOff) => {
                     self.voice_bank.note_off(identity, self.render_clock);
                 }
-                PreparedActionKind::NoteOn => self.voice_bank.note_on(VoiceStart {
-                    identity,
-                    pitch: event.pitch,
-                    velocity: event.velocity,
-                    patch: &layer.patch,
-                    layer_gain: layer.gain,
-                    layer_pan: layer.pan,
-                    started_at: self.render_clock,
-                }),
+                (LayerSource::Synth { patch, events }, PreparedActionKind::NoteOn) => {
+                    let event = &events[action.event_index];
+                    self.voice_bank.note_on(VoiceStart {
+                        identity,
+                        pitch: event.pitch,
+                        velocity: event.velocity,
+                        patch,
+                        layer_gain: layer.gain,
+                        layer_pan: layer.pan,
+                        started_at: self.render_clock,
+                    });
+                }
+                (LayerSource::Drums { patch, events }, PreparedActionKind::DrumHit) => {
+                    let event = &events[action.event_index];
+                    self.voice_bank.drum_hit(DrumVoiceStart {
+                        identity,
+                        instrument: event.instrument,
+                        velocity: event.velocity,
+                        patch: patch.voice(event.instrument),
+                        layer_gain: layer.gain,
+                        layer_pan: layer.pan,
+                        started_at: self.render_clock,
+                    });
+                }
+                _ => {
+                    self.health.invalid_blocks = self.health.invalid_blocks.saturating_add(1);
+                }
             }
             self.transport.action_cursor += 1;
         }
@@ -523,9 +628,9 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
 mod tests {
     use super::*;
     use crate::{
-        BassAmplifierPatchV1, BassFilterPatchV1, BassLayerPlan, BassOscillatorPatchV1, BassPatchV1,
-        LoopRegion, MeterPoint, MidiNoteEvent, PATCH_MODEL_VERSION, RENDER_PLAN_VERSION,
-        RenderPlan, RenderPlanRevision, TICKS_PER_QUARTER, TempoPoint,
+        InstrumentLayerPlan, LayerSource, LoopRegion, MeterPoint, MidiNoteEvent,
+        RENDER_PLAN_VERSION, RenderPlan, RenderPlanRevision, SynthPatchV2, TICKS_PER_QUARTER,
+        TempoPoint,
     };
 
     #[derive(Default)]
@@ -537,6 +642,13 @@ mod tests {
 
     impl VoiceBank for TestVoiceBank {
         fn note_on(&mut self, start: VoiceStart<'_>) {
+            match start.identity {
+                VoiceIdentity::Scheduled { .. } => self.scheduled += 1,
+                VoiceIdentity::Audition(_) => self.audition += 1,
+            }
+        }
+
+        fn drum_hit(&mut self, start: DrumVoiceStart<'_>) {
             match start.identity {
                 VoiceIdentity::Scheduled { .. } => self.scheduled += 1,
                 VoiceIdentity::Audition(_) => self.audition += 1,
@@ -581,28 +693,8 @@ mod tests {
         }
     }
 
-    fn test_patch() -> BassPatchV1 {
-        BassPatchV1 {
-            patch_model_version: PATCH_MODEL_VERSION,
-            oscillator: BassOscillatorPatchV1 {
-                detune_cents: 0.0,
-                sub_level: 0.5,
-            },
-            filter: BassFilterPatchV1 {
-                cutoff_hz: 500.0,
-                envelope_amount: 0.4,
-                resonance: 0.2,
-            },
-            amplifier: BassAmplifierPatchV1 {
-                attack_ms: 0.0,
-                decay_ms: 0.0,
-                release_ms: 1.0,
-                sustain: 1.0,
-            },
-            drive: 0.0,
-            stereo_width: 0.0,
-            output_gain: 1.0,
-        }
+    fn test_patch() -> SynthPatchV2 {
+        crate::tests::valid_synth_patch()
     }
 
     fn test_plan() -> RenderPlan {
@@ -630,18 +722,20 @@ mod tests {
                 start_tick: 0,
                 end_tick: 3_840,
             },
-            layers: vec![BassLayerPlan {
+            layers: vec![InstrumentLayerPlan {
                 id: "layer.bass".to_owned(),
                 gain: 1.0,
                 pan: 0.0,
-                patch: test_patch(),
-                events: vec![MidiNoteEvent {
-                    id: "note.one".to_owned(),
-                    start_tick: 0,
-                    duration_ticks: 960,
-                    pitch: 36,
-                    velocity: 100,
-                }],
+                source: LayerSource::Synth {
+                    patch: test_patch(),
+                    events: vec![MidiNoteEvent {
+                        id: "note.one".to_owned(),
+                        start_tick: 0,
+                        duration_ticks: 960,
+                        pitch: 36,
+                        velocity: 100,
+                    }],
+                },
             }],
         }
     }

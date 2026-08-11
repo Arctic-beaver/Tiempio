@@ -1,34 +1,35 @@
 use std::array;
 
-use tiempio_engine_core::{VoiceBank, VoiceIdentity, VoiceStart};
+use tiempio_engine_core::{DrumVoiceStart, SynthVoiceBank, VoiceIdentity, VoiceStart};
 use tiempio_engine_dsp::{DspConfiguration, StereoFrame};
 
-use crate::{DeepBassVoice, VoiceLifecycle};
+use crate::{SynthVoice, VoiceLifecycle};
 
-pub const BASS_VOICE_COUNT: usize = 64;
+pub const SYNTH_VOICE_COUNT: usize = 64;
+pub const BASS_VOICE_COUNT: usize = SYNTH_VOICE_COUNT;
 
-pub struct BassVoicePool {
-    voices: [DeepBassVoice; BASS_VOICE_COUNT],
+pub struct SynthVoicePool {
+    voices: [SynthVoice; SYNTH_VOICE_COUNT],
     voice_steals: u64,
 }
 
-impl BassVoicePool {
+impl SynthVoicePool {
     #[must_use]
     pub fn new(configuration: DspConfiguration) -> Self {
         Self {
-            voices: array::from_fn(|_| DeepBassVoice::new(configuration)),
+            voices: array::from_fn(|_| SynthVoice::new(configuration)),
             voice_steals: 0,
         }
     }
 
     #[must_use]
     pub fn slot_identity(&self, slot: usize) -> Option<VoiceIdentity> {
-        self.voices.get(slot).and_then(DeepBassVoice::identity)
+        self.voices.get(slot).and_then(SynthVoice::identity)
     }
 
     #[must_use]
     pub fn slot_lifecycle(&self, slot: usize) -> Option<VoiceLifecycle> {
-        self.voices.get(slot).map(DeepBassVoice::lifecycle)
+        self.voices.get(slot).map(SynthVoice::lifecycle)
     }
 
     fn select_slot(&self, identity: VoiceIdentity) -> (usize, bool) {
@@ -65,7 +66,7 @@ impl BassVoicePool {
     }
 }
 
-impl VoiceBank for BassVoicePool {
+impl SynthVoiceBank for SynthVoicePool {
     fn note_on(&mut self, start: VoiceStart<'_>) {
         let (slot, stolen) = self.select_slot(start.identity);
         if stolen {
@@ -120,32 +121,73 @@ impl VoiceBank for BassVoicePool {
     }
 }
 
+impl tiempio_engine_core::VoiceBank for SynthVoicePool {
+    fn note_on(&mut self, start: VoiceStart<'_>) {
+        SynthVoiceBank::note_on(self, start);
+    }
+
+    fn drum_hit(&mut self, _start: DrumVoiceStart<'_>) {}
+
+    fn note_off(&mut self, identity: VoiceIdentity, released_at: u64) {
+        SynthVoiceBank::note_off(self, identity, released_at);
+    }
+
+    fn reset_scheduled(&mut self) {
+        SynthVoiceBank::reset_scheduled(self);
+    }
+
+    fn reset_all(&mut self) {
+        SynthVoiceBank::reset_all(self);
+    }
+
+    fn render_frame(&mut self) -> StereoFrame {
+        SynthVoiceBank::render_frame(self)
+    }
+
+    fn active_voice_count(&self) -> usize {
+        SynthVoiceBank::active_voice_count(self)
+    }
+
+    fn voice_steal_count(&self) -> u64 {
+        SynthVoiceBank::voice_steal_count(self)
+    }
+}
+
+pub type BassVoicePool = SynthVoicePool;
+
 #[cfg(test)]
 mod tests {
     use tiempio_engine_core::{
-        BassAmplifierPatchV1, BassFilterPatchV1, BassOscillatorPatchV1, BassPatchV1,
-        PATCH_MODEL_VERSION,
+        PATCH_MODEL_VERSION, SynthAmplifierPatchV2, SynthFilterPatchV2, SynthMovementPatchV2,
+        SynthOscillatorPatchV2, SynthPatchV2, SynthWaveform,
     };
 
     use super::*;
 
-    fn patch() -> BassPatchV1 {
-        BassPatchV1 {
+    fn patch() -> SynthPatchV2 {
+        SynthPatchV2 {
             patch_model_version: PATCH_MODEL_VERSION,
-            oscillator: BassOscillatorPatchV1 {
+            oscillator: SynthOscillatorPatchV2 {
+                waveform: SynthWaveform::Saw,
                 detune_cents: -3.0,
                 sub_level: 0.75,
+                noise_level: 0.0,
+                pulse_width: 0.5,
             },
-            filter: BassFilterPatchV1 {
+            filter: SynthFilterPatchV2 {
                 cutoff_hz: 340.0,
                 envelope_amount: 0.42,
                 resonance: 0.34,
             },
-            amplifier: BassAmplifierPatchV1 {
+            amplifier: SynthAmplifierPatchV2 {
                 attack_ms: 2.0,
                 decay_ms: 30.0,
                 release_ms: 10.0,
                 sustain: 0.7,
+            },
+            movement: SynthMovementPatchV2 {
+                rate_hz: 0.0,
+                depth: 0.0,
             },
             drive: 0.08,
             stereo_width: 0.03,
@@ -153,7 +195,7 @@ mod tests {
         }
     }
 
-    fn start(identifier: u64, started_at: u64, patch: &BassPatchV1) -> VoiceStart<'_> {
+    fn start(identifier: u64, started_at: u64, patch: &SynthPatchV2) -> VoiceStart<'_> {
         VoiceStart {
             identity: VoiceIdentity::Audition(identifier),
             pitch: 36,
@@ -169,7 +211,7 @@ mod tests {
     fn uses_lowest_free_then_oldest_released_then_oldest_active_slot() {
         let configuration = DspConfiguration::new(48_000, 128).expect("valid config");
         let patch = patch();
-        let mut pool = BassVoicePool::new(configuration);
+        let mut pool = SynthVoicePool::new(configuration);
         for identifier in 0..BASS_VOICE_COUNT {
             pool.note_on(start(
                 u64::try_from(identifier).expect("voice index"),
@@ -189,7 +231,7 @@ mod tests {
     fn retriggers_a_matching_identity_and_ignores_unknown_or_repeated_note_off() {
         let configuration = DspConfiguration::new(48_000, 128).expect("valid config");
         let patch = patch();
-        let mut pool = BassVoicePool::new(configuration);
+        let mut pool = SynthVoicePool::new(configuration);
         pool.note_on(start(7, 10, &patch));
         pool.note_on(start(7, 20, &patch));
         assert_eq!(pool.slot_identity(0), Some(VoiceIdentity::Audition(7)));
@@ -209,7 +251,7 @@ mod tests {
     fn renders_finite_non_silent_deep_bass_and_releases_to_free() {
         let configuration = DspConfiguration::new(48_000, 128).expect("valid config");
         let patch = patch();
-        let mut pool = BassVoicePool::new(configuration);
+        let mut pool = SynthVoicePool::new(configuration);
         pool.note_on(start(1, 0, &patch));
         let mut energy = 0.0;
         for _ in 0..4_800 {

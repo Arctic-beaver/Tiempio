@@ -70,8 +70,8 @@ fn run_commands(
         &json!({
             "protocolVersion": ENGINE_PROTOCOL_VERSION,
             "peer": "application",
-            "renderPlanVersion": 2,
-            "patchModelVersion": 1,
+            "renderPlanVersion": 3,
+            "patchModelVersion": 2,
             "capabilities": [
                 "protocol.typed-json",
                 "audio.native.shared",
@@ -101,7 +101,12 @@ fn run_commands(
         controller,
         4,
         "note-on",
-        &json!({ "auditionId": "self-test.note", "pitch": 36, "velocity": 110 }),
+        &json!({
+            "auditionId": "self-test.note",
+            "layerId": "layer.bass",
+            "pitch": 36,
+            "velocity": 110
+        }),
     )?;
     thread::sleep(Duration::from_millis(40));
     dispatch(
@@ -206,7 +211,7 @@ mod tests {
 
     use allocation_counter::measure;
     use rtrb::RingBuffer;
-    use tiempio_engine_core::PreparedPlan;
+    use tiempio_engine_core::{LayerSource, PreparedPlan};
     use tiempio_engine_protocol::{EngineCommand, PreviewEventPayload, PreviewProgramPayload};
 
     use super::*;
@@ -248,7 +253,10 @@ mod tests {
         let sample_rate = 48_000;
         let mut engine = create_engine(sample_rate);
         let plan = fixture_plan();
-        let patch = plan.layers[0].patch.clone();
+        let patch = match &plan.layers[0].source {
+            LayerSource::Synth { patch, .. } => patch.clone(),
+            LayerSource::Drums { .. } => panic!("fixture must start with a synth layer"),
+        };
         engine
             .publish_plan(PreparedPlan::prepare(plan, sample_rate, 1).unwrap())
             .unwrap();
@@ -268,6 +276,7 @@ mod tests {
         let preview = PreparedPreview::prepare(
             PreviewProgramPayload {
                 preview_id: "preview.allocator.1".to_owned(),
+                layer_id: "layer.bass".to_owned(),
                 program_version: 1,
                 events: vec![PreviewEventPayload {
                     offset_ms: 0,

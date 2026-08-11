@@ -121,18 +121,22 @@ describe('project render plan', () => {
 		assert.equal(wire.plan.tempoMap[0]?.microBpm, 108_000_000)
 		assert.deepEqual(wire.plan.meterMap[0], { tick: 0, numerator: 4, denominator: 4 })
 		assert.equal(wire.plan.endTick, projectPlan.plan.endTick)
-		assert.equal(wire.plan.layers[0]?.source.type, 'subtractive-bass')
+		assert.equal(wire.plan.layers[0]?.source.type, 'subtractive-synth')
 		assert.equal(wire.plan.layers[0]?.events[0]?.id, 'note.early')
 	})
 
-	it('rejects unavailable drum sources at the Stage 4 wire boundary', () => {
+	it('projects synth and procedural drum sources into one bounded wire plan', () => {
 		const projectPlan = compileProjectRenderPlan(renderFixture(), 1)
 		assert.equal(projectPlan.status, 'ready')
 		if (projectPlan.status !== 'ready') return
-		assert.deepEqual(compileEngineWireRenderPlan(projectPlan.plan), {
-			status: 'rejected',
-			code: 'UNSUPPORTED_SOURCE',
-			message: 'Stage 4 accepts only subtractive Bass layers.'
-		})
+		const wire = compileEngineWireRenderPlan(projectPlan.plan)
+		assert.equal(wire.status, 'ready')
+		if (wire.status !== 'ready') return
+		assert.deepEqual(
+			wire.plan.layers.map((layer) => layer.source.type),
+			['subtractive-synth', 'procedural-drums']
+		)
+		const drumLayer = wire.plan.layers.find((layer) => layer.source.type === 'procedural-drums')
+		assert.equal(drumLayer?.events[0]?.id, 'event.kick')
 	})
 })
