@@ -739,3 +739,89 @@ rather than collapsing both into indistinguishable icons.
 - `Hear sound`, live keys and `Use sound` remain visually distinct and accessible in Desktop and
   tablet layouts;
 - the global Play/Pause command is absent from sound-selection and palette-only audition surfaces.
+
+## D-005 - Collision-safe dropdowns and reachable language selection
+
+Status: `Confirmed blocker; solution recommended`. Manual review proved that the Language dropdown
+can open below its trigger into clipped space, leaving every option invisible and making the setting
+unusable. The screenshot came from the older packaged settings popover, but the current shared
+`Select` still always positions its list below the trigger and can also be clipped by the new
+settings dialog's overflow boundaries. This is therefore not only a stale-package artifact.
+
+### Required behavior
+
+Language, Appearance and every equivalent application dropdown must use one shared collision-aware
+overlay behavior:
+
+- prefer opening below the trigger when the complete useful panel fits;
+- flip above when space below is insufficient and more usable space exists above;
+- when neither side can fit the full list, use the side with more room, cap the panel height and
+  scroll inside the panel with the shared application scrollbar;
+- shift horizontally to remain inside the window/dialog safe inset while retaining a clear visual
+  relationship to the trigger;
+- keep the panel at least as wide as its trigger, subject to the available viewport width;
+- render above dialog content and other clipping ancestors without escaping the active modal's
+  interaction boundary.
+
+Implement this as an application-owned floating-overlay primitive or shared Select positioning
+utility. The options panel should render in the application overlay layer rather than rely on an
+absolutely positioned descendant of an `overflow: hidden/auto` container. Do not replace it with an
+unthemed native popup.
+
+Position must be recalculated while open when the window, visual viewport or relevant scroll
+container changes. This includes desktop scaling, compact windows, tablet rotation and an on-screen
+keyboard changing the usable viewport. If the anchor disappears during rerender or navigation, close
+the panel cleanly instead of leaving a detached overlay.
+
+### Interaction and accessibility contract
+
+- Trigger and panel are one logical control even when the panel is portalled: clicking either must
+  not be interpreted as an outside click.
+- `ArrowUp`/`ArrowDown`, `Home`, `End`, `Enter`/`Space`, `Escape` and `Tab` preserve the current shared
+  keyboard contract.
+- `Escape` closes the list and returns focus to the trigger; choosing Language may rerender labels,
+  but must close cleanly and leave focus at the corresponding control.
+- The selected/focused option is scrolled into view in a height-constrained panel.
+- `aria-controls`, listbox/option relationships and accessible names remain valid across the overlay
+  boundary.
+- Options and the trigger retain tablet-sized hit targets, Light/Dark theming, focus visibility and
+  the shared scrollbar treatment.
+
+### Architecture and regression scope
+
+The fix must begin with an application-wide audit of dropdowns, popovers and menus. Equivalent
+controls should share the new placement primitive; component-local one-off direction flags are not
+an acceptable permanent fix for Language. Ordinary informational popovers may use the same geometry
+while retaining their own semantics and dismissal rules.
+
+Keep placement geometry independent from language state and settings persistence. Language selection
+must still use the existing catalog/persistence boundary; the overlay owns only presentation,
+positioning, focus and dismissal.
+
+### Failure modes and compatibility risks
+
+- A CSS-only `top: 100%` list is clipped by the settings panel or the window bottom.
+- Flipping without a portal can remain clipped by an ancestor even when space exists visually.
+- A portalled panel can close on its own pointer event unless outside-click ownership includes both
+  trigger and panel.
+- Fixed coordinates become stale while the settings content scrolls or the visual viewport changes.
+- A high global z-index can place options above a different modal or allow interaction outside the
+  active dialog.
+- Automatic language rerender can remove the anchor before focus restoration is completed.
+- A capped list without `scrollIntoView` can hide the keyboard-focused or currently selected option.
+
+### Acceptance outline
+
+- Language options are visible and selectable when the trigger is near the bottom of the old popover
+  and the current settings dialog;
+- Appearance and all other shared Select instances obey the same placement contract;
+- panels prefer below, flip above, shift within horizontal bounds and use internal scrolling when
+  neither direction fully fits;
+- no options are clipped at compact desktop sizes, constrained heights, 125-200% scaling, tablet
+  portrait/landscape or after settings-content scrolling;
+- Light and Dark themes preserve panel elevation, selected/hover/focus/disabled states and shared
+  scrollbars;
+- mouse, touch, keyboard and screen-reader interaction remain complete, including focus restoration
+  after Escape and after a language change;
+- automated tests cover pure placement geometry plus portalled outside-click/focus behavior, and
+  manual packaged-app acceptance covers real window bounds.
