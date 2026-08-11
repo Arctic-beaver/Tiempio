@@ -1,5 +1,13 @@
 # Играбельные инструменты, характеры и ударные до фазы 6
 
+## Текущий прогресс
+
+- **Этап A — завершён:** каталог из 27 характеров, общая модель synth/drum, миграции и команды проекта.
+- **Этап B — завершён:** пять семейств синтеза и пять процедурных ударных голосов проходят общий native DSP и render plan.
+- **Этап C — завершён:** Sound Chooser и Sound Sculpt управляют реальными character/macros и сохраняют композицию прототипа.
+- **Этап D — завершён:** Drums содержит реальные шаги, паттерны, плотность, Swing, варианты голосов и немедленное audition.
+- **Этап E — завершён:** quality, Rust, Desktop/Web production, CSP, bundle/topology, controlled/live audio и Windows package прошли 12 августа 2026 года. Ручная проверка слышимого результата остаётся за пользователем.
+
 ## Статус и границы
 
 Этот план превращает существующие экраны выбора звука, Sound Sculpt и Drums из частично
@@ -148,7 +156,7 @@ AudioWorklet/WASM, Web persistence и расширение сохранения 
 
 ## Этап C — Sound Chooser и Sound Sculpt
 
-**Ветка:** `feature/playable-sound-catalog-ui`
+**Ветка:** `feature/sound-catalog-sculpt-ui`
 
 ### Работа
 
@@ -171,7 +179,7 @@ AudioWorklet/WASM, Web persistence и расширение сохранения 
 
 ## Этап D — рабочие ударные
 
-**Ветка:** `feature/playable-drum-workstation`
+**Ветка:** `feature/drum-controls-ui`
 
 ### Работа
 
