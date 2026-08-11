@@ -380,3 +380,149 @@ Never silently move existing project notes when the palette changes.
 - tonic/chord/scale hierarchy works without color in Light, Dark and forced-color modes;
 - packaged listening acceptance compares multiple major/minor or modal palettes across contrasting
   instruments before timing and copy are considered final.
+
+## D-002 - Usable bars, beats and metronome
+
+Status: `Discussing`. The need for an optional beginner-helpful metronome and immediately useful bar
+structure is accepted. The concrete UI direction below is recommended for user approval.
+
+### Product rationale
+
+Bars are required, but not as decorative vertical lines. They provide the shared time structure for:
+
+- a readable playhead position and musical location;
+- metronome accents and future recording count-in;
+- loops, repeat ranges and arrangement sections;
+- snapping and keyboard movement by grid, beat or bar;
+- copying and comparing phrases of predictable length;
+- explaining where a musical idea begins, repeats and resolves.
+
+Removing bars would make the interface initially cleaner but would force Tiempio to invent less
+truthful replacements for every later timing operation. The beginner-friendly solution is progressive
+visual hierarchy and useful interaction, not hiding musical time.
+
+The UI must distinguish four concepts without expecting theory knowledge:
+
+- tempo/BPM: how fast the pulse runs;
+- beat: the pulse the user can count or tap;
+- bar: a repeating group of beats, initially four;
+- grid: the smaller editing subdivisions used for note placement.
+
+Changing grid density must never change tempo, meter or the audible metronome.
+
+### Recommended transport UI
+
+Add one application-owned metronome toggle beside Play in the shared transport. It uses a metronome
+icon, an accessible `Metronome on/off` label and a truthful pressed state. Avoid an unmodified letter
+shortcut because A-Z belongs to performance input; the command remains remappable in Keyboard
+Shortcuts.
+
+Next to or inside the transport, show a compact visual beat indicator derived from the current meter:
+
+- `4/4` displays four small points;
+- the current point brightens on each beat;
+- the first point has a stronger accent and a distinct shape/ring, not color alone;
+- another meter changes the number and accent pattern instead of preserving four decorative dots;
+- reduced-motion mode changes fill/contrast without a scaling or flashing pulse.
+
+The indicator is not a second playhead and must remain visually quiet when transport is stopped. It
+teaches the relationship between `4 beats in each bar`, the audible clicks and the ruler without a
+modal tutorial.
+
+### Recommended metronome behavior
+
+- Off by default for ordinary playback; the user explicitly enables it.
+- While enabled and transport is running, play one short stronger accent on the first beat and a
+  softer click on the remaining beats.
+- Schedule clicks from the native audio/transport clock with the same tempo and meter as the project;
+  never use renderer timers for audible timing.
+- Stop immediately and reset its visual phase when transport stops.
+- Seek and loop changes recompute the actual project beat. Do not invent a first-beat accent merely
+  because a loop restarted in the middle of a bar.
+- Expose a restrained metronome popover only when needed, initially containing volume. Sound choice
+  and accent customization can remain later scope unless listening tests show the default is tiring.
+- If audio is unavailable, never imply that clicks are audible. Keep the toggle state as a user
+  preference but show the existing unavailable-audio truth and resume only from a known transport
+  boundary after output recovery.
+- Metronome enable/disable and volume are presentation/preferences, not project-history entries.
+
+Future Record mode should be able to request a one-bar count-in from this same engine-owned clock.
+Count-in policy is not approved until recording itself is designed; do not add a decorative countdown
+that cannot arm a real recording boundary.
+
+### Recommended Piano Roll ruler and grid
+
+Keep three clearly different line strengths:
+
+1. bar boundary: most visible line with a numbered header such as `Bar 1`;
+2. beat boundary: lighter line aligned with the metronome points;
+3. editing subdivision: faint line visible enough for snapping but easy to ignore.
+
+The ruler makes bars useful immediately:
+
+- clicking a bar/beat position seeks the playhead to that musical time;
+- the current bar number and beat are highlighted subtly during playback;
+- loop length and movement values use plain labels such as `4 bars` and `1 beat`;
+- hovering or focusing the quiet `4/4` control explains `4 beats in each bar`;
+- the empty editor gives one dismissible first-use hint:
+  `Bars group the pulse. Click a number to jump there.`
+
+Do not permanently number every beat or label every subdivision. That would make the grid resemble an
+exam. Show detail progressively through hover/focus, the moving playhead, the beat indicator and the
+user's current editing resolution.
+
+### Tablet behavior
+
+- Metronome and Play targets meet the same minimum 48-by-48 CSS-pixel touch target as the performance
+  keyboard.
+- The compact beat indicator remains readable without consuming the width needed by tempo, palette
+  and audio truth.
+- Tapping the ruler seeks; dragging the playhead is a separate deliberate gesture. A future loop-range
+  drag must not collide with either.
+- Do not rely on hover to explain bars or meter; tap/focus exposes the same plain-language help.
+
+### Accessibility and safety
+
+- Audible clicks, point fill and first-beat shape carry the same beat information; color alone is
+  insufficient.
+- Screen readers announce only changes such as `Metronome on`, not every beat.
+- Forced-color mode preserves first-beat and current-beat distinction.
+- The metronome has bounded gain and a short click envelope to prevent clipping, clicks that ring over
+  the instrument or dangerous peaks at high output volume.
+- Multiple application surfaces consume one engine transport snapshot; no surface runs an independent
+  visual metronome that can drift.
+
+### Failure modes and compatibility risks
+
+- Renderer-timed clicks drift from native audio and become unusable for recording.
+- Loop, seek, tempo or meter changes can produce a duplicated/missing click without one authoritative
+  scheduler reset.
+- Treating a loop boundary as a bar boundary creates false accents.
+- Permanently bright bar/beat/subdivision lines make notes harder to read.
+- An unmodified metronome shortcut collides with the approved A-Z note surface.
+- Resuming after device recovery can click at a stale beat unless it follows the restored transport
+  plan and a known clock boundary.
+- A visual beat pulse can violate reduced-motion needs or become distracting if implemented as a
+  large repeating animation.
+
+### Open decisions
+
+1. Should the metronome remain off by default everywhere, or turn on automatically only when a future
+   recording count-in is armed?
+2. Is one default click sound and a volume control sufficient before Phase 6, or must users choose
+   among a small set of less tiring sounds?
+3. Should tapping the compact `4/4` control open meter choices immediately or first show the
+   plain-language explanation?
+
+### Acceptance outline after approval
+
+- click audio stays sample-aligned with the engine transport across start, stop, seek, loop, tempo and
+  meter changes;
+- first-beat accents follow real project bars, not UI loop restarts;
+- visual points and Piano Roll beat lines identify the same active beat without renderer drift;
+- metronome state never claims audible output while audio is unavailable and resumes cleanly;
+- bar, beat and grid line hierarchy remains readable in Light, Dark, forced-color, compact and tablet
+  layouts;
+- a first-time user can explain what the numbered bars do after using seek and metronome, without
+  reading music theory documentation;
+- existing note editing, A-Z performance input, transport, Undo/Redo and shared audio do not regress.
