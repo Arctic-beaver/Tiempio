@@ -48,7 +48,8 @@ const plan = JSON.parse(
 	readFileSync(resolve('fixtures/engine-protocol/valid-bass-plan.json'), 'utf8')
 ) as EngineWireRenderPlan
 
-type AcknowledgementMode = 'valid' | 'wrong-token' | 'wrong-version' | 'hang' | 'early-exit'
+type AcknowledgementMode =
+	'valid' | 'wrong-token' | 'wrong-version' | 'hang' | 'early-exit' | 'invalid-capabilities'
 
 class FakeNativeHost extends EventEmitter {
 	readonly pid: number
@@ -146,7 +147,17 @@ class FakeNativeHost extends EventEmitter {
 		switch (command.value.type) {
 			case 'handshake':
 				this.#emitEvent('ready', { protocolVersion: engineProtocolVersion })
-				this.#emitEvent('capabilities', { capabilities, limits: engineProtocolLimits })
+				this.#emitEvent('capabilities', {
+					capabilities,
+					limits:
+						this.#mode === 'invalid-capabilities'
+							? Object.fromEntries(
+									Object.entries(engineProtocolLimits).filter(
+										([name]) => name !== 'maxMeterPoints'
+									)
+								)
+							: engineProtocolLimits
+				})
 				break
 			case 'load-render-plan':
 				this.#emitEvent('render-plan-acknowledged', {
@@ -323,6 +334,18 @@ describe('EngineHostSupervisor', () => {
 		await waitFor(() => hungSupervisor.state === 'failed')
 		assert.equal(hungChild.killCount, 1)
 		assert.equal(hungSupervisor.resourceSnapshot.activeProcess, false)
+	})
+
+	it('retains a safe protocol failure when native capability limits drift', async () => {
+		const child = new FakeNativeHost(4350, 'invalid-capabilities')
+		const supervisor = supervisorWith(spawning([child]), {
+			maxAutomaticRestartsPerEpisode: 0
+		})
+		assert.equal((await supervisor.connect()).ok, true)
+		assert.equal((await supervisor.send(handshake())).ok, false)
+		assert.equal(supervisor.failureSnapshot?.stage, 'protocol')
+		assert.match(supervisor.failureSnapshot?.message ?? '', /protocol\.invalid-envelope/u)
+		await waitFor(() => supervisor.resourceSnapshot.activeProcess === false)
 	})
 
 	it('restarts once and replays the complete accepted audio intent before ready', async () => {

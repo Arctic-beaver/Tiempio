@@ -88,7 +88,8 @@ describe('closed lifecycle workflow catalog', () => {
 			'check:rust',
 			'evidence:engine',
 			'build:engine',
-			'check:audio'
+			'check:audio',
+			'check:audio-live'
 		]) {
 			const steps = workflowSteps(name)
 			assert.ok(
@@ -105,6 +106,7 @@ describe('closed lifecycle workflow catalog', () => {
 			['native host release build', 'native host package staging']
 		)
 		assert.ok(workflowSteps('check:audio').at(-1)?.name.includes('audio self-test'))
+		assert.ok(workflowSteps('check:audio-live').at(-1)?.name.includes('live shared-output'))
 		assert.ok(workflowSteps('package:check').at(-1)?.name.includes('package'))
 	})
 

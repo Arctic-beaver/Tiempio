@@ -362,6 +362,13 @@ const steps = Object.freeze({
 			['--self-test-null'],
 			2 * minute
 		),
+	nativeHostLiveAudioCheck: () =>
+		nodeFileStep(
+			'native host live shared-output audio probe',
+			'scripts/native-host-live-audio.mjs',
+			[nativeHostExecutable],
+			2 * minute
+		),
 	desktopPackage: () =>
 		nodeFileStep(
 			'Desktop unpacked package',
@@ -465,6 +472,12 @@ const workflowFactories = Object.freeze({
 	'evidence:engine': () => [steps.engineEvidence()],
 	'build:engine': engineBuildSteps,
 	'check:audio': () => [...engineBuildSteps(), steps.nativeHostAudioCheck()],
+	'check:audio-live': () => [
+		steps.testOutputClean(),
+		steps.testCompile(),
+		...engineBuildSteps(),
+		steps.nativeHostLiveAudioCheck()
+	],
 	'package:check': desktopPackageSteps,
 	'check:target-boundaries': () => [steps.targetBoundaries()],
 	'check:visual-a11y': () => [
@@ -497,6 +510,7 @@ const workflowTimeoutOverrides = Object.freeze({
 	'build:web': 8 * minute,
 	'build:engine': 10 * minute,
 	'check:audio': 12 * minute,
+	'check:audio-live': 12 * minute,
 	'package:check': 20 * minute,
 	'check:visual-a11y': 8 * minute,
 	'preview:web': 11 * minute,

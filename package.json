@@ -35,6 +35,7 @@
 		"evidence:engine": "node scripts/lifecycle-runner.mjs evidence:engine",
 		"build:engine": "node scripts/lifecycle-runner.mjs build:engine",
 		"check:audio": "node scripts/lifecycle-runner.mjs check:audio",
+		"check:audio-live": "node scripts/lifecycle-runner.mjs check:audio-live",
 		"package:check": "node scripts/lifecycle-runner.mjs package:check",
 		"check:target-boundaries": "node scripts/lifecycle-runner.mjs check:target-boundaries",
 		"check:security": "node scripts/lifecycle-runner.mjs check:security",

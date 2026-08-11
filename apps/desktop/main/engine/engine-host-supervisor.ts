@@ -52,6 +52,12 @@ export interface NativeHostIdentity {
 	readonly tokenDigest: `sha256:${string}`
 }
 
+export interface EngineHostFailureSnapshot {
+	readonly message: string
+	readonly stage: 'command' | 'process' | 'protocol' | 'transport'
+	readonly stderr: string
+}
+
 export type NativeHostChild = Pick<
 	ChildProcessWithoutNullStreams,
 	'pid' | 'stdin' | 'stdout' | 'stderr' | 'exitCode' | 'killed' | 'kill' | 'on' | 'once'
@@ -183,6 +189,29 @@ function visibleDiagnosticText(value: string): string {
 		.join('')
 }
 
+function invalidEventSummary(input: unknown): string {
+	if (typeof input !== 'object' || input === null || Array.isArray(input)) return typeof input
+	const envelope = input as Record<string, unknown>
+	const payload =
+		typeof envelope.payload === 'object' &&
+		envelope.payload !== null &&
+		!Array.isArray(envelope.payload)
+			? (envelope.payload as Record<string, unknown>)
+			: null
+	const limits =
+		typeof payload?.limits === 'object' &&
+		payload.limits !== null &&
+		!Array.isArray(payload.limits)
+			? (payload.limits as Record<string, unknown>)
+			: null
+	return JSON.stringify({
+		limitKeys: limits === null ? [] : Object.keys(limits).sort(),
+		payloadKeys: payload === null ? [] : Object.keys(payload).sort(),
+		sequence: envelope.sequence,
+		type: envelope.type
+	})
+}
+
 export class EngineHostSupervisor {
 	readonly #approvedRoot: string
 	readonly #createToken: () => string
@@ -205,6 +234,7 @@ export class EngineHostSupervisor {
 	#handshake: EngineHandshake | null = null
 	#handshakeWaiter: Deferred<void> | null = null
 	#health: AudioHealthSnapshot = initialHealth('disconnected')
+	#failureSnapshot: EngineHostFailureSnapshot | null = null
 	#heartbeatId: string | null = null
 	#heartbeatTimer: ReturnType<typeof setInterval> | null = null
 	#lastPongAt = 0
@@ -239,6 +269,10 @@ export class EngineHostSupervisor {
 
 	public get identity(): NativeHostIdentity | null {
 		return this.#active?.identity ?? null
+	}
+
+	public get failureSnapshot(): EngineHostFailureSnapshot | null {
+		return this.#failureSnapshot
 	}
 
 	public get resourceSnapshot(): Readonly<{
@@ -277,6 +311,7 @@ export class EngineHostSupervisor {
 			)
 		}
 		this.#resetRendererSession()
+		this.#failureSnapshot = null
 		this.#state = 'starting'
 		this.#publishHealth(initialHealth('starting'))
 		this.#connectPromise = this.#launch()
@@ -288,7 +323,8 @@ export class EngineHostSupervisor {
 					})
 				)
 			)
-			.catch(() => {
+			.catch((error) => {
+				this.#recordFailure('process', error)
 				this.#state = 'failed'
 				this.#publishHealth(initialHealth('failed'))
 				return engineFailure('The native audio engine could not start.')
@@ -384,7 +420,8 @@ export class EngineHostSupervisor {
 			}
 			this.#rememberAcceptedIntent(validated.value)
 			return success(Object.freeze({ accepted: true as const }))
-		} catch {
+		} catch (error) {
+			this.#recordFailure('command', error)
 			void this.#handleFailure(active)
 			return engineFailure('The native audio engine rejected the command.')
 		}
@@ -463,7 +500,8 @@ export class EngineHostSupervisor {
 		child.stdout.on('data', (chunk: Buffer) => {
 			try {
 				active.decoder.push(chunk)
-			} catch {
+			} catch (error) {
+				this.#recordFailure('protocol', error)
 				bootstrapped.reject(new Error('Native host framing failed.'))
 				if (active.bootstrapAccepted) void this.#handleFailure(active)
 			}
@@ -471,28 +509,41 @@ export class EngineHostSupervisor {
 		child.stdout.on('end', () => {
 			try {
 				active.decoder.finish()
-			} catch {
+			} catch (error) {
+				this.#recordFailure('transport', error)
 				bootstrapped.reject(new Error('Native host stream ended mid-frame.'))
 			}
 			if (active.bootstrapAccepted && !active.expectedExit) void this.#handleFailure(active)
 		})
 		child.stderr.on('data', (chunk: Buffer) => this.#captureStderr(chunk))
 		child.stdin.on('error', () => {
+			this.#recordFailure('transport', new Error('Native host input pipe failed.'))
 			bootstrapped.reject(new Error('Native host input pipe failed.'))
 			if (active.bootstrapAccepted) void this.#handleFailure(active)
 		})
 		child.stdout.on('error', () => {
+			this.#recordFailure('transport', new Error('Native host output pipe failed.'))
 			bootstrapped.reject(new Error('Native host output pipe failed.'))
 			if (active.bootstrapAccepted) void this.#handleFailure(active)
 		})
 		child.stderr.on('error', () => {
+			this.#recordFailure('transport', new Error('Native host diagnostic pipe failed.'))
 			if (active.bootstrapAccepted) void this.#handleFailure(active)
 		})
 		child.on('error', () => {
+			this.#recordFailure('process', new Error('Native host process failed.'))
 			bootstrapped.reject(new Error('Native host process failed.'))
 			if (active.bootstrapAccepted) void this.#handleFailure(active)
 		})
 		child.once('exit', () => {
+			if (!active.expectedExit) {
+				this.#recordFailure(
+					'process',
+					new Error(
+						`Native host exited unexpectedly with code ${String(child.exitCode)}.`
+					)
+				)
+			}
 			if (!active.bootstrapAccepted)
 				bootstrapped.reject(new Error('Native host exited early.'))
 			else if (!active.expectedExit) void this.#handleFailure(active)
@@ -514,8 +565,15 @@ export class EngineHostSupervisor {
 	#acceptEvent(active: ActiveHost, input: unknown): void {
 		if (this.#active !== active) return
 		const validated = validateEngineEventEnvelope(input)
-		if (!validated.ok || validated.value.sequence <= active.lastEventSequence) {
-			throw new Error('Native host emitted an invalid event envelope.')
+		if (!validated.ok) {
+			throw new Error(
+				`Native host event ${validated.diagnostic}: ${validated.message} Envelope: ${invalidEventSummary(input)}`
+			)
+		}
+		if (validated.value.sequence <= active.lastEventSequence) {
+			throw new Error(
+				`Native host event sequence ${String(validated.value.sequence)} followed ${String(active.lastEventSequence)}.`
+			)
 		}
 		const event = validated.value
 		active.lastEventSequence = event.sequence
@@ -756,6 +814,18 @@ export class EngineHostSupervisor {
 				this.#stderr.byteLength + normalized.byteLength
 			)
 		)
+	}
+
+	#recordFailure(stage: EngineHostFailureSnapshot['stage'], error: unknown): void {
+		if (this.#failureSnapshot !== null) return
+		const message = visibleDiagnosticText(
+			error instanceof Error ? error.message : 'Native host failed without an error message.'
+		)
+		this.#failureSnapshot = Object.freeze({
+			message,
+			stage,
+			stderr: visibleDiagnosticText(this.#stderr.toString('utf8'))
+		})
 	}
 
 	#rememberAcceptedIntent(command: AnyEngineCommandEnvelope): void {

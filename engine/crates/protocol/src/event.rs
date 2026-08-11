@@ -5,66 +5,12 @@ use serde_json::Value;
 
 use crate::validation::{valid_identifier, wire_safe};
 use crate::{
-    ENGINE_CAPABILITY_CODES, ENGINE_DIAGNOSTIC_CODES, ENGINE_PROTOCOL_MAX_ACTIONS_PER_BLOCK,
-    ENGINE_PROTOCOL_MAX_BATCH_ITEMS, ENGINE_PROTOCOL_MAX_BLOCK_FRAMES,
-    ENGINE_PROTOCOL_MAX_ENGINE_LAYERS, ENGINE_PROTOCOL_MAX_FRAME_BYTES,
-    ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES, ENGINE_PROTOCOL_MAX_JSON_DEPTH,
-    ENGINE_PROTOCOL_MAX_MUSICAL_EVENTS, ENGINE_PROTOCOL_MAX_OFFLINE_SECONDS,
-    ENGINE_PROTOCOL_MAX_PAYLOAD_BYTES, ENGINE_PROTOCOL_MAX_PREPARED_ACTIONS,
-    ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE, ENGINE_PROTOCOL_MAX_PREVIEW_DURATION_MS,
-    ENGINE_PROTOCOL_MAX_PREVIEW_EVENTS, ENGINE_PROTOCOL_MAX_SAMPLE_RATE,
-    ENGINE_PROTOCOL_MAX_TEMPO_POINTS, ENGINE_PROTOCOL_MAX_VOICES, ENGINE_PROTOCOL_MIN_SAMPLE_RATE,
-    ENGINE_PROTOCOL_VERSION, ProtocolDiagnostic, ProtocolError,
+    ENGINE_CAPABILITY_CODES, ENGINE_DIAGNOSTIC_CODES, ENGINE_PROTOCOL_MAX_BATCH_ITEMS,
+    ENGINE_PROTOCOL_MAX_BLOCK_FRAMES, ENGINE_PROTOCOL_MAX_FRAME_BYTES,
+    ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES, ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE,
+    ENGINE_PROTOCOL_MAX_SAMPLE_RATE, ENGINE_PROTOCOL_MIN_SAMPLE_RATE, ENGINE_PROTOCOL_VERSION,
+    ProtocolDiagnostic, ProtocolError, ProtocolLimits,
 };
-
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ProtocolLimits {
-    pub max_frame_bytes: usize,
-    pub max_payload_bytes: usize,
-    pub max_identifier_bytes: usize,
-    pub max_batch_items: usize,
-    pub max_json_depth: usize,
-    pub max_engine_layers: usize,
-    pub max_tempo_points: usize,
-    pub max_musical_events: usize,
-    pub max_prepared_actions: usize,
-    pub max_actions_per_block: usize,
-    pub max_voices: usize,
-    pub max_block_frames: usize,
-    pub min_sample_rate: usize,
-    pub max_sample_rate: usize,
-    pub max_offline_seconds: usize,
-    pub max_preview_events: usize,
-    pub max_preview_chord_size: usize,
-    pub max_preview_duration_ms: usize,
-}
-
-impl ProtocolLimits {
-    #[must_use]
-    pub const fn current() -> Self {
-        Self {
-            max_frame_bytes: ENGINE_PROTOCOL_MAX_FRAME_BYTES,
-            max_payload_bytes: ENGINE_PROTOCOL_MAX_PAYLOAD_BYTES,
-            max_identifier_bytes: ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES,
-            max_batch_items: ENGINE_PROTOCOL_MAX_BATCH_ITEMS,
-            max_json_depth: ENGINE_PROTOCOL_MAX_JSON_DEPTH,
-            max_engine_layers: ENGINE_PROTOCOL_MAX_ENGINE_LAYERS,
-            max_tempo_points: ENGINE_PROTOCOL_MAX_TEMPO_POINTS,
-            max_musical_events: ENGINE_PROTOCOL_MAX_MUSICAL_EVENTS,
-            max_prepared_actions: ENGINE_PROTOCOL_MAX_PREPARED_ACTIONS,
-            max_actions_per_block: ENGINE_PROTOCOL_MAX_ACTIONS_PER_BLOCK,
-            max_voices: ENGINE_PROTOCOL_MAX_VOICES,
-            max_block_frames: ENGINE_PROTOCOL_MAX_BLOCK_FRAMES,
-            min_sample_rate: ENGINE_PROTOCOL_MIN_SAMPLE_RATE,
-            max_sample_rate: ENGINE_PROTOCOL_MAX_SAMPLE_RATE,
-            max_offline_seconds: ENGINE_PROTOCOL_MAX_OFFLINE_SECONDS,
-            max_preview_events: ENGINE_PROTOCOL_MAX_PREVIEW_EVENTS,
-            max_preview_chord_size: ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE,
-            max_preview_duration_ms: ENGINE_PROTOCOL_MAX_PREVIEW_DURATION_MS,
-        }
-    }
-}
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
 #[serde(tag = "type", content = "payload", rename_all = "kebab-case")]

@@ -28,8 +28,10 @@ describe('engine protocol generation', () => {
 					maxJsonDepth: 1,
 					maxEngineLayers: 1,
 					maxTempoPoints: 1,
+					maxMeterPoints: 1,
 					maxMusicalEvents: 1,
 					maxPreparedActions: 1,
+					maxPreparedBeats: 1,
 					maxActionsPerBlock: 1,
 					maxVoices: 1,
 					maxBlockFrames: 1,
@@ -48,6 +50,11 @@ describe('engine protocol generation', () => {
 		)
 		assert.match(renderTypescriptBinding(schema), /engineProtocolVersion = 7/u)
 		assert.match(renderRustBinding(schema), /ENGINE_PROTOCOL_VERSION: u32 = 7/u)
+		assert.match(renderRustBinding(schema), /pub max_meter_points: usize/u)
+		assert.match(
+			renderRustBinding(schema),
+			/max_prepared_beats: ENGINE_PROTOCOL_MAX_PREPARED_BEATS/u
+		)
 	})
 
 	it('rejects duplicate stable codes', () => {
@@ -65,8 +72,10 @@ describe('engine protocol generation', () => {
 							maxJsonDepth: 1,
 							maxEngineLayers: 1,
 							maxTempoPoints: 1,
+							maxMeterPoints: 1,
 							maxMusicalEvents: 1,
 							maxPreparedActions: 1,
+							maxPreparedBeats: 1,
 							maxActionsPerBlock: 1,
 							maxVoices: 1,
 							maxBlockFrames: 1,
