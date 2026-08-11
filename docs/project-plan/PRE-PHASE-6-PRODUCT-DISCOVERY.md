@@ -19,7 +19,7 @@ Status vocabulary:
 
 ## D-001 - Scale-aware performance keyboard and song palette
 
-Status: `Approved for implementation planning`. The song-wide ownership and UI direction below are
+Status: `Approved for implementation`. The song-wide ownership and UI direction below are
 accepted pre-Phase-6 scope. Real-time recording into the Piano Roll remains a separate open product
 decision and is not implied by this approval.
 
@@ -34,7 +34,9 @@ decision and is not implied by this approval.
 
 ### Approved product intent
 
-- Physical `A-L` keys must remain playable notes.
+- The compact performance surface must show exactly seven playable controls, one for every degree of
+  the selected seven-note song scale. The optional expanded physical keyboard remains a separate
+  surface and may repeat degrees across registers.
 - The playable octave must move up and down through visible controls and scoped Up/Down arrows.
 - A beginner should be able to choose a palette such as B major or A minor and receive a keyboard
   mapping whose notes belong to that scale, rather than memorizing compatible pitches.
@@ -76,9 +78,35 @@ first surface. A later `Learn why` disclosure may explain intervals without bloc
 
 #### Keyboard surface
 
-The default first view should show the guaranteed home-row instrument
-`A S D F G H J K L`, with the resulting pitch printed on every key. This is the smallest mapping a
-beginner can understand immediately and preserves the already learned Tiempio gesture.
+The default first view must show exactly seven evenly composed controls: no unused blank keycaps and
+no repeated scale degree merely to fill the available width. For the currently approved major/minor
+palette scope, these are the seven diatonic note letters with the palette's truthful accidental
+spelling. For example, B major shows `B C# D# E F# G# A#`, while a flat key uses `b` spellings where
+musically appropriate rather than converting every accidental to a sharp.
+
+The actual current note is the primary label on every control. The assigned physical computer key
+is a smaller secondary label, so changing the mapping never leaves the user guessing what will
+sound. Selecting another song palette updates all seven labels atomically.
+
+#### Rotatable seven-note mapping
+
+The seven-note strip is tonic-first by default: choosing a palette begins with that palette's home
+note. The user must also be able to rotate the mapping so the tonic sits on the preferred physical
+button, for example `D`, while the remaining scale degrees preserve their cyclic musical order.
+
+This is a rotation/remapping operation, not arbitrary note shuffling:
+
+- all seven scale degrees remain present exactly once;
+- their order remains ascending and cyclic, so the keyboard stays musically predictable;
+- rotating the strip does not change the song palette, transpose existing project notes or create
+  history entries;
+- visible note labels and physical-key labels update together;
+- any held notes are released before the mapping changes, preventing stuck or mislabeled sound.
+
+The approved affordance uses discrete `Rotate left` and `Rotate right` controls rather than free
+drag-reordering. A home marker on the current tonic key makes its physical ownership explicit. The
+compact physical codes are `KeyA`, `KeyS`, `KeyD`, `KeyF`, `KeyG`, `KeyH` and `KeyJ`; rotation moves
+the tonic cyclically among those seven positions without changing the selected palette.
 
 The wider A-Z keyboard uses an explicit `Full keyboard` expansion rather than silently adding
 invisible keys. Its approved spatial model is:
@@ -146,7 +174,7 @@ The component is reused in three contexts rather than reimplemented:
 2. the `Song palette` panel, where the selected scale can be heard and explored;
 3. a project `Play` surface/drawer for tablet performance after palette selection.
 
-For tablets, the nine-key A-L core remains the immediately readable default. `Full keyboard` renders
+For tablets, the seven-note core remains the immediately readable default. `Full keyboard` renders
 three distinct physical rows instead of squeezing 26 controls into one line. Touch targets must be
 at least 48 by 48 CSS pixels, with pitch/role more prominent than laptop letters on touch-first
 layouts. Prefer landscape composition for the expanded keyboard, but keep the core playable in
@@ -252,24 +280,26 @@ character.
 
 Approved core mapping:
 
-- keep the home-row `A S D F G H J K L` as consecutive degrees of the chosen scale;
-- continue into the next octave after the seventh degree, so the mapping always has a tonal center
-  and never requires the user to know sharps or flats;
+- expose `KeyA`, `KeyS`, `KeyD`, `KeyF`, `KeyG`, `KeyH` and `KeyJ` on the compact surface and print
+  both each computer-key binding and its current scale note;
+- start tonic-first by default and allow a cyclic rotation that places the tonic on a chosen compact
+  physical button such as `D`, without omitting or duplicating a scale degree;
 - use the upper letter row for a higher scale-aware register and the lower letter row for a lower
   register when `Full keyboard` is expanded;
 - activate unmodified letter notes only while an explicit performance surface owns focus, so text
   fields, dialogs and global shortcuts remain usable;
 - release every held audition note before changing octave, scale, instrument, focus or audio device.
 
-Example home-row mapping:
+Example tonic-first note labels before the physical assignment is rotated:
 
-- A minor: `A=A`, `S=B`, `D=C`, `F=D`, `G=E`, `H=F`, `J=G`, `K=A`, `L=B`;
-- B major: `A=B`, `S=C#`, `D=D#`, `F=E`, `G=F#`, `H=G#`, `J=A#`, `K=B`, `L=C#`.
+- A minor: `A B C D E F G`;
+- B major: `B C# D# E F# G# A#`.
 
-The full A-Z mapping requires an exact physical-key diagram before implementation. The product
-choice is already approved: the rows are parallel lower, central and higher scale-aware registers,
-not alphabetical pitch assignment or hidden chord triggers. The diagram must still prove every
-physical code, repeated tonic alignment and remaining transport/recording shortcut space.
+The approved full A-Z physical rows are `KeyQ` through `KeyP`, `KeyA` through `KeyL`, and `KeyZ`
+through `KeyM`. They are parallel higher, central and lower scale-aware registers, not alphabetical
+pitch assignment or hidden chord triggers. The same rotation index places repeated tonic positions
+at visually aligned row columns where the staggered physical layout permits it. Every row remains
+ascending from left to right, crossing an octave whenever its cyclic scale degrees wrap.
 
 ### Octave controls
 
@@ -358,12 +388,12 @@ Never silently move existing project notes when the palette changes.
 - A single-row 26-key layout would create unusably small tablet targets; the expanded keyboard must
   preserve three rows and the 48-by-48 minimum.
 
-### Separate open decision
+### Approved delivery decisions
 
-1. Is the first delivery a live audition keyboard only, or must it also record a timed performance
-   into the Piano Roll before Phase 6?
-2. Does dragging a held finger across keys transfer the note continuously, or must every note start
-   with a fresh touch?
+1. The first delivery is a live audition/performance keyboard only. Recording timed performance
+   into the Piano Roll requires a separately approved Record mode and is outside this gate.
+2. Every touch note starts with a fresh pointer-down. Sliding a held finger does not transfer it to
+   another key in this delivery; glissando-style transfer remains deferred.
 
 ### Acceptance outline
 
@@ -383,8 +413,8 @@ Never silently move existing project notes when the palette changes.
 
 ## D-002 - Usable bars, beats and metronome
 
-Status: `Discussing`. The need for an optional beginner-helpful metronome and immediately useful bar
-structure is accepted. The concrete UI direction below is recommended for user approval.
+Status: `Approved for implementation`. The optional beginner-helpful metronome, useful bar
+structure and concrete UI direction below are accepted pre-Phase-6 scope.
 
 ### Product rationale
 
@@ -505,14 +535,12 @@ user's current editing resolution.
 - A visual beat pulse can violate reduced-motion needs or become distracting if implemented as a
   large repeating animation.
 
-### Open decisions
+### Approved delivery decisions
 
-1. Should the metronome remain off by default everywhere, or turn on automatically only when a future
-   recording count-in is armed?
-2. Is one default click sound and a volume control sufficient before Phase 6, or must users choose
-   among a small set of less tiring sounds?
-3. Should tapping the compact `4/4` control open meter choices immediately or first show the
-   plain-language explanation?
+1. The metronome remains off by default. A future recording plan may explicitly arm count-in.
+2. One restrained default click sound and a bounded volume control are sufficient for this gate.
+3. Activating the compact `4/4` control first exposes the plain-language explanation. Editing meter
+   choices is not part of this delivery.
 
 ### Acceptance outline after approval
 
@@ -529,9 +557,9 @@ user's current editing resolution.
 
 ## D-003 - Sound-reactive instrument wave
 
-Status: `Partially approved`. The user approved the product intent: the existing orange wave on the
-sound-selection surface should visibly move while the user plays and create a restrained wow effect.
-The concrete motion mapping below is recommended for approval before implementation.
+Status: `Approved for implementation`. The existing orange wave on the sound-selection surface
+should visibly move while the user plays and create a restrained wow effect. The concrete motion
+mapping below is accepted pre-Phase-6 scope.
 
 ### Product role
 
@@ -627,14 +655,14 @@ project file, engine plan or Undo/Redo history.
 - Large flashes, scaling or rapid contrast changes violate reduced-motion and photosensitivity needs.
 - Replacing the existing path style would lose the reviewed instrument-selection visual identity.
 
-### Open decisions
+### Approved delivery decisions
 
-1. Should the wave respond only to confirmed output energy, or use a very small immediate keydown
-   impulse before the first meter snapshot when audio is available?
-2. Should pitch subtly affect wavelength, or should the first delivery react only to loudness and
-   held/released state for a calmer result?
-3. Should the same visual appear in the future project `Play` drawer, or remain exclusive to sound
-   and palette selection until that drawer has its own approved composition?
+1. Full wave motion responds only to confirmed output energy; keydown alone does not create a fake
+   audible impulse.
+2. The first delivery reacts to loudness plus held/released state. Pitch-dependent wavelength is
+   deferred until listening and motion acceptance prove that it adds clarity.
+3. The visual remains on sound and palette selection surfaces. The project `Play` drawer does not
+   add it in this delivery.
 
 ### Acceptance outline after approval
 
@@ -651,9 +679,9 @@ project file, engine plan or Undo/Redo history.
 
 ## D-004 - Truthful sound-demo control
 
-Status: `Discussing`. Manual review proved that the current compact
-`Play + Audition A2` control is not self-explanatory. The factual defect and recommended replacement
-below are retained for approval.
+Status: `Approved for implementation`. Manual review proved that the current compact
+`Play + Audition A2` control is not self-explanatory. The replacement below is accepted
+pre-Phase-6 scope.
 
 ### Current behavior and problem
 
@@ -724,11 +752,12 @@ rather than collapsing both into indistinguishable icons.
 - A phrase in an unstated default scale can undermine the approved song-palette mental model.
 - Moving the control without preserving keyboard and screen-reader access can reduce usability.
 
-### Open decisions
+### Approved delivery decisions
 
-1. Should the first sound demo be one musically expressive note with its full envelope, or a short
-   2-3 second phrase that reveals more of the instrument character?
-2. Should `Hear sound` sit beside `Use sound` or directly above the reactive wave?
+1. The sound demo is a bounded 2-3 second phrase that reveals the instrument character through the
+   current/default song palette.
+2. `Hear sound` sits in the sound-content area directly above the reactive wave. It remains visually
+   secondary to `Use sound` and is never presented as project transport.
 
 ### Acceptance outline after approval
 
@@ -742,7 +771,7 @@ rather than collapsing both into indistinguishable icons.
 
 ## D-005 - Collision-safe dropdowns and reachable language selection
 
-Status: `Confirmed blocker; solution recommended`. Manual review proved that the Language dropdown
+Status: `Approved blocker fix`. Manual review proved that the Language dropdown
 can open below its trigger into clipped space, leaving every option invisible and making the setting
 unusable. The screenshot came from the older packaged settings popover, but the current shared
 `Select` still always positions its list below the trigger and can also be clipped by the new
