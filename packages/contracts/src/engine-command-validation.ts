@@ -87,6 +87,44 @@ function validMacroPayload(value: unknown): boolean {
 	)
 }
 
+function validPreviewPayload(value: unknown): boolean {
+	if (
+		!record(value) ||
+		!exactKeys(value, ['previewId', 'programVersion', 'events']) ||
+		!validIdentifier(value.previewId) ||
+		value.programVersion !== 1 ||
+		!Array.isArray(value.events) ||
+		value.events.length < 1 ||
+		value.events.length > engineProtocolLimits.maxPreviewEvents
+	) {
+		return false
+	}
+	let previousOffset = -1
+	return value.events.every((event) => {
+		if (
+			!record(event) ||
+			!exactKeys(event, ['offsetMs', 'durationMs', 'pitches', 'velocity']) ||
+			!safeInteger(event.offsetMs) ||
+			event.offsetMs < previousOffset ||
+			!safeInteger(event.durationMs) ||
+			event.durationMs < 1 ||
+			event.offsetMs + event.durationMs > engineProtocolLimits.maxPreviewDurationMs ||
+			!Array.isArray(event.pitches) ||
+			event.pitches.length < 1 ||
+			event.pitches.length > engineProtocolLimits.maxPreviewChordSize ||
+			new Set(event.pitches).size !== event.pitches.length ||
+			!event.pitches.every((pitch) => safeInteger(pitch) && pitch <= 127) ||
+			!safeInteger(event.velocity) ||
+			event.velocity < 1 ||
+			event.velocity > 127
+		) {
+			return false
+		}
+		previousOffset = event.offsetMs
+		return true
+	})
+}
+
 function validCommandPayload(
 	type: EngineCommandType,
 	value: unknown
@@ -209,6 +247,16 @@ function validCommandPayload(
 			validIdentifier(value.auditionId)
 			? null
 			: protocolFailure('protocol.invalid-envelope', 'Note-off payload is invalid.')
+	}
+	if (type === 'start-preview') {
+		return validPreviewPayload(value)
+			? null
+			: protocolFailure('protocol.invalid-envelope', 'Preview program is invalid.')
+	}
+	if (type === 'cancel-preview') {
+		return record(value) && exactKeys(value, ['previewId']) && validIdentifier(value.previewId)
+			? null
+			: protocolFailure('protocol.invalid-envelope', 'Preview cancellation is invalid.')
 	}
 	if (type === 'preview-macro' || type === 'commit-macro') {
 		return validMacroPayload(value)

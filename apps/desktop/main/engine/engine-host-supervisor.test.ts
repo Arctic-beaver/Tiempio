@@ -35,6 +35,7 @@ const capabilities = Object.freeze([
 	'transport.loop',
 	'synth.bass.deep',
 	'audition.notes',
+	'preview.programs',
 	'diagnostics.health',
 	'supervision.heartbeat',
 	'audio.native.shared',

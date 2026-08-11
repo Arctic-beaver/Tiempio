@@ -75,6 +75,7 @@ fn run_commands(
             "capabilities": [
                 "protocol.typed-json",
                 "audio.native.shared",
+                "preview.programs",
                 "audio.devices"
             ]
         }),
@@ -205,10 +206,13 @@ mod tests {
     use allocation_counter::measure;
     use rtrb::RingBuffer;
     use tiempio_engine_core::PreparedPlan;
-    use tiempio_engine_protocol::EngineCommand;
+    use tiempio_engine_protocol::{EngineCommand, PreviewEventPayload, PreviewProgramPayload};
 
     use super::*;
-    use crate::realtime::{CONTROL_QUEUE_CAPACITY, RealtimeEngine, StreamSignals, create_engine};
+    use crate::realtime::{
+        CONTROL_QUEUE_CAPACITY, PreparedPreview, RealtimeCommand, RealtimeEngine, StreamSignals,
+        create_engine,
+    };
 
     fn fixture_plan() -> tiempio_engine_core::RenderPlan {
         let plan: Value = serde_json::from_str(include_str!(
@@ -242,10 +246,12 @@ mod tests {
     fn warmed_native_callback_path_does_not_allocate_or_deallocate() {
         let sample_rate = 48_000;
         let mut engine = create_engine(sample_rate);
+        let plan = fixture_plan();
+        let patch = plan.layers[0].patch.clone();
         engine
-            .publish_plan(PreparedPlan::prepare(fixture_plan(), sample_rate, 1).unwrap())
+            .publish_plan(PreparedPlan::prepare(plan, sample_rate, 1).unwrap())
             .unwrap();
-        let (_command_tx, command_rx) = RingBuffer::new(CONTROL_QUEUE_CAPACITY);
+        let (mut command_tx, command_rx) = RingBuffer::new(CONTROL_QUEUE_CAPACITY);
         let (retired_tx, _retired_rx) = RingBuffer::new(CONTROL_QUEUE_CAPACITY);
         let (event_tx, _event_rx) = RingBuffer::new(EVENT_QUEUE_CAPACITY);
         let mut realtime = RealtimeEngine::new(
@@ -258,6 +264,24 @@ mod tests {
         );
         let mut output = [0.0_f32; 256];
         realtime.render_f32_channels(&mut output, 2);
+        let preview = PreparedPreview::prepare(
+            PreviewProgramPayload {
+                preview_id: "preview.allocator.1".to_owned(),
+                program_version: 1,
+                events: vec![PreviewEventPayload {
+                    offset_ms: 0,
+                    duration_ms: 5_000,
+                    pitches: vec![45, 52, 57],
+                    velocity: 100,
+                }],
+            },
+            sample_rate,
+            patch,
+        )
+        .unwrap();
+        command_tx
+            .push(RealtimeCommand::StartPreview(preview))
+            .expect("bounded preview command");
         let allocation = measure(|| {
             for _ in 0..64 {
                 realtime.render_f32_channels(&mut output, 2);

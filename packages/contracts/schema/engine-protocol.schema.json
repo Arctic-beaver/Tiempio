@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 1,
-	"engineProtocolVersion": 2,
+	"engineProtocolVersion": 3,
 	"limits": {
 		"maxFrameBytes": 262144,
 		"maxPayloadBytes": 196608,
@@ -16,7 +16,10 @@
 		"maxBlockFrames": 2048,
 		"minSampleRate": 8000,
 		"maxSampleRate": 192000,
-		"maxOfflineSeconds": 600
+		"maxOfflineSeconds": 600,
+		"maxPreviewEvents": 64,
+		"maxPreviewChordSize": 8,
+		"maxPreviewDurationMs": 5000
 	},
 	"capabilities": [
 		"protocol.typed-json",
@@ -25,6 +28,7 @@
 		"transport.loop",
 		"synth.bass.deep",
 		"audition.notes",
+		"preview.programs",
 		"diagnostics.health",
 		"render.offline",
 		"supervision.heartbeat",
@@ -44,6 +48,8 @@
 		"set-loop",
 		"note-on",
 		"note-off",
+		"start-preview",
+		"cancel-preview",
 		"preview-macro",
 		"commit-macro",
 		"request-diagnostics",
@@ -59,6 +65,9 @@
 		"render-plan-acknowledged",
 		"transport-snapshot",
 		"meter-snapshot",
+		"preview-started",
+		"preview-state",
+		"preview-ended",
 		"audio-devices-changed",
 		"active-device-changed",
 		"midi-captured",

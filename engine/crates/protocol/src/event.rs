@@ -11,8 +11,10 @@ use crate::{
     ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES, ENGINE_PROTOCOL_MAX_JSON_DEPTH,
     ENGINE_PROTOCOL_MAX_MUSICAL_EVENTS, ENGINE_PROTOCOL_MAX_OFFLINE_SECONDS,
     ENGINE_PROTOCOL_MAX_PAYLOAD_BYTES, ENGINE_PROTOCOL_MAX_PREPARED_ACTIONS,
-    ENGINE_PROTOCOL_MAX_SAMPLE_RATE, ENGINE_PROTOCOL_MAX_TEMPO_POINTS, ENGINE_PROTOCOL_MAX_VOICES,
-    ENGINE_PROTOCOL_MIN_SAMPLE_RATE, ENGINE_PROTOCOL_VERSION, ProtocolDiagnostic, ProtocolError,
+    ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE, ENGINE_PROTOCOL_MAX_PREVIEW_DURATION_MS,
+    ENGINE_PROTOCOL_MAX_PREVIEW_EVENTS, ENGINE_PROTOCOL_MAX_SAMPLE_RATE,
+    ENGINE_PROTOCOL_MAX_TEMPO_POINTS, ENGINE_PROTOCOL_MAX_VOICES, ENGINE_PROTOCOL_MIN_SAMPLE_RATE,
+    ENGINE_PROTOCOL_VERSION, ProtocolDiagnostic, ProtocolError,
 };
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
@@ -33,6 +35,9 @@ pub struct ProtocolLimits {
     pub min_sample_rate: usize,
     pub max_sample_rate: usize,
     pub max_offline_seconds: usize,
+    pub max_preview_events: usize,
+    pub max_preview_chord_size: usize,
+    pub max_preview_duration_ms: usize,
 }
 
 impl ProtocolLimits {
@@ -54,6 +59,9 @@ impl ProtocolLimits {
             min_sample_rate: ENGINE_PROTOCOL_MIN_SAMPLE_RATE,
             max_sample_rate: ENGINE_PROTOCOL_MAX_SAMPLE_RATE,
             max_offline_seconds: ENGINE_PROTOCOL_MAX_OFFLINE_SECONDS,
+            max_preview_events: ENGINE_PROTOCOL_MAX_PREVIEW_EVENTS,
+            max_preview_chord_size: ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE,
+            max_preview_duration_ms: ENGINE_PROTOCOL_MAX_PREVIEW_DURATION_MS,
         }
     }
 }
@@ -88,6 +96,25 @@ pub enum EngineEvent {
         left_peak: f64,
         #[serde(rename = "rightPeak")]
         right_peak: f64,
+    },
+    PreviewStarted {
+        #[serde(rename = "previewId")]
+        preview_id: String,
+        #[serde(rename = "durationFrames")]
+        duration_frames: u64,
+    },
+    PreviewState {
+        #[serde(rename = "previewId")]
+        preview_id: String,
+        pitches: Vec<u8>,
+        active: bool,
+        #[serde(rename = "samplePosition")]
+        sample_position: u64,
+    },
+    PreviewEnded {
+        #[serde(rename = "previewId")]
+        preview_id: String,
+        reason: String,
     },
     AudioDevicesChanged {
         devices: Vec<AudioDeviceDescriptor>,
@@ -198,93 +225,144 @@ fn valid_audio_health(event: &EngineEvent) -> bool {
         && wire_safe(*underruns)
 }
 
-fn validate_event(event: &EngineEvent) -> Result<(), ProtocolError> {
-    let valid = match event {
-        EngineEvent::Ready { protocol_version } => *protocol_version == ENGINE_PROTOCOL_VERSION,
-        EngineEvent::Capabilities {
-            capabilities,
-            limits,
-        } => {
-            let mut unique = BTreeSet::new();
-            capabilities.len() <= ENGINE_PROTOCOL_MAX_BATCH_ITEMS
-                && capabilities.iter().all(|capability| {
-                    ENGINE_CAPABILITY_CODES.contains(&capability.as_str())
-                        && unique.insert(capability.as_str())
-                })
-                && *limits == ProtocolLimits::current()
-        }
-        EngineEvent::RenderPlanAcknowledged {
-            project_revision,
-            plan_generation,
-        } => wire_safe(*project_revision) && wire_safe(*plan_generation),
-        EngineEvent::TransportSnapshot {
-            project_revision,
+fn valid_preview_event(event: &EngineEvent) -> Option<bool> {
+    match event {
+        EngineEvent::PreviewStarted {
+            preview_id,
+            duration_frames,
+        } => Some(
+            valid_identifier(preview_id) && wire_safe(*duration_frames) && *duration_frames > 0,
+        ),
+        EngineEvent::PreviewState {
+            preview_id,
+            pitches,
             sample_position,
-            tick,
             ..
         } => {
-            wire_safe(*project_revision)
-                && wire_safe(*sample_position)
-                && tick.is_finite()
-                && (0.0..=9_007_199_254_740_991.0).contains(tick)
-        }
-        EngineEvent::MeterSnapshot {
-            left_peak,
-            right_peak,
-        } => {
-            left_peak.is_finite()
-                && right_peak.is_finite()
-                && (0.0..=1.0).contains(left_peak)
-                && (0.0..=1.0).contains(right_peak)
-        }
-        EngineEvent::AudioDevicesChanged { devices } => {
             let mut unique = BTreeSet::new();
-            let mut default_count = 0_usize;
-            devices.len() <= ENGINE_PROTOCOL_MAX_BATCH_ITEMS
-                && devices.iter().all(|device| {
-                    default_count += usize::from(device.default);
-                    valid_identifier(&device.id)
-                        && !device.label.is_empty()
-                        && device.label.len() <= ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES
-                        && unique.insert(device.id.as_str())
-                        && default_count <= 1
-                })
+            Some(
+                valid_identifier(preview_id)
+                    && !pitches.is_empty()
+                    && pitches.len() <= ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE
+                    && pitches
+                        .iter()
+                        .all(|pitch| *pitch <= 127 && unique.insert(*pitch))
+                    && wire_safe(*sample_position),
+            )
         }
-        EngineEvent::ActiveDeviceChanged { device_id } => {
-            device_id.as_deref().is_none_or(valid_identifier)
-        }
-        EngineEvent::Pong { heartbeat_id } => valid_identifier(heartbeat_id),
-        audio_health @ EngineEvent::AudioHealth { .. } => valid_audio_health(audio_health),
-        EngineEvent::MidiCaptured {
-            pitch,
-            velocity,
-            sample_position,
-        } => *pitch <= 127 && (1..=127).contains(velocity) && wire_safe(*sample_position),
-        EngineEvent::Diagnostic {
-            code,
-            project_revision,
-            ..
-        } => {
-            ENGINE_DIAGNOSTIC_CODES.contains(&code.as_str())
-                && project_revision.is_none_or(wire_safe)
-        }
-        EngineEvent::OfflineRenderProgress {
-            render_id,
-            completed_frames,
-            total_frames,
-        } => {
-            valid_identifier(render_id)
-                && wire_safe(*completed_frames)
-                && wire_safe(*total_frames)
-                && completed_frames <= total_frames
-        }
-        EngineEvent::OfflineRenderCompleted {
-            render_id,
-            project_revision,
-            frame_count,
-        } => valid_identifier(render_id) && wire_safe(*project_revision) && wire_safe(*frame_count),
-        EngineEvent::FatalError { code, .. } => ENGINE_DIAGNOSTIC_CODES.contains(&code.as_str()),
+        EngineEvent::PreviewEnded { preview_id, reason } => Some(
+            valid_identifier(preview_id)
+                && matches!(reason.as_str(), "completed" | "canceled" | "interrupted"),
+        ),
+        _ => None,
+    }
+}
+
+fn valid_audio_devices(event: &EngineEvent) -> Option<bool> {
+    let EngineEvent::AudioDevicesChanged { devices } = event else {
+        return None;
     };
+    let mut unique = BTreeSet::new();
+    let mut default_count = 0_usize;
+    Some(
+        devices.len() <= ENGINE_PROTOCOL_MAX_BATCH_ITEMS
+            && devices.iter().all(|device| {
+                default_count += usize::from(device.default);
+                valid_identifier(&device.id)
+                    && !device.label.is_empty()
+                    && device.label.len() <= ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES
+                    && unique.insert(device.id.as_str())
+                    && default_count <= 1
+            }),
+    )
+}
+
+fn validate_event(event: &EngineEvent) -> Result<(), ProtocolError> {
+    let valid = valid_preview_event(event)
+        .or_else(|| valid_audio_devices(event))
+        .unwrap_or_else(|| match event {
+            EngineEvent::Ready { protocol_version } => *protocol_version == ENGINE_PROTOCOL_VERSION,
+            EngineEvent::Capabilities {
+                capabilities,
+                limits,
+            } => {
+                let mut unique = BTreeSet::new();
+                capabilities.len() <= ENGINE_PROTOCOL_MAX_BATCH_ITEMS
+                    && capabilities.iter().all(|capability| {
+                        ENGINE_CAPABILITY_CODES.contains(&capability.as_str())
+                            && unique.insert(capability.as_str())
+                    })
+                    && *limits == ProtocolLimits::current()
+            }
+            EngineEvent::RenderPlanAcknowledged {
+                project_revision,
+                plan_generation,
+            } => wire_safe(*project_revision) && wire_safe(*plan_generation),
+            EngineEvent::TransportSnapshot {
+                project_revision,
+                sample_position,
+                tick,
+                ..
+            } => {
+                wire_safe(*project_revision)
+                    && wire_safe(*sample_position)
+                    && tick.is_finite()
+                    && (0.0..=9_007_199_254_740_991.0).contains(tick)
+            }
+            EngineEvent::MeterSnapshot {
+                left_peak,
+                right_peak,
+            } => {
+                left_peak.is_finite()
+                    && right_peak.is_finite()
+                    && (0.0..=1.0).contains(left_peak)
+                    && (0.0..=1.0).contains(right_peak)
+            }
+            EngineEvent::PreviewStarted { .. }
+            | EngineEvent::PreviewState { .. }
+            | EngineEvent::PreviewEnded { .. }
+            | EngineEvent::AudioDevicesChanged { .. } => unreachable!("validated above"),
+            EngineEvent::ActiveDeviceChanged { device_id } => {
+                device_id.as_deref().is_none_or(valid_identifier)
+            }
+            EngineEvent::Pong { heartbeat_id } => valid_identifier(heartbeat_id),
+            audio_health @ EngineEvent::AudioHealth { .. } => valid_audio_health(audio_health),
+            EngineEvent::MidiCaptured {
+                pitch,
+                velocity,
+                sample_position,
+            } => *pitch <= 127 && (1..=127).contains(velocity) && wire_safe(*sample_position),
+            EngineEvent::Diagnostic {
+                code,
+                project_revision,
+                ..
+            } => {
+                ENGINE_DIAGNOSTIC_CODES.contains(&code.as_str())
+                    && project_revision.is_none_or(wire_safe)
+            }
+            EngineEvent::OfflineRenderProgress {
+                render_id,
+                completed_frames,
+                total_frames,
+            } => {
+                valid_identifier(render_id)
+                    && wire_safe(*completed_frames)
+                    && wire_safe(*total_frames)
+                    && completed_frames <= total_frames
+            }
+            EngineEvent::OfflineRenderCompleted {
+                render_id,
+                project_revision,
+                frame_count,
+            } => {
+                valid_identifier(render_id)
+                    && wire_safe(*project_revision)
+                    && wire_safe(*frame_count)
+            }
+            EngineEvent::FatalError { code, .. } => {
+                ENGINE_DIAGNOSTIC_CODES.contains(&code.as_str())
+            }
+        });
     if valid {
         Ok(())
     } else {
@@ -410,6 +488,34 @@ mod tests {
                             default: true,
                         },
                     ],
+                },
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn validates_preview_lifecycle_events() {
+        assert!(
+            encode_event_body(
+                4,
+                &EngineEvent::PreviewState {
+                    preview_id: "preview.palette.1".to_owned(),
+                    pitches: vec![57, 60, 64],
+                    active: true,
+                    sample_position: 512,
+                },
+            )
+            .is_ok()
+        );
+        assert!(
+            encode_event_body(
+                5,
+                &EngineEvent::PreviewState {
+                    preview_id: "preview.palette.1".to_owned(),
+                    pitches: vec![57, 57],
+                    active: true,
+                    sample_position: 512,
                 },
             )
             .is_err()

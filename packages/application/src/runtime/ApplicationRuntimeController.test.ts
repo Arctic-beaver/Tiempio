@@ -30,6 +30,7 @@ const capabilities = Object.freeze<readonly EngineCapabilityCode[]>([
 	'transport.loop',
 	'synth.bass.deep',
 	'audition.notes',
+	'preview.programs',
 	'diagnostics.health',
 	'supervision.heartbeat',
 	'audio.native.shared',
@@ -240,11 +241,47 @@ describe('ApplicationRuntimeController', () => {
 				recoveries.map((snapshot) => snapshot.revision),
 				[0]
 			)
-
+			const beforePreview = session.getSnapshot()
+			const previewId = controller.previewCoordinator.start('palette', [
+				{ durationMs: 160, offsetMs: 0, pitches: [57], velocity: 100 },
+				{ durationMs: 160, offsetMs: 160, pitches: [60], velocity: 100 }
+			])
+			assert.equal(previewId, 'preview-palette-1')
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'start-preview')
+			if (previewId === null) throw new Error('preview should be accepted')
 			for (const listener of eventListeners) {
 				listener({
 					protocolVersion: engineProtocolVersion,
 					sequence: 0,
+					type: 'preview-started',
+					payload: { durationFrames: 15_360, previewId }
+				})
+				listener({
+					protocolVersion: engineProtocolVersion,
+					sequence: 1,
+					type: 'preview-state',
+					payload: { active: true, pitches: [57], previewId, samplePosition: 0 }
+				})
+			}
+			assert.deepEqual(controller.previewCoordinator.getSnapshot().pitches, [57])
+			assert.equal(session.getSnapshot().revision, beforePreview.revision)
+			assert.equal(session.getSnapshot().canUndo, beforePreview.canUndo)
+			assert.equal(session.getSnapshot().project, beforePreview.project)
+			for (const listener of eventListeners) {
+				listener({
+					protocolVersion: engineProtocolVersion,
+					sequence: 2,
+					type: 'preview-ended',
+					payload: { previewId, reason: 'completed' }
+				})
+			}
+			assert.equal(controller.previewCoordinator.getSnapshot().active, false)
+
+			for (const listener of eventListeners) {
+				listener({
+					protocolVersion: engineProtocolVersion,
+					sequence: 3,
 					type: 'render-plan-acknowledged',
 					payload: { planGeneration: 1, projectRevision: 0 }
 				})
@@ -253,7 +290,7 @@ describe('ApplicationRuntimeController', () => {
 			for (const listener of eventListeners) {
 				listener({
 					protocolVersion: engineProtocolVersion,
-					sequence: 1,
+					sequence: 4,
 					type: 'render-plan-acknowledged',
 					payload: { planGeneration: 1, projectRevision: 0 }
 				})
@@ -275,13 +312,13 @@ describe('ApplicationRuntimeController', () => {
 			for (const listener of eventListeners) {
 				listener({
 					protocolVersion: engineProtocolVersion,
-					sequence: 2,
+					sequence: 5,
 					type: 'render-plan-acknowledged',
 					payload: { planGeneration: 2, projectRevision: 1 }
 				})
 				listener({
 					protocolVersion: engineProtocolVersion,
-					sequence: 3,
+					sequence: 6,
 					type: 'transport-snapshot',
 					payload: {
 						playing: true,

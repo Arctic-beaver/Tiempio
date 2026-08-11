@@ -54,7 +54,10 @@ export function parseEngineProtocolSchema(source) {
 		'maxBlockFrames',
 		'minSampleRate',
 		'maxSampleRate',
-		'maxOfflineSeconds'
+		'maxOfflineSeconds',
+		'maxPreviewEvents',
+		'maxPreviewChordSize',
+		'maxPreviewDurationMs'
 	]) {
 		if (!Object.hasOwn(schema.limits ?? {}, name)) {
 			throw new Error(`limits.${name} is required.`)

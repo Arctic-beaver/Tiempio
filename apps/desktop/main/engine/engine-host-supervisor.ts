@@ -30,6 +30,7 @@ const nativeHostCapabilities = Object.freeze<readonly EngineCapabilityCode[]>([
 	'transport.loop',
 	'synth.bass.deep',
 	'audition.notes',
+	'preview.programs',
 	'diagnostics.health',
 	'supervision.heartbeat',
 	'audio.native.shared',

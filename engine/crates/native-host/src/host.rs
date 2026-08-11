@@ -9,8 +9,8 @@ use rtrb::{Consumer, Producer, PushError, RingBuffer};
 use tiempio_engine_core::{MAX_SAFE_INTEGER, PreparedPlan, RenderPlan};
 use tiempio_engine_protocol::{
     AudioConfiguration, ENGINE_PROTOCOL_MAX_FRAME_BYTES, ENGINE_PROTOCOL_VERSION, EngineCommand,
-    EngineEvent, HandshakePeer, ProtocolLimits, ProtocolSession, ProtocolSessionState,
-    encode_event_body, encode_frame,
+    EngineEvent, HandshakePeer, NoteOnPayload, PreviewIdentifierPayload, PreviewProgramPayload,
+    ProtocolLimits, ProtocolSession, ProtocolSessionState, encode_event_body, encode_frame,
 };
 
 use crate::backend::{
@@ -18,8 +18,9 @@ use crate::backend::{
     SharedOutputBackend,
 };
 use crate::realtime::{
-    CONTROL_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY, RealtimeCommand, RealtimeDiagnostic,
-    RealtimeEngine, RealtimeEvent, StreamSignals, create_engine,
+    CONTROL_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY, PreparedPreview, PreviewEndReason, PreviewId,
+    RealtimeCommand, RealtimeDiagnostic, RealtimeEngine, RealtimeEvent, RetiredRealtimeAllocation,
+    StreamSignals, create_engine,
 };
 
 const HOST_CAPABILITIES: &[&str] = &[
@@ -29,6 +30,7 @@ const HOST_CAPABILITIES: &[&str] = &[
     "transport.loop",
     "synth.bass.deep",
     "audition.notes",
+    "preview.programs",
     "diagnostics.health",
     "supervision.heartbeat",
     "audio.native.shared",
@@ -48,7 +50,7 @@ pub(crate) struct HostController<Backend: OutputBackend> {
     configuration: Option<BackendConfiguration<Backend::PrivateConfiguration>>,
     stream: Option<Backend::Stream>,
     command_tx: Option<Producer<RealtimeCommand>>,
-    retired_rx: Option<Consumer<PreparedPlan>>,
+    retired_rx: Option<Consumer<RetiredRealtimeAllocation>>,
     signals: Arc<StreamSignals>,
     latest_plan: Option<RenderPlan>,
     latest_generation: u64,
@@ -129,29 +131,18 @@ impl<Backend: OutputBackend> HostController<Backend> {
                 })?;
             }
             EngineCommand::NoteOn(payload) => {
-                let Some(patch) = self
-                    .latest_plan
-                    .as_ref()
-                    .and_then(|plan| plan.layers.first())
-                    .map(|layer| layer.patch.clone())
-                else {
-                    self.emit_diagnostic(
-                        "engine.invalid-plan",
-                        "Audition requires an active Bass render plan.",
-                    )?;
-                    return Ok(true);
-                };
-                self.send_realtime(RealtimeCommand::NoteOn {
-                    identifier: stable_audition_identifier(&payload.audition_id),
-                    pitch: payload.pitch,
-                    velocity: payload.velocity,
-                    patch,
-                })?;
+                self.note_on(&payload)?;
             }
             EngineCommand::NoteOff(payload) => {
                 self.send_realtime(RealtimeCommand::NoteOff(stable_audition_identifier(
                     &payload.audition_id,
                 )))?;
+            }
+            EngineCommand::StartPreview(payload) => {
+                self.start_preview(payload)?;
+            }
+            EngineCommand::CancelPreview(payload) => {
+                self.cancel_preview(&payload)?;
             }
             EngineCommand::RequestDiagnostics => self.emit_health()?,
             EngineCommand::RefreshDevices => self.refresh_devices()?,
@@ -179,6 +170,67 @@ impl<Backend: OutputBackend> HostController<Backend> {
         }
         self.recover_audio_if_due()?;
         Ok(true)
+    }
+
+    fn note_on(&mut self, payload: &NoteOnPayload) -> Result<(), ()> {
+        let Some(patch) = self
+            .latest_plan
+            .as_ref()
+            .and_then(|plan| plan.layers.first())
+            .map(|layer| layer.patch.clone())
+        else {
+            return self.emit_diagnostic(
+                "engine.invalid-plan",
+                "Audition requires an active Bass render plan.",
+            );
+        };
+        self.send_realtime(RealtimeCommand::NoteOn {
+            identifier: stable_audition_identifier(&payload.audition_id),
+            pitch: payload.pitch,
+            velocity: payload.velocity,
+            patch,
+        })
+    }
+
+    fn start_preview(&mut self, payload: PreviewProgramPayload) -> Result<(), ()> {
+        let Some(sample_rate) = self
+            .configuration
+            .as_ref()
+            .filter(|_| self.stream.is_some())
+            .map(|configuration| configuration.negotiated.sample_rate)
+        else {
+            return self
+                .emit_diagnostic("audio.suspended", "The shared-output stream is not active.");
+        };
+        let Some(patch) = self
+            .latest_plan
+            .as_ref()
+            .and_then(|plan| plan.layers.first())
+            .map(|layer| layer.patch.clone())
+        else {
+            return self.emit_diagnostic(
+                "engine.invalid-plan",
+                "Preview requires an active Bass render plan.",
+            );
+        };
+        let Some(prepared) = PreparedPreview::prepare(payload, sample_rate, patch) else {
+            return self
+                .emit_diagnostic("engine.invalid-plan", "Preview program preparation failed.");
+        };
+        self.send_realtime(RealtimeCommand::StartPreview(prepared))
+    }
+
+    fn cancel_preview(&mut self, payload: &PreviewIdentifierPayload) -> Result<(), ()> {
+        let Some(preview_id) = PreviewId::new(&payload.preview_id) else {
+            return self.emit_diagnostic(
+                "protocol.invalid-envelope",
+                "Preview identifier is invalid.",
+            );
+        };
+        self.send_realtime(RealtimeCommand::CancelPreview {
+            preview_id,
+            reason: PreviewEndReason::Canceled,
+        })
     }
 
     pub(crate) fn shutdown(&mut self) {
@@ -533,8 +585,11 @@ impl<Backend: OutputBackend> HostController<Backend> {
 
     fn drain_retired(&mut self) {
         if let Some(receiver) = self.retired_rx.as_mut() {
-            while let Ok(plan) = receiver.pop() {
-                drop(plan);
+            while let Ok(allocation) = receiver.pop() {
+                match allocation {
+                    RetiredRealtimeAllocation::Plan(plan) => drop(plan),
+                    RetiredRealtimeAllocation::Preview(preview) => drop(preview),
+                }
             }
         }
     }
@@ -585,6 +640,29 @@ pub(crate) fn map_realtime_event(event: RealtimeEvent) -> EngineEvent {
         } => EngineEvent::MeterSnapshot {
             left_peak,
             right_peak,
+        },
+        RealtimeEvent::PreviewStarted {
+            preview_id,
+            duration_frames,
+        } => EngineEvent::PreviewStarted {
+            preview_id: preview_id.as_str().to_owned(),
+            duration_frames,
+        },
+        RealtimeEvent::PreviewState {
+            preview_id,
+            pitches,
+            pitch_count,
+            active,
+            sample_position,
+        } => EngineEvent::PreviewState {
+            preview_id: preview_id.as_str().to_owned(),
+            pitches: pitches[..usize::from(pitch_count)].to_vec(),
+            active,
+            sample_position,
+        },
+        RealtimeEvent::PreviewEnded { preview_id, reason } => EngineEvent::PreviewEnded {
+            preview_id: preview_id.as_str().to_owned(),
+            reason: reason.as_str().to_owned(),
         },
         RealtimeEvent::RealtimeDiagnostic(diagnostic) => match diagnostic {
             RealtimeDiagnostic::ControlFailure => EngineEvent::Diagnostic {

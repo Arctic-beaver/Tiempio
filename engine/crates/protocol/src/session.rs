@@ -11,14 +11,20 @@ pub enum ProtocolSessionState {
     Terminated,
 }
 
+#[derive(Debug, Default)]
+struct NegotiatedCapabilities {
+    native_audio: bool,
+    audio_devices: bool,
+    preview_programs: bool,
+}
+
 #[derive(Debug)]
 pub struct ProtocolSession {
     state: ProtocolSessionState,
     last_sequence: Option<u64>,
     highest_plan_revision: Option<RenderPlanRevision>,
     native_audio_available: bool,
-    native_audio_negotiated: bool,
-    audio_devices_negotiated: bool,
+    capabilities: NegotiatedCapabilities,
 }
 
 impl Default for ProtocolSession {
@@ -35,8 +41,11 @@ impl ProtocolSession {
             last_sequence: None,
             highest_plan_revision: None,
             native_audio_available: false,
-            native_audio_negotiated: false,
-            audio_devices_negotiated: false,
+            capabilities: NegotiatedCapabilities {
+                native_audio: false,
+                audio_devices: false,
+                preview_programs: false,
+            },
         }
     }
 
@@ -48,8 +57,11 @@ impl ProtocolSession {
             last_sequence: None,
             highest_plan_revision: None,
             native_audio_available: true,
-            native_audio_negotiated: false,
-            audio_devices_negotiated: false,
+            capabilities: NegotiatedCapabilities {
+                native_audio: false,
+                audio_devices: false,
+                preview_programs: false,
+            },
         }
     }
 
@@ -129,16 +141,21 @@ impl ProtocolSession {
         self.last_sequence = Some(envelope.sequence);
         match &envelope.command {
             EngineCommand::Handshake(handshake) => {
-                self.native_audio_negotiated = self.native_audio_available
+                self.capabilities.native_audio = self.native_audio_available
                     && handshake
                         .capabilities
                         .iter()
                         .any(|capability| capability == "audio.native.shared");
-                self.audio_devices_negotiated = self.native_audio_available
+                self.capabilities.audio_devices = self.native_audio_available
                     && handshake
                         .capabilities
                         .iter()
                         .any(|capability| capability == "audio.devices");
+                self.capabilities.preview_programs = self.native_audio_available
+                    && handshake
+                        .capabilities
+                        .iter()
+                        .any(|capability| capability == "preview.programs");
                 self.state = ProtocolSessionState::Ready;
             }
             EngineCommand::LoadRenderPlan(plan) => {
@@ -156,15 +173,19 @@ impl ProtocolSession {
             EngineCommand::ConfigureAudio(_)
             | EngineCommand::StartAudio
             | EngineCommand::StopAudio
-                if self.native_audio_negotiated => {}
-            EngineCommand::RefreshDevices if self.audio_devices_negotiated => {}
+                if self.capabilities.native_audio => {}
+            EngineCommand::RefreshDevices if self.capabilities.audio_devices => {}
+            EngineCommand::StartPreview(_) | EngineCommand::CancelPreview(_)
+                if self.capabilities.preview_programs => {}
             EngineCommand::ApplyRenderPlanDelta(_)
             | EngineCommand::PreviewMacro(_)
             | EngineCommand::CommitMacro(_)
             | EngineCommand::ConfigureAudio(_)
             | EngineCommand::StartAudio
             | EngineCommand::StopAudio
-            | EngineCommand::RefreshDevices => {
+            | EngineCommand::RefreshDevices
+            | EngineCommand::StartPreview(_)
+            | EngineCommand::CancelPreview(_) => {
                 return Err(ProtocolError::new(
                     ProtocolDiagnostic::UnsupportedCommand,
                     "Command is reserved but not negotiated by the Stage 4 engine.",
@@ -304,7 +325,8 @@ mod tests {
                     "capabilities": [
                         "protocol.typed-json",
                         "audio.native.shared",
-                        "audio.devices"
+                        "audio.devices",
+                        "preview.programs"
                     ]
                 }),
             ))
@@ -318,6 +340,19 @@ mod tests {
             .unwrap();
         session
             .accept_body(&command(2, "refresh-devices", &json!({})))
+            .unwrap();
+        session
+            .accept_body(&command(
+                3,
+                "start-preview",
+                &json!({
+                    "previewId": "preview.sound.1",
+                    "programVersion": 1,
+                    "events": [
+                        {"offsetMs": 0, "durationMs": 120, "pitches": [45], "velocity": 100}
+                    ]
+                }),
+            ))
             .unwrap();
         assert_eq!(session.state(), ProtocolSessionState::Ready);
 
