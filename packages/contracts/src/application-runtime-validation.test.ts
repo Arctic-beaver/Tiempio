@@ -19,7 +19,12 @@ describe('Desktop runtime payload validation', () => {
 	it('migrates legacy settings and validates bounded physical shortcuts', () => {
 		assert.deepEqual(validateSettingsSnapshot({ version: 1, colorScheme: 'dark' }), {
 			ok: true,
-			value: { version: 2, colorScheme: 'dark', shortcutOverrides: [] }
+			value: {
+				version: 3,
+				colorScheme: 'dark',
+				metronome: { enabled: false, volume: 0.65 },
+				shortcutOverrides: []
+			}
 		})
 		const current = validateSettingsSnapshot({
 			version: 2,
@@ -40,6 +45,18 @@ describe('Desktop runtime payload validation', () => {
 			]
 		})
 		assert.equal(current.ok, true)
+		if (current.ok) {
+			assert.deepEqual(current.value.metronome, { enabled: false, volume: 0.65 })
+		}
+		assert.equal(
+			validateSettingsSnapshot({
+				version: 3,
+				colorScheme: 'dark',
+				metronome: { enabled: true, volume: 0.4 },
+				shortcutOverrides: []
+			}).ok,
+			true
+		)
 		assert.equal(
 			validateSettingsSnapshot({
 				version: 2,

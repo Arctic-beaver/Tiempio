@@ -175,6 +175,8 @@ pub enum RealtimeCommand {
         start_tick: u64,
         end_tick: u64,
     },
+    SetMetronomeEnabled(bool),
+    SetMetronomeVolume(f64),
     NoteOn {
         identifier: u64,
         pitch: u8,
@@ -447,6 +449,14 @@ impl RealtimeEngine {
                     start_tick,
                     end_tick,
                 } => self.engine.set_loop(enabled, start_tick, end_tick),
+                RealtimeCommand::SetMetronomeEnabled(enabled) => {
+                    self.engine.set_metronome_enabled(enabled);
+                    Ok(())
+                }
+                RealtimeCommand::SetMetronomeVolume(volume) => {
+                    self.engine.set_metronome_volume(volume);
+                    Ok(())
+                }
                 RealtimeCommand::NoteOn {
                     identifier,
                     pitch,

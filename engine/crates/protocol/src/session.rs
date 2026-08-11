@@ -14,8 +14,14 @@ pub enum ProtocolSessionState {
 #[derive(Debug, Default)]
 struct NegotiatedCapabilities {
     native_audio: bool,
+    native_features: NativeFeatureCapabilities,
+}
+
+#[derive(Debug, Default)]
+struct NativeFeatureCapabilities {
     audio_devices: bool,
     preview_programs: bool,
+    metronome: bool,
 }
 
 #[derive(Debug)]
@@ -43,8 +49,11 @@ impl ProtocolSession {
             native_audio_available: false,
             capabilities: NegotiatedCapabilities {
                 native_audio: false,
-                audio_devices: false,
-                preview_programs: false,
+                native_features: NativeFeatureCapabilities {
+                    audio_devices: false,
+                    preview_programs: false,
+                    metronome: false,
+                },
             },
         }
     }
@@ -59,8 +68,11 @@ impl ProtocolSession {
             native_audio_available: true,
             capabilities: NegotiatedCapabilities {
                 native_audio: false,
-                audio_devices: false,
-                preview_programs: false,
+                native_features: NativeFeatureCapabilities {
+                    audio_devices: false,
+                    preview_programs: false,
+                    metronome: false,
+                },
             },
         }
     }
@@ -141,21 +153,7 @@ impl ProtocolSession {
         self.last_sequence = Some(envelope.sequence);
         match &envelope.command {
             EngineCommand::Handshake(handshake) => {
-                self.capabilities.native_audio = self.native_audio_available
-                    && handshake
-                        .capabilities
-                        .iter()
-                        .any(|capability| capability == "audio.native.shared");
-                self.capabilities.audio_devices = self.native_audio_available
-                    && handshake
-                        .capabilities
-                        .iter()
-                        .any(|capability| capability == "audio.devices");
-                self.capabilities.preview_programs = self.native_audio_available
-                    && handshake
-                        .capabilities
-                        .iter()
-                        .any(|capability| capability == "preview.programs");
+                self.negotiate_capabilities(&handshake.capabilities);
                 self.state = ProtocolSessionState::Ready;
             }
             EngineCommand::LoadRenderPlan(plan) => {
@@ -174,9 +172,11 @@ impl ProtocolSession {
             | EngineCommand::StartAudio
             | EngineCommand::StopAudio
                 if self.capabilities.native_audio => {}
-            EngineCommand::RefreshDevices if self.capabilities.audio_devices => {}
+            EngineCommand::RefreshDevices if self.capabilities.native_features.audio_devices => {}
             EngineCommand::StartPreview(_) | EngineCommand::CancelPreview(_)
-                if self.capabilities.preview_programs => {}
+                if self.capabilities.native_features.preview_programs => {}
+            EngineCommand::SetMetronomeEnabled(_) | EngineCommand::SetMetronomeVolume(_)
+                if self.capabilities.native_features.metronome => {}
             EngineCommand::ApplyRenderPlanDelta(_)
             | EngineCommand::PreviewMacro(_)
             | EngineCommand::CommitMacro(_)
@@ -185,7 +185,9 @@ impl ProtocolSession {
             | EngineCommand::StopAudio
             | EngineCommand::RefreshDevices
             | EngineCommand::StartPreview(_)
-            | EngineCommand::CancelPreview(_) => {
+            | EngineCommand::CancelPreview(_)
+            | EngineCommand::SetMetronomeEnabled(_)
+            | EngineCommand::SetMetronomeVolume(_) => {
                 return Err(ProtocolError::new(
                     ProtocolDiagnostic::UnsupportedCommand,
                     "Command is reserved but not negotiated by the Stage 4 engine.",
@@ -204,6 +206,16 @@ impl ProtocolSession {
             | EngineCommand::Shutdown => {}
         }
         Ok(envelope)
+    }
+
+    fn negotiate_capabilities(&mut self, requested: &[String]) {
+        let negotiated = |capability: &str| {
+            self.native_audio_available && requested.iter().any(|value| value == capability)
+        };
+        self.capabilities.native_audio = negotiated("audio.native.shared");
+        self.capabilities.native_features.audio_devices = negotiated("audio.devices");
+        self.capabilities.native_features.preview_programs = negotiated("preview.programs");
+        self.capabilities.native_features.metronome = negotiated("metronome.native");
     }
 
     pub fn terminate(&mut self) {
@@ -236,7 +248,7 @@ mod tests {
             &json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 1,
+                "renderPlanVersion": 2,
                 "patchModelVersion": 1,
                 "capabilities": ["protocol.typed-json"]
             }),
@@ -320,13 +332,14 @@ mod tests {
                 &json!({
                     "protocolVersion": ENGINE_PROTOCOL_VERSION,
                     "peer": "application",
-                    "renderPlanVersion": 1,
+                    "renderPlanVersion": 2,
                     "patchModelVersion": 1,
                     "capabilities": [
                         "protocol.typed-json",
                         "audio.native.shared",
                         "audio.devices",
-                        "preview.programs"
+                        "preview.programs",
+                        "metronome.native"
                     ]
                 }),
             ))
@@ -352,6 +365,20 @@ mod tests {
                         {"offsetMs": 0, "durationMs": 120, "pitches": [45], "velocity": 100}
                     ]
                 }),
+            ))
+            .unwrap();
+        session
+            .accept_body(&command(
+                4,
+                "set-metronome-enabled",
+                &json!({ "enabled": true }),
+            ))
+            .unwrap();
+        session
+            .accept_body(&command(
+                5,
+                "set-metronome-volume",
+                &json!({ "volume": 0.4 }),
             ))
             .unwrap();
         assert_eq!(session.state(), ProtocolSessionState::Ready);

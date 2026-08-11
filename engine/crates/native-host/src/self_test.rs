@@ -70,11 +70,12 @@ fn run_commands(
         &json!({
             "protocolVersion": ENGINE_PROTOCOL_VERSION,
             "peer": "application",
-            "renderPlanVersion": 1,
+            "renderPlanVersion": 2,
             "patchModelVersion": 1,
             "capabilities": [
                 "protocol.typed-json",
                 "audio.native.shared",
+                "metronome.native",
                 "preview.programs",
                 "audio.devices"
             ]

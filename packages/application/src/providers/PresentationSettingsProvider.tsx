@@ -7,6 +7,7 @@ import {
 	type SettingsPersistenceState
 } from './PresentationSettingsContext.js'
 import { useApplicationRuntime } from './RuntimeContext.js'
+import { useApplicationRuntimeController } from '../runtime/ApplicationRuntimeControllerContext.js'
 import type {
 	CommandId,
 	CommandShortcut,
@@ -38,12 +39,17 @@ export function PresentationSettingsProvider({
 	initialLocale = preferredLocale()
 }: PresentationSettingsProviderProperties): JSX.Element {
 	const runtime = useApplicationRuntime()
+	const controller = useApplicationRuntimeController()
 	const settingsAvailable = runtime.settings.availability === 'available'
 	const [colorScheme, setColorSchemeState] = useState<ColorSchemePreference>(initialColorScheme)
 	const [locale, setLocale] = useState<SupportedLocale>(initialLocale)
+	const [metronomeEnabled, setMetronomeEnabledState] = useState(false)
+	const [metronomeVolume, setMetronomeVolumeState] = useState(0.65)
 	const [shortcutOverrides, setShortcutOverrides] = useState<CommandShortcutOverrides>({})
 	const colorSchemeReference = useRef(colorScheme)
 	const shortcutOverridesReference = useRef(shortcutOverrides)
+	const metronomeEnabledReference = useRef(metronomeEnabled)
+	const metronomeVolumeReference = useRef(metronomeVolume)
 	const saveGenerationReference = useRef(0)
 	const [persistenceState, setPersistenceState] = useState<SettingsPersistenceState>(
 		settingsAvailable ? 'loading' : 'session-only'
@@ -58,18 +64,29 @@ export function PresentationSettingsProvider({
 				const loadedOverrides = deserializeShortcutOverrides(result.value)
 				colorSchemeReference.current = result.value.colorScheme
 				shortcutOverridesReference.current = loadedOverrides
+				metronomeEnabledReference.current = result.value.metronome.enabled
+				metronomeVolumeReference.current = result.value.metronome.volume
 				setColorSchemeState(result.value.colorScheme)
 				setShortcutOverrides(loadedOverrides)
+				setMetronomeEnabledState(result.value.metronome.enabled)
+				setMetronomeVolumeState(result.value.metronome.volume)
+				controller.setMetronomeEnabled(result.value.metronome.enabled)
+				controller.setMetronomeVolume(result.value.metronome.volume)
 			}
 			setPersistenceState(result.ok ? 'saved' : 'failed')
 		})
 		return () => {
 			active = false
 		}
-	}, [runtime.settings])
+	}, [controller, runtime.settings])
 
 	const persist = useCallback(
-		(nextColorScheme: ColorSchemePreference, nextOverrides: CommandShortcutOverrides): void => {
+		(
+			nextColorScheme: ColorSchemePreference,
+			nextOverrides: CommandShortcutOverrides,
+			nextMetronomeEnabled: boolean,
+			nextMetronomeVolume: number
+		): void => {
 			if (runtime.settings.availability !== 'available') {
 				setPersistenceState('session-only')
 				return
@@ -78,8 +95,12 @@ export function PresentationSettingsProvider({
 			setPersistenceState('loading')
 			void runtime.settings.api
 				.set({
-					version: 2,
+					version: 3,
 					colorScheme: nextColorScheme,
+					metronome: {
+						enabled: nextMetronomeEnabled,
+						volume: nextMetronomeVolume
+					},
 					shortcutOverrides: serializeShortcutOverrides(nextOverrides)
 				})
 				.then((result) => {
@@ -95,7 +116,12 @@ export function PresentationSettingsProvider({
 		(nextColorScheme: ColorSchemePreference): void => {
 			colorSchemeReference.current = nextColorScheme
 			setColorSchemeState(nextColorScheme)
-			persist(nextColorScheme, shortcutOverridesReference.current)
+			persist(
+				nextColorScheme,
+				shortcutOverridesReference.current,
+				metronomeEnabledReference.current,
+				metronomeVolumeReference.current
+			)
 		},
 		[persist]
 	)
@@ -104,7 +130,12 @@ export function PresentationSettingsProvider({
 		(nextOverrides: CommandShortcutOverrides): void => {
 			shortcutOverridesReference.current = nextOverrides
 			setShortcutOverrides(nextOverrides)
-			persist(colorSchemeReference.current, nextOverrides)
+			persist(
+				colorSchemeReference.current,
+				nextOverrides,
+				metronomeEnabledReference.current,
+				metronomeVolumeReference.current
+			)
 		},
 		[persist]
 	)
@@ -130,25 +161,64 @@ export function PresentationSettingsProvider({
 
 	const resetAllShortcuts = useCallback((): void => updateShortcuts({}), [updateShortcuts])
 
+	const setMetronomeEnabled = useCallback(
+		(enabled: boolean): void => {
+			metronomeEnabledReference.current = enabled
+			setMetronomeEnabledState(enabled)
+			controller.setMetronomeEnabled(enabled)
+			persist(
+				colorSchemeReference.current,
+				shortcutOverridesReference.current,
+				enabled,
+				metronomeVolumeReference.current
+			)
+		},
+		[controller, persist]
+	)
+
+	const setMetronomeVolume = useCallback(
+		(volume: number): void => {
+			const nextVolume = Math.min(1, Math.max(0, volume))
+			metronomeVolumeReference.current = nextVolume
+			setMetronomeVolumeState(nextVolume)
+			controller.setMetronomeVolume(nextVolume)
+			persist(
+				colorSchemeReference.current,
+				shortcutOverridesReference.current,
+				metronomeEnabledReference.current,
+				nextVolume
+			)
+		},
+		[controller, persist]
+	)
+
 	const value = useMemo<PresentationSettingsContextValue>(
 		() => ({
 			colorScheme,
 			locale,
+			metronomeEnabled,
+			metronomeVolume,
 			persistenceState,
 			resetAllShortcuts,
 			resetShortcutBindings,
 			setColorScheme,
 			setLocale,
+			setMetronomeEnabled,
+			setMetronomeVolume,
 			setShortcutBindings,
 			shortcutOverrides
 		}),
 		[
 			colorScheme,
 			locale,
+			metronomeEnabled,
+			metronomeVolume,
 			persistenceState,
 			resetAllShortcuts,
 			resetShortcutBindings,
 			setColorScheme,
+			setMetronomeEnabled,
+			setMetronomeVolume,
 			setShortcutBindings,
 			shortcutOverrides
 		]

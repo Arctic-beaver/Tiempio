@@ -1,7 +1,8 @@
 use serde_json::Value;
 use tiempio_engine_core::{
     BassAmplifierPatchV1, BassFilterPatchV1, BassLayerPlan, BassOscillatorPatchV1, BassPatchV1,
-    LoopRegion, MidiNoteEvent, RenderPlan, RenderPlanRevision, TempoPoint, validate_render_plan,
+    LoopRegion, MeterPoint, MidiNoteEvent, RenderPlan, RenderPlanRevision, TempoPoint,
+    validate_render_plan,
 };
 
 use crate::validation::parse_payload;
@@ -71,12 +72,22 @@ pub(crate) fn convert_render_plan(wire: WireRenderPlan) -> Result<RenderPlan, Pr
         project_id: wire.project_id,
         project_revision: RenderPlanRevision::new(wire.project_revision),
         ticks_per_quarter: wire.ticks_per_quarter,
+        end_tick: wire.end_tick,
         tempo_map: wire
             .tempo_map
             .into_iter()
             .map(|point| TempoPoint {
                 tick: point.tick,
                 micro_bpm: point.micro_bpm,
+            })
+            .collect(),
+        meter_map: wire
+            .meter_map
+            .into_iter()
+            .map(|point| MeterPoint {
+                tick: point.tick,
+                numerator: point.numerator,
+                denominator: point.denominator,
             })
             .collect(),
         loop_region: LoopRegion {
@@ -133,8 +144,16 @@ mod tests {
             tiempio_engine_core::MAX_TEMPO_POINTS
         );
         assert_eq!(
+            crate::ENGINE_PROTOCOL_MAX_METER_POINTS,
+            tiempio_engine_core::MAX_METER_POINTS
+        );
+        assert_eq!(
             crate::ENGINE_PROTOCOL_MAX_MUSICAL_EVENTS,
             tiempio_engine_core::MAX_MUSICAL_EVENTS
+        );
+        assert_eq!(
+            crate::ENGINE_PROTOCOL_MAX_PREPARED_BEATS,
+            tiempio_engine_core::MAX_PREPARED_BEATS
         );
     }
 }

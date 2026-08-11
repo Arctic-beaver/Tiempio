@@ -28,6 +28,7 @@ const HOST_CAPABILITIES: &[&str] = &[
     "render-plan.full",
     "transport.basic",
     "transport.loop",
+    "metronome.native",
     "synth.bass.deep",
     "audition.notes",
     "preview.programs",
@@ -61,6 +62,8 @@ pub(crate) struct HostController<Backend: OutputBackend> {
     requested_configuration: Option<AudioConfiguration>,
     recovery_attempt: u32,
     next_recovery_at: Option<Instant>,
+    metronome_enabled: bool,
+    metronome_volume: f64,
 }
 
 impl<Backend: OutputBackend> HostController<Backend> {
@@ -82,6 +85,8 @@ impl<Backend: OutputBackend> HostController<Backend> {
             requested_configuration: None,
             recovery_attempt: 0,
             next_recovery_at: None,
+            metronome_enabled: false,
+            metronome_volume: 0.65,
         }
     }
 
@@ -129,6 +134,18 @@ impl<Backend: OutputBackend> HostController<Backend> {
                     start_tick: payload.start_tick,
                     end_tick: payload.end_tick,
                 })?;
+            }
+            EngineCommand::SetMetronomeEnabled(payload) => {
+                self.metronome_enabled = payload.enabled;
+                if self.command_tx.is_some() {
+                    self.send_realtime(RealtimeCommand::SetMetronomeEnabled(payload.enabled))?;
+                }
+            }
+            EngineCommand::SetMetronomeVolume(payload) => {
+                self.metronome_volume = payload.volume;
+                if self.command_tx.is_some() {
+                    self.send_realtime(RealtimeCommand::SetMetronomeVolume(payload.volume))?;
+                }
             }
             EngineCommand::NoteOn(payload) => {
                 self.note_on(&payload)?;
@@ -289,6 +306,8 @@ impl<Backend: OutputBackend> HostController<Backend> {
             .try_send(WriterEvent::InstallRealtime(realtime_event_rx))
             .map_err(|_| ())?;
         let mut engine = create_engine(configuration.negotiated.sample_rate);
+        engine.set_metronome_enabled(self.metronome_enabled);
+        engine.set_metronome_volume(self.metronome_volume);
         if let Some(plan) = self.latest_plan.clone() {
             let Ok(prepared) = PreparedPlan::prepare(
                 plan,
@@ -1188,5 +1207,23 @@ mod tests {
         assert_eq!(recovery_delay(1), Duration::from_millis(500));
         assert_eq!(recovery_delay(4), Duration::from_secs(4));
         assert_eq!(recovery_delay(u32::MAX), Duration::from_secs(4));
+    }
+
+    #[test]
+    fn retains_metronome_preferences_while_the_audio_stream_is_absent() {
+        let (event_tx, _event_rx) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
+        let mut controller = HostController::new(SwitchingBackend::new(false), event_tx);
+        controller
+            .dispatch(EngineCommand::SetMetronomeEnabled(
+                tiempio_engine_protocol::MetronomeEnabledPayload { enabled: true },
+            ))
+            .unwrap();
+        controller
+            .dispatch(EngineCommand::SetMetronomeVolume(
+                tiempio_engine_protocol::MetronomeVolumePayload { volume: 0.4 },
+            ))
+            .unwrap();
+        assert!(controller.metronome_enabled);
+        assert!((controller.metronome_volume - 0.4).abs() < f64::EPSILON);
     }
 }

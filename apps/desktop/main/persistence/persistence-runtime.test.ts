@@ -388,12 +388,18 @@ describe('Desktop native persistence', () => {
 			const settings = new SettingsStore(join(root, 'settings'))
 			assert.deepEqual(await settings.get(), {
 				ok: true,
-				value: { version: 2, colorScheme: 'system', shortcutOverrides: [] }
+				value: {
+					version: 3,
+					colorScheme: 'system',
+					metronome: { enabled: false, volume: 0.65 },
+					shortcutOverrides: []
+				}
 			})
 			assert.deepEqual(
 				await settings.set({
-					version: 2,
+					version: 3,
 					colorScheme: 'dark',
+					metronome: { enabled: true, volume: 0.4 },
 					shortcutOverrides: [
 						{
 							commandId: 'note.move-left',
@@ -412,8 +418,9 @@ describe('Desktop native persistence', () => {
 				{
 					ok: true,
 					value: {
-						version: 2,
+						version: 3,
 						colorScheme: 'dark',
+						metronome: { enabled: true, volume: 0.4 },
 						shortcutOverrides: [
 							{
 								commandId: 'note.move-left',
@@ -434,8 +441,9 @@ describe('Desktop native persistence', () => {
 			assert.deepEqual(await settings.get(), {
 				ok: true,
 				value: {
-					version: 2,
+					version: 3,
 					colorScheme: 'dark',
+					metronome: { enabled: true, volume: 0.4 },
 					shortcutOverrides: [
 						{
 							commandId: 'note.move-left',
@@ -454,18 +462,29 @@ describe('Desktop native persistence', () => {
 			})
 			assert.deepEqual(
 				await settings.set({
-					version: 2,
+					version: 3,
 					colorScheme: 'light',
+					metronome: { enabled: false, volume: 0.65 },
 					shortcutOverrides: []
 				}),
 				{
 					ok: true,
-					value: { version: 2, colorScheme: 'light', shortcutOverrides: [] }
+					value: {
+						version: 3,
+						colorScheme: 'light',
+						metronome: { enabled: false, volume: 0.65 },
+						shortcutOverrides: []
+					}
 				}
 			)
 			assert.deepEqual(await settings.get(), {
 				ok: true,
-				value: { version: 2, colorScheme: 'light', shortcutOverrides: [] }
+				value: {
+					version: 3,
+					colorScheme: 'light',
+					metronome: { enabled: false, volume: 0.65 },
+					shortcutOverrides: []
+				}
 			})
 		} finally {
 			await rm(root, { recursive: true, force: true })

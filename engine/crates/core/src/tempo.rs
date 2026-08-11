@@ -163,7 +163,8 @@ fn samples_for_ticks(
 mod tests {
     use super::*;
     use crate::{
-        LoopRegion, RENDER_PLAN_VERSION, RenderPlanRevision, TICKS_PER_QUARTER, TempoPoint,
+        LoopRegion, MeterPoint, RENDER_PLAN_VERSION, RenderPlanRevision, TICKS_PER_QUARTER,
+        TempoPoint,
     };
 
     fn plan_with_tempo(tempo_map: Vec<TempoPoint>) -> RenderPlan {
@@ -172,7 +173,13 @@ mod tests {
             project_id: "project.tempo".to_owned(),
             project_revision: RenderPlanRevision::new(1),
             ticks_per_quarter: TICKS_PER_QUARTER,
+            end_tick: 3_840,
             tempo_map,
+            meter_map: vec![MeterPoint {
+                tick: 0,
+                numerator: 4,
+                denominator: 4,
+            }],
             loop_region: LoopRegion {
                 enabled: false,
                 start_tick: 0,

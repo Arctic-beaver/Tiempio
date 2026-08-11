@@ -242,17 +242,33 @@ export function validateSettingsSnapshot(input: unknown): ApplicationResult<Sett
 		return Object.freeze({
 			ok: true as const,
 			value: Object.freeze({
-				version: 2 as const,
+				version: 3 as const,
 				colorScheme: input.colorScheme as SettingsSnapshot['colorScheme'],
+				metronome: Object.freeze({ enabled: false, volume: 0.65 }),
 				shortcutOverrides: Object.freeze([])
 			})
 		})
 	}
+	const legacyVersionTwo =
+		record(input) &&
+		exactKeys(input, ['version', 'colorScheme', 'shortcutOverrides']) &&
+		input.version === 2
+	const currentVersion =
+		record(input) &&
+		exactKeys(input, ['version', 'colorScheme', 'metronome', 'shortcutOverrides']) &&
+		input.version === 3
 	if (
 		!record(input) ||
-		!exactKeys(input, ['version', 'colorScheme', 'shortcutOverrides']) ||
-		input.version !== 2 ||
+		(!legacyVersionTwo && !currentVersion) ||
 		!['system', 'light', 'dark'].includes(String(input.colorScheme)) ||
+		(currentVersion &&
+			(!record(input.metronome) ||
+				!exactKeys(input.metronome, ['enabled', 'volume']) ||
+				typeof input.metronome.enabled !== 'boolean' ||
+				typeof input.metronome.volume !== 'number' ||
+				!Number.isFinite(input.metronome.volume) ||
+				input.metronome.volume < 0 ||
+				input.metronome.volume > 1)) ||
 		!Array.isArray(input.shortcutOverrides) ||
 		input.shortcutOverrides.length > 64 ||
 		new TextEncoder().encode(JSON.stringify(input)).byteLength >
@@ -313,8 +329,14 @@ export function validateSettingsSnapshot(input: unknown): ApplicationResult<Sett
 	return Object.freeze({
 		ok: true as const,
 		value: Object.freeze({
-			version: 2 as const,
+			version: 3 as const,
 			colorScheme: input.colorScheme as SettingsSnapshot['colorScheme'],
+			metronome: currentVersion
+				? Object.freeze({
+						enabled: (input.metronome as { readonly enabled: boolean }).enabled,
+						volume: (input.metronome as { readonly volume: number }).volume
+					})
+				: Object.freeze({ enabled: false, volume: 0.65 }),
 			shortcutOverrides: Object.freeze(shortcutOverrides)
 		})
 	})

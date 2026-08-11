@@ -94,6 +94,7 @@ test('keeps application, projector and style facades as composition roots', () =
 			"@import './styles/shell-layout.css';",
 			"@import './styles/workflow-views.css';",
 			"@import './styles/drawers.css';",
+			"@import './styles/song-palette.css';",
 			"@import './styles/responsive.css';"
 		].join('\n')
 	}

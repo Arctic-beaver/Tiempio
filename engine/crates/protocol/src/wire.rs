@@ -49,6 +49,18 @@ pub struct LoopPayload {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MetronomeEnabledPayload {
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MetronomeVolumePayload {
+    pub volume: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct NoteOnPayload {
     pub audition_id: String,
     pub pitch: u8,
@@ -159,6 +171,14 @@ pub struct WireTempoPoint {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WireMeterPoint {
+    pub tick: u64,
+    pub numerator: u8,
+    pub denominator: u8,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WireLoop {
     pub enabled: bool,
     pub start_tick: u64,
@@ -236,7 +256,9 @@ pub struct WireRenderPlan {
     pub project_id: String,
     pub project_revision: u64,
     pub ticks_per_quarter: u32,
+    pub end_tick: u64,
     pub tempo_map: Vec<WireTempoPoint>,
+    pub meter_map: Vec<WireMeterPoint>,
     #[serde(rename = "loop")]
     pub loop_region: WireLoop,
     pub layers: Vec<WireBassLayer>,

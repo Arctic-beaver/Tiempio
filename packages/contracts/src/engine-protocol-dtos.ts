@@ -70,6 +70,8 @@ export interface EngineCommandPayloadByType {
 		readonly endTick: number
 		readonly startTick: number
 	}
+	readonly 'set-metronome-enabled': { readonly enabled: boolean }
+	readonly 'set-metronome-volume': { readonly volume: number }
 	readonly 'note-on': {
 		readonly auditionId: string
 		readonly pitch: number

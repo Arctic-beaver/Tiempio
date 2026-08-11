@@ -9,17 +9,18 @@ pub use engine::{
     VoiceBank, VoiceIdentity, VoiceStart,
 };
 pub use scheduler::{
-    MAX_ACTIONS_PER_BLOCK, MAX_PREPARED_ACTIONS, PreparedAction, PreparedActionKind, PreparedPlan,
-    PreparedPlanError,
+    MAX_ACTIONS_PER_BLOCK, MAX_PREPARED_ACTIONS, MAX_PREPARED_BEATS, PreparedAction,
+    PreparedActionKind, PreparedBeat, PreparedPlan, PreparedPlanError,
 };
 pub use tempo::{TempoError, TempoSegment, TempoTimeline};
 
-pub const RENDER_PLAN_VERSION: u32 = 1;
+pub const RENDER_PLAN_VERSION: u32 = 2;
 pub const PATCH_MODEL_VERSION: u32 = 1;
 pub const TICKS_PER_QUARTER: u32 = 960;
 pub const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 pub const MAX_ENGINE_LAYERS: usize = 32;
 pub const MAX_TEMPO_POINTS: usize = 256;
+pub const MAX_METER_POINTS: usize = 256;
 pub const MAX_MUSICAL_EVENTS: usize = 4_096;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -46,6 +47,13 @@ impl RenderPlanRevision {
 pub struct TempoPoint {
     pub tick: u64,
     pub micro_bpm: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MeterPoint {
+    pub tick: u64,
+    pub numerator: u8,
+    pub denominator: u8,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -111,7 +119,9 @@ pub struct RenderPlan {
     pub project_id: String,
     pub project_revision: RenderPlanRevision,
     pub ticks_per_quarter: u32,
+    pub end_tick: u64,
     pub tempo_map: Vec<TempoPoint>,
+    pub meter_map: Vec<MeterPoint>,
     pub loop_region: LoopRegion,
     pub layers: Vec<BassLayerPlan>,
 }
@@ -238,6 +248,13 @@ fn validate_header(plan: &RenderPlan) -> Result<(), PlanValidationFailure> {
             "The initial engine accepts exactly 960 ticks per quarter.",
         ));
     }
+    if plan.end_tick == 0 || plan.end_tick > MAX_SAFE_INTEGER {
+        return Err(failure(
+            PlanValidationCode::InvalidValue,
+            "$.endTick",
+            "Project end tick must be positive and wire-safe.",
+        ));
+    }
     Ok(())
 }
 
@@ -271,10 +288,68 @@ fn validate_tempo_map(tempo_map: &[TempoPoint]) -> Result<(), PlanValidationFail
     Ok(())
 }
 
-fn validate_loop_region(loop_region: &LoopRegion) -> Result<(), PlanValidationFailure> {
+fn validate_meter_map(
+    meter_map: &[MeterPoint],
+    end_tick: u64,
+) -> Result<(), PlanValidationFailure> {
+    if meter_map.is_empty() || meter_map.len() > MAX_METER_POINTS {
+        return Err(failure(
+            PlanValidationCode::LimitExceeded,
+            "$.meterMap",
+            "Meter map is empty or exceeds the engine ceiling.",
+        ));
+    }
+    if meter_map[0].tick != 0 {
+        return Err(failure(
+            PlanValidationCode::InvalidValue,
+            "$.meterMap[0].tick",
+            "Meter map must begin at tick zero.",
+        ));
+    }
+    let mut prepared_beat_count = 0_usize;
+    for (index, point) in meter_map.iter().enumerate() {
+        if point.tick >= end_tick
+            || !(1..=32).contains(&point.numerator)
+            || !matches!(point.denominator, 1 | 2 | 4 | 8 | 16)
+            || (index > 0 && meter_map[index - 1].tick >= point.tick)
+        {
+            return Err(failure(
+                PlanValidationCode::InvalidValue,
+                format!("$.meterMap[{index}]"),
+                "Meter points must be ordered, bounded and use supported signatures.",
+            ));
+        }
+        let segment_end = meter_map.get(index + 1).map_or(end_tick, |next| next.tick);
+        let ticks_per_beat = u64::from(TICKS_PER_QUARTER) * 4 / u64::from(point.denominator);
+        let segment_beats = (segment_end - point.tick).div_ceil(ticks_per_beat);
+        prepared_beat_count = prepared_beat_count
+            .checked_add(usize::try_from(segment_beats).unwrap_or(usize::MAX))
+            .ok_or_else(|| {
+                failure(
+                    PlanValidationCode::LimitExceeded,
+                    "$.meterMap",
+                    "Prepared beat count overflowed.",
+                )
+            })?;
+        if prepared_beat_count > MAX_PREPARED_BEATS {
+            return Err(failure(
+                PlanValidationCode::LimitExceeded,
+                "$.meterMap",
+                "Render plan exceeds the prepared-beat ceiling.",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_loop_region(
+    loop_region: &LoopRegion,
+    end_tick: u64,
+) -> Result<(), PlanValidationFailure> {
     if loop_region.start_tick > MAX_SAFE_INTEGER
         || loop_region.end_tick > MAX_SAFE_INTEGER
         || loop_region.start_tick >= loop_region.end_tick
+        || loop_region.end_tick > end_tick
     {
         return Err(failure(
             PlanValidationCode::InvalidValue,
@@ -410,7 +485,8 @@ fn validate_layers(layers: &[BassLayerPlan]) -> Result<(), PlanValidationFailure
 pub fn validate_render_plan(plan: &RenderPlan) -> Result<(), PlanValidationFailure> {
     validate_header(plan)?;
     validate_tempo_map(&plan.tempo_map)?;
-    validate_loop_region(&plan.loop_region)?;
+    validate_meter_map(&plan.meter_map, plan.end_tick)?;
+    validate_loop_region(&plan.loop_region, plan.end_tick)?;
     validate_layers(&plan.layers)
 }
 
@@ -448,9 +524,15 @@ mod tests {
             project_id: "project.fixture".to_owned(),
             project_revision: RenderPlanRevision::new(7),
             ticks_per_quarter: TICKS_PER_QUARTER,
+            end_tick: 3_840,
             tempo_map: vec![TempoPoint {
                 tick: 0,
                 micro_bpm: 108_000_000,
+            }],
+            meter_map: vec![MeterPoint {
+                tick: 0,
+                numerator: 4,
+                denominator: 4,
             }],
             loop_region: LoopRegion {
                 enabled: true,

@@ -30,6 +30,7 @@ const applicationEngineCapabilities = Object.freeze<readonly EngineCapabilityCod
 	'render-plan.full',
 	'transport.basic',
 	'transport.loop',
+	'metronome.native',
 	'synth.bass.deep',
 	'audition.notes',
 	'preview.programs',
@@ -70,6 +71,8 @@ export class ApplicationRuntimeController implements ApplicationController {
 	#engineRestarting = false
 	#latestPlanGeneration = 0
 	#latestRequestedPlanRevision = -1
+	#metronomeEnabled = false
+	#metronomeVolume = 0.65
 	#observedProjectRevision = -1
 	#lifecycleUnsubscribe: (() => void) | null = null
 	#planDrain: Promise<void> | null = null
@@ -196,6 +199,17 @@ export class ApplicationRuntimeController implements ApplicationController {
 		void this.#send('set-loop', loop)
 	}
 
+	public setMetronomeEnabled(enabled: boolean): void {
+		this.#metronomeEnabled = enabled
+		void this.#send('set-metronome-enabled', { enabled })
+	}
+
+	public setMetronomeVolume(volume: number): void {
+		if (!Number.isFinite(volume)) return
+		this.#metronomeVolume = Math.min(1, Math.max(0, volume))
+		void this.#send('set-metronome-volume', { volume: this.#metronomeVolume })
+	}
+
 	public prepareToClose(): void {
 		if (this.#disposed) return
 		this.previewCoordinator.interrupt()
@@ -269,6 +283,8 @@ export class ApplicationRuntimeController implements ApplicationController {
 		})
 		if (!configured) return
 		await this.#publishLatestPlan()
+		await this.#send('set-metronome-enabled', { enabled: this.#metronomeEnabled })
+		await this.#send('set-metronome-volume', { volume: this.#metronomeVolume })
 		await this.#send('start-audio', {})
 		if (this.#runtime.engine.availability === 'available') {
 			const health = await this.#runtime.engine.api.getHealth()

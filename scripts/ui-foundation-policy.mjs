@@ -203,6 +203,7 @@ export function validateApplicationComposition({
 		'./styles/shell-layout.css',
 		'./styles/workflow-views.css',
 		'./styles/drawers.css',
+		'./styles/song-palette.css',
 		'./styles/responsive.css'
 	]
 	if (

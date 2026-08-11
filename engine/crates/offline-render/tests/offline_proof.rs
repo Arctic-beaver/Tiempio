@@ -38,7 +38,7 @@ fn handshake(session: &mut ProtocolSession) {
             &json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 1,
+                "renderPlanVersion": 2,
                 "patchModelVersion": 1,
                 "capabilities": ["protocol.typed-json", "render.offline"],
             }),

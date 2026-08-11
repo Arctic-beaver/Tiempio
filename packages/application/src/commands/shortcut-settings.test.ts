@@ -27,8 +27,9 @@ test('round-trips known overrides and ignores unknown persisted commands', () =>
 	const serialized = serializeShortcutOverrides(overrides)
 	assert.deepEqual(
 		deserializeShortcutOverrides({
-			version: 2,
+			version: 3,
 			colorScheme: 'dark',
+			metronome: { enabled: false, volume: 0.65 },
 			shortcutOverrides: [...serialized, { commandId: 'removed.command', bindings: [] }]
 		}),
 		{

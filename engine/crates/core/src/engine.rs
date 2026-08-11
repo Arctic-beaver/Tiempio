@@ -79,6 +79,7 @@ struct Transport {
     state: TransportState,
     sample_position: u64,
     action_cursor: usize,
+    beat_cursor: usize,
     loop_playback: LoopPlayback,
 }
 
@@ -87,6 +88,7 @@ impl Transport {
         self.state = TransportState::Stopped;
         self.sample_position = 0;
         self.action_cursor = 0;
+        self.beat_cursor = 0;
         self.loop_playback = LoopPlayback {
             enabled: plan.plan().loop_region.enabled,
             start_sample: plan.loop_start_sample(),
@@ -97,6 +99,59 @@ impl Transport {
     fn set_position(&mut self, plan: &PreparedPlan, sample_position: u64) {
         self.sample_position = sample_position;
         self.action_cursor = plan.action_cursor_at(sample_position);
+        self.beat_cursor = plan.beat_cursor_at(sample_position);
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct MetronomeClick {
+    enabled: bool,
+    volume: f64,
+    phase: f64,
+    phase_increment: f64,
+    remaining_frames: u32,
+    total_frames: u32,
+    amplitude: f64,
+}
+
+impl MetronomeClick {
+    fn new(sample_rate: u32) -> Self {
+        Self {
+            enabled: false,
+            volume: 0.65,
+            phase: 0.0,
+            phase_increment: std::f64::consts::TAU * 1_320.0 / f64::from(sample_rate),
+            remaining_frames: 0,
+            total_frames: (sample_rate / 55).max(1),
+            amplitude: 0.0,
+        }
+    }
+
+    fn trigger(&mut self, downbeat: bool, sample_rate: u32) {
+        if !self.enabled {
+            return;
+        }
+        let frequency = if downbeat { 1_760.0 } else { 1_320.0 };
+        self.phase = std::f64::consts::FRAC_PI_2;
+        self.phase_increment = std::f64::consts::TAU * frequency / f64::from(sample_rate);
+        self.remaining_frames = self.total_frames;
+        self.amplitude = if downbeat { 0.22 } else { 0.14 };
+    }
+
+    fn next_sample(&mut self) -> f64 {
+        if self.remaining_frames == 0 {
+            return 0.0;
+        }
+        let envelope = f64::from(self.remaining_frames) / f64::from(self.total_frames);
+        let sample = self.phase.sin() * self.amplitude * self.volume * envelope * envelope;
+        self.phase += self.phase_increment;
+        self.remaining_frames -= 1;
+        sample
+    }
+
+    fn reset(&mut self) {
+        self.remaining_frames = 0;
+        self.amplitude = 0.0;
     }
 }
 
@@ -109,6 +164,7 @@ pub struct EngineKernel<Bank: VoiceBank> {
     highest_revision: Option<u64>,
     transport: Transport,
     voice_bank: Bank,
+    metronome: MetronomeClick,
     master_gain: LinearSmoother,
     output_guard: OutputGuard,
     render_clock: u64,
@@ -119,6 +175,7 @@ pub struct EngineKernel<Bank: VoiceBank> {
 impl<Bank: VoiceBank> EngineKernel<Bank> {
     #[must_use]
     pub fn new(configuration: DspConfiguration, voice_bank: Bank) -> Self {
+        let sample_rate = configuration.sample_rate();
         Self {
             configuration,
             plans: [None, None],
@@ -128,6 +185,7 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
             highest_revision: None,
             transport: Transport::default(),
             voice_bank,
+            metronome: MetronomeClick::new(sample_rate),
             master_gain: LinearSmoother::new(1.0),
             output_guard: OutputGuard::new(),
             render_clock: 0,
@@ -199,6 +257,7 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
             .tick_to_sample(start_tick)
             .map_err(EngineControlError::Tempo)?;
         self.transport.set_position(plan, sample);
+        self.metronome.reset();
         self.transport.state = TransportState::Playing;
         Ok(())
     }
@@ -206,6 +265,7 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
     pub fn stop(&mut self) {
         self.transport.state = TransportState::Stopped;
         self.voice_bank.reset_scheduled();
+        self.metronome.reset();
     }
 
     /// Seeks scheduled playback without changing stopped/playing state.
@@ -223,6 +283,7 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
             .tick_to_sample(tick)
             .map_err(EngineControlError::Tempo)?;
         self.voice_bank.reset_scheduled();
+        self.metronome.reset();
         self.transport.set_position(plan, sample);
         Ok(())
     }
@@ -289,6 +350,17 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
         );
     }
 
+    pub fn set_metronome_enabled(&mut self, enabled: bool) {
+        self.metronome.enabled = enabled;
+        if !enabled {
+            self.metronome.reset();
+        }
+    }
+
+    pub fn set_metronome_volume(&mut self, volume: f64) {
+        self.metronome.volume = volume.clamp(0.0, 1.0);
+    }
+
     /// Renders one visible stereo block.
     ///
     /// Real-time invariant: after construction and plan preparation, this method performs
@@ -307,9 +379,11 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
             self.prepare_transport_sample();
             let gain = self.master_gain.advance();
             let mixed = self.voice_bank.render_frame();
-            *frame = self
-                .output_guard
-                .process(StereoFrame::new(mixed.left * gain, mixed.right * gain));
+            let click = self.metronome.next_sample();
+            *frame = self.output_guard.process(StereoFrame::new(
+                (mixed.left + click) * gain,
+                (mixed.right + click) * gain,
+            ));
             if self.transport.state == TransportState::Playing {
                 self.transport.sample_position = self.transport.sample_position.saturating_add(1);
             }
@@ -379,6 +453,7 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
         self.active_slot = Some(slot);
         self.transport.activate(plan);
         self.voice_bank.reset_scheduled();
+        self.metronome.reset();
         self.pending_acknowledgement = Some(PlanAcknowledgement {
             project_revision: plan.plan().project_revision.value(),
             plan_generation: plan.generation(),
@@ -403,6 +478,7 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
         {
             let loop_start = self.transport.loop_playback.start_sample;
             self.voice_bank.reset_scheduled();
+            self.metronome.reset();
             self.transport.set_position(plan, loop_start);
         }
         while let Some(action) = plan.actions().get(self.transport.action_cursor) {
@@ -432,6 +508,14 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
             }
             self.transport.action_cursor += 1;
         }
+        while let Some(beat) = plan.beats().get(self.transport.beat_cursor) {
+            if beat.sample_position != self.transport.sample_position {
+                break;
+            }
+            self.metronome
+                .trigger(beat.downbeat, self.configuration.sample_rate());
+            self.transport.beat_cursor += 1;
+        }
     }
 }
 
@@ -440,8 +524,8 @@ mod tests {
     use super::*;
     use crate::{
         BassAmplifierPatchV1, BassFilterPatchV1, BassLayerPlan, BassOscillatorPatchV1, BassPatchV1,
-        LoopRegion, MidiNoteEvent, PATCH_MODEL_VERSION, RENDER_PLAN_VERSION, RenderPlan,
-        RenderPlanRevision, TICKS_PER_QUARTER, TempoPoint,
+        LoopRegion, MeterPoint, MidiNoteEvent, PATCH_MODEL_VERSION, RENDER_PLAN_VERSION,
+        RenderPlan, RenderPlanRevision, TICKS_PER_QUARTER, TempoPoint,
     };
 
     #[derive(Default)]
@@ -531,9 +615,15 @@ mod tests {
             project_id: "project.kernel".to_owned(),
             project_revision: RenderPlanRevision::new(revision),
             ticks_per_quarter: TICKS_PER_QUARTER,
+            end_tick: 3_840,
             tempo_map: vec![TempoPoint {
                 tick: 0,
                 micro_bpm: 120_000_000,
+            }],
+            meter_map: vec![MeterPoint {
+                tick: 0,
+                numerator: 4,
+                denominator: 4,
             }],
             loop_region: LoopRegion {
                 enabled: false,
@@ -661,5 +751,42 @@ mod tests {
             .unwrap()
             .expect("inactive plan storage is returned");
         assert_eq!(retired.plan().project_revision.value(), 1);
+    }
+
+    #[test]
+    fn metronome_clicks_are_bounded_and_reset_on_stop_seek_and_restart() {
+        let configuration = DspConfiguration::new(48_000, 64).expect("valid config");
+        let mut plan = test_plan();
+        plan.layers.clear();
+        let prepared = PreparedPlan::prepare(plan, 48_000, 1).expect("valid plan");
+        let mut engine = EngineKernel::new(configuration, TestVoiceBank::default());
+        engine.publish_plan(prepared).expect("new plan");
+        engine.render_block(&mut [StereoFrame::default(); 1]);
+        engine.set_metronome_enabled(true);
+        engine.set_metronome_volume(1.0);
+
+        engine.play(0).expect("active plan");
+        let mut downbeat = [StereoFrame::default(); 1];
+        engine.render_block(&mut downbeat);
+        assert!(downbeat[0].left > 0.2 && downbeat[0].left <= 0.22);
+        assert!((downbeat[0].left - downbeat[0].right).abs() < f64::EPSILON);
+
+        engine.stop();
+        let mut stopped = [StereoFrame::mono(1.0); 8];
+        engine.render_block(&mut stopped);
+        assert_eq!(stopped, [StereoFrame::default(); 8]);
+
+        engine.seek(960).expect("valid seek");
+        engine.play(960).expect("active plan");
+        let mut ordinary = [StereoFrame::default(); 1];
+        engine.render_block(&mut ordinary);
+        assert!(ordinary[0].left > 0.1 && ordinary[0].left <= 0.14);
+
+        engine.stop();
+        engine.play(0).expect("active plan");
+        let mut restarted = [StereoFrame::default(); 1];
+        engine.render_block(&mut restarted);
+        assert_eq!(restarted, downbeat);
+        assert!(restarted.iter().all(|frame| frame.is_finite()));
     }
 }
