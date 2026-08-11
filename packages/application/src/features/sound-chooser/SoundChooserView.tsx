@@ -115,7 +115,7 @@ export function SoundChooserView({
 							>
 								<span className="tone-dot" />
 								<span>
-									<strong>{preset.name}</strong>
+									<strong>{preset.name}</strong>{' '}
 									<small>{t(preset.descriptionKey)}</small>
 								</span>
 								<span aria-hidden="true">↗</span>

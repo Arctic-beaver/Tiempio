@@ -82,6 +82,10 @@ Desktop renderer attribution reported 372853 initial bytes and 34917 deferred by
 - Prototype SHA-256 remains
   `C1A69E43635C7A41791A9179F5D1B0A176FEBDEB9E1F76A2BC2B109047F4990A`.
 - All 14 retained Light/Dark reference hashes remain locked by policy.
+- On 2026-08-11 the user approved one narrow production-only legibility exception: sound-preset
+  names and their descriptions now contain one semantic word space. The prototype HTML and retained
+  reference PNGs intentionally remain unchanged and still show the previously joined labels. No
+  mask, typography, control geometry or broader spacing treatment is changed by this exception.
 - Production browser smoke covered Home, first-layer creation, sound chooser, the shared settings
   dropdown and unavailable-Web audio state at 1280×720, 1024×640 and 1600×900.
 - Both Light and Dark presentation rendered with the application-owned dropdown and existing
