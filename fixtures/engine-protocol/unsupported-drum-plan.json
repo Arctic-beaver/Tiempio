@@ -17,17 +17,69 @@
 				"patch": {
 					"patchModelVersion": 2,
 					"voices": {
-						"kick": { "algorithm": "kick", "pitchHz": 52, "tone": 0.55, "decayMs": 280, "noise": 0.08, "drive": 0.12, "gain": 0.9 },
-						"clap": { "algorithm": "clap", "pitchHz": 1200, "tone": 0.52, "decayMs": 190, "noise": 0.9, "drive": 0.08, "gain": 0.72 },
-						"closedHat": { "algorithm": "closed-hat", "pitchHz": 7200, "tone": 0.65, "decayMs": 75, "noise": 1, "drive": 0.04, "gain": 0.5 },
-						"openHat": { "algorithm": "open-hat", "pitchHz": 6800, "tone": 0.62, "decayMs": 420, "noise": 1, "drive": 0.04, "gain": 0.48 },
-						"perc": { "algorithm": "perc", "pitchHz": 310, "tone": 0.7, "decayMs": 210, "noise": 0.25, "drive": 0.06, "gain": 0.62 }
+						"kick": {
+							"algorithm": "kick",
+							"pitchHz": 52,
+							"tone": 0.55,
+							"decayMs": 280,
+							"noise": 0.08,
+							"drive": 0.12,
+							"gain": 0.9
+						},
+						"clap": {
+							"algorithm": "clap",
+							"pitchHz": 1200,
+							"tone": 0.52,
+							"decayMs": 190,
+							"noise": 0.9,
+							"drive": 0.08,
+							"gain": 0.72
+						},
+						"closedHat": {
+							"algorithm": "closed-hat",
+							"pitchHz": 7200,
+							"tone": 0.65,
+							"decayMs": 75,
+							"noise": 1,
+							"drive": 0.04,
+							"gain": 0.5
+						},
+						"openHat": {
+							"algorithm": "open-hat",
+							"pitchHz": 6800,
+							"tone": 0.62,
+							"decayMs": 420,
+							"noise": 1,
+							"drive": 0.04,
+							"gain": 0.48
+						},
+						"perc": {
+							"algorithm": "perc",
+							"pitchHz": 310,
+							"tone": 0.7,
+							"decayMs": 210,
+							"noise": 0.25,
+							"drive": 0.06,
+							"gain": 0.62
+						}
 					}
 				}
 			},
 			"events": [
-				{ "id": "hit.kick", "startTick": 0, "swingTicks": 0, "instrument": "kick", "velocity": 112 },
-				{ "id": "hit.hat", "startTick": 240, "swingTicks": 28, "instrument": "closedHat", "velocity": 84 }
+				{
+					"id": "hit.kick",
+					"startTick": 0,
+					"swingTicks": 0,
+					"instrument": "kick",
+					"velocity": 112
+				},
+				{
+					"id": "hit.hat",
+					"startTick": 240,
+					"swingTicks": 28,
+					"instrument": "closedHat",
+					"velocity": 84
+				}
 			]
 		}
 	]
