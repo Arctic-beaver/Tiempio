@@ -74,12 +74,14 @@ export interface EngineCommandPayloadByType {
 	readonly 'set-metronome-volume': { readonly volume: number }
 	readonly 'note-on': {
 		readonly auditionId: string
+		readonly layerId: string
 		readonly pitch: number
 		readonly velocity: number
 	}
 	readonly 'note-off': { readonly auditionId: string }
 	readonly 'start-preview': {
 		readonly events: readonly EnginePreviewEvent[]
+		readonly layerId: string
 		readonly previewId: string
 		readonly programVersion: 1
 	}

@@ -16,6 +16,7 @@ import { usePerformanceInputSurface } from './usePerformanceInputSurface.js'
 export interface PerformanceKeyboardProperties {
 	readonly chord?: BeginnerChordSuggestion | null
 	readonly layout: PerformanceLayout
+	readonly layerId: string | null
 	readonly octave: number
 	readonly onLayoutChange?: (layout: PerformanceLayout) => void
 	readonly onOctaveChange?: (octave: number) => void
@@ -31,6 +32,7 @@ const fullRows = Object.freeze<readonly PerformanceRow[]>(['upper', 'home', 'low
 export function PerformanceKeyboard({
 	chord = null,
 	layout,
+	layerId,
 	octave,
 	onLayoutChange,
 	onOctaveChange,
@@ -56,7 +58,7 @@ export function PerformanceKeyboard({
 			}),
 		[layout, octave, palette, rotation]
 	)
-	const surface = usePerformanceInputSurface(ownerId, mapping)
+	const surface = usePerformanceInputSurface(ownerId, layerId, mapping)
 	const chordDegrees = new Set(chord?.degreeIndices ?? [])
 	const changeOctave = (next: number): void => {
 		if (onOctaveChange === undefined) return

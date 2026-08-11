@@ -15,6 +15,7 @@ export interface AuditionPreviewSink {
 	cancel(previewId: string): void
 	start(program: {
 		readonly events: readonly EnginePreviewEvent[]
+		readonly layerId: string
 		readonly previewId: string
 		readonly programVersion: 1
 	}): boolean
@@ -58,7 +59,11 @@ export class AuditionPreviewCoordinator {
 
 	public readonly getSnapshot = (): AuditionPreviewSnapshot => this.#snapshot
 
-	public start(kind: AuditionPreviewKind, events: readonly EnginePreviewEvent[]): string | null {
+	public start(
+		kind: AuditionPreviewKind,
+		layerId: string,
+		events: readonly EnginePreviewEvent[]
+	): string | null {
 		if (this.#sequence >= Number.MAX_SAFE_INTEGER) return null
 		const previous = this.#snapshot.previewId
 		if (previous !== null) this.#sink.cancel(previous)
@@ -66,6 +71,7 @@ export class AuditionPreviewCoordinator {
 		const previewId = `preview-${kind}-${String(this.#sequence)}`
 		const accepted = this.#sink.start({
 			events: ownedEvents(events),
+			layerId,
 			previewId,
 			programVersion: 1
 		})

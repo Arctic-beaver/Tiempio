@@ -13,7 +13,6 @@ import {
 	compileEngineWireRenderPlan,
 	compileProjectRenderPlan,
 	type ProjectDocument,
-	type ProjectRenderPlan,
 	type ProjectSession,
 	type ProjectSessionSnapshot
 } from '../../../project-core/src/index.js'
@@ -32,6 +31,8 @@ const applicationEngineCapabilities = Object.freeze<readonly EngineCapabilityCod
 	'transport.loop',
 	'metronome.native',
 	'synth.bass.deep',
+	'synth.catalog.v2',
+	'drums.procedural.v1',
 	'audition.notes',
 	'preview.programs',
 	'diagnostics.health',
@@ -50,13 +51,6 @@ export interface ApplicationRuntimeControllerOptions {
 
 function freezeSnapshot(snapshot: ApplicationControllerSnapshot): ApplicationControllerSnapshot {
 	return Object.freeze({ ...snapshot })
-}
-
-function playablePlan(plan: ProjectRenderPlan): ProjectRenderPlan {
-	return Object.freeze({
-		...plan,
-		layers: Object.freeze(plan.layers.filter((layer) => layer.source.type === 'synth'))
-	})
 }
 
 export class ApplicationRuntimeController implements ApplicationController {
@@ -103,10 +97,10 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.#options = options
 		this.#projectSession = initialSession
 		this.performanceInput = new PerformanceInputSession({
-			noteOn: (auditionId, pitch, velocity) => {
+			noteOn: (auditionId, layerId, pitch, velocity) => {
 				this.previewCoordinator.interrupt()
 				if (this.#snapshot.available) {
-					void this.#send('note-on', { auditionId, pitch, velocity })
+					void this.#send('note-on', { auditionId, layerId, pitch, velocity })
 				}
 			},
 			noteOff: (auditionId) => {
@@ -372,7 +366,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 				this.#setDiagnostic(applicationError('ENGINE_UNAVAILABLE', compiled.message))
 				return
 			}
-			const wire = compileEngineWireRenderPlan(playablePlan(compiled.plan))
+			const wire = compileEngineWireRenderPlan(compiled.plan)
 			if (wire.status !== 'ready') {
 				this.#setDiagnostic(applicationError('ENGINE_UNAVAILABLE', wire.message))
 				return

@@ -8,6 +8,7 @@ publish.workspace = true
 [dependencies]
 serde_json.workspace = true
 tiempio-engine-core = { path = "../core" }
+tiempio-engine-drums = { path = "../drums" }
 tiempio-engine-dsp = { path = "../dsp" }
 tiempio-engine-protocol = { path = "../protocol" }
 tiempio-engine-synth = { path = "../synth" }

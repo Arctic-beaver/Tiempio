@@ -42,6 +42,7 @@ export default function WorkflowSurface({ activeView }: WorkflowSurfacePropertie
 				},
 				octave: projections.transport.octave
 			}}
+			layerId={projections.pianoRoll.layerId}
 			model={deepSoundChooserModel}
 			onBack={soundChooser.returnToLayerChoice}
 			onChoose={soundChooser.chooseSound}

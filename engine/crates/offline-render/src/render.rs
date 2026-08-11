@@ -1,12 +1,13 @@
 use std::time::{Duration, Instant};
 
 use tiempio_engine_core::{
-    EngineControlError, EngineHealthSnapshot, EngineKernel, MAX_SAFE_INTEGER, PlanAcknowledgement,
-    PreparedPlan, PreparedPlanError, RenderPlan, TempoError,
+    CompositeVoiceBank, EngineControlError, EngineHealthSnapshot, EngineKernel, MAX_SAFE_INTEGER,
+    PlanAcknowledgement, PreparedPlan, PreparedPlanError, RenderPlan, TempoError,
 };
+use tiempio_engine_drums::DrumVoicePool;
 use tiempio_engine_dsp::{DspConfiguration, DspConfigurationError, StereoFrame};
 use tiempio_engine_protocol::{ENGINE_PROTOCOL_MAX_OFFLINE_SECONDS, EngineCommand};
-use tiempio_engine_synth::BassVoicePool;
+use tiempio_engine_synth::SynthVoicePool;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct OfflineRenderRequest {
@@ -172,7 +173,13 @@ pub fn render_to_sink_with_control<Sink: OfflineBlockSink, Control: OfflineRende
         return Err(OfflineRenderError::DurationLimitExceeded { max_frames });
     }
 
-    let mut engine = EngineKernel::new(configuration, BassVoicePool::new(configuration));
+    let mut engine = EngineKernel::new(
+        configuration,
+        CompositeVoiceBank::new(
+            SynthVoicePool::new(configuration),
+            DrumVoicePool::new(configuration),
+        ),
+    );
     engine
         .publish_plan(prepared)
         .map_err(OfflineRenderError::Engine)?;

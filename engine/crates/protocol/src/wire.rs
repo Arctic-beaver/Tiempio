@@ -63,6 +63,7 @@ pub struct MetronomeVolumePayload {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct NoteOnPayload {
     pub audition_id: String,
+    pub layer_id: String,
     pub pitch: u8,
     pub velocity: u8,
 }
@@ -86,6 +87,7 @@ pub struct PreviewEventPayload {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PreviewProgramPayload {
     pub preview_id: String,
+    pub layer_id: String,
     pub program_version: u32,
     pub events: Vec<PreviewEventPayload>,
 }
@@ -187,14 +189,17 @@ pub struct WireLoop {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireBassOscillatorPatchV1 {
+pub struct WireSynthOscillatorPatchV2 {
+    pub waveform: String,
     pub detune_cents: f64,
     pub sub_level: f64,
+    pub noise_level: f64,
+    pub pulse_width: f64,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireBassFilterPatchV1 {
+pub struct WireSynthFilterPatchV2 {
     pub cutoff_hz: f64,
     pub envelope_amount: f64,
     pub resonance: f64,
@@ -202,7 +207,7 @@ pub struct WireBassFilterPatchV1 {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireBassAmplifierPatchV1 {
+pub struct WireSynthAmplifierPatchV2 {
     pub attack_ms: f64,
     pub decay_ms: f64,
     pub release_ms: f64,
@@ -211,11 +216,19 @@ pub struct WireBassAmplifierPatchV1 {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireBassPatchV1 {
+pub struct WireSynthMovementPatchV2 {
+    pub rate_hz: f64,
+    pub depth: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WireSynthPatchV2 {
     pub patch_model_version: u32,
-    pub oscillator: WireBassOscillatorPatchV1,
-    pub filter: WireBassFilterPatchV1,
-    pub amplifier: WireBassAmplifierPatchV1,
+    pub oscillator: WireSynthOscillatorPatchV2,
+    pub filter: WireSynthFilterPatchV2,
+    pub amplifier: WireSynthAmplifierPatchV2,
+    pub movement: WireSynthMovementPatchV2,
     pub drive: f64,
     pub stereo_width: f64,
     pub output_gain: f64,
@@ -233,20 +246,67 @@ pub struct WireMidiNote {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireBassSource {
+pub struct WireSynthSource {
     #[serde(rename = "type")]
     pub source_type: String,
-    pub patch: WireBassPatchV1,
+    pub patch: WireSynthPatchV2,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireBassLayer {
+pub struct WireDrumVoicePatchV2 {
+    pub algorithm: String,
+    pub pitch_hz: f64,
+    pub tone: f64,
+    pub decay_ms: f64,
+    pub noise: f64,
+    pub drive: f64,
+    pub gain: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WireDrumVoicesV2 {
+    pub kick: WireDrumVoicePatchV2,
+    pub clap: WireDrumVoicePatchV2,
+    pub closed_hat: WireDrumVoicePatchV2,
+    pub open_hat: WireDrumVoicePatchV2,
+    pub perc: WireDrumVoicePatchV2,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WireDrumKitPatchV2 {
+    pub patch_model_version: u32,
+    pub voices: WireDrumVoicesV2,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WireDrumSource {
+    #[serde(rename = "type")]
+    pub source_type: String,
+    pub patch: WireDrumKitPatchV2,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WireDrumHit {
+    pub id: String,
+    pub start_tick: u64,
+    pub swing_ticks: u64,
+    pub instrument: String,
+    pub velocity: u8,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WireInstrumentLayer {
     pub id: String,
     pub gain: f64,
     pub pan: f64,
     pub source: Value,
-    pub events: Vec<WireMidiNote>,
+    pub events: Vec<Value>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -261,5 +321,5 @@ pub struct WireRenderPlan {
     pub meter_map: Vec<WireMeterPoint>,
     #[serde(rename = "loop")]
     pub loop_region: WireLoop,
-    pub layers: Vec<WireBassLayer>,
+    pub layers: Vec<WireInstrumentLayer>,
 }

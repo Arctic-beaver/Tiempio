@@ -77,6 +77,7 @@ const scalePanelId = 'sound-mapping-scale-panel'
 
 export interface SoundChooserViewProperties {
 	readonly initialPerformance?: LayerPerformanceMapping
+	readonly layerId: string | null
 	readonly model?: SoundChooserViewModel
 	readonly onBack: () => void
 	readonly onChoose: (performance: LayerPerformanceMapping) => void
@@ -84,6 +85,7 @@ export interface SoundChooserViewProperties {
 
 export function SoundChooserView({
 	initialPerformance = defaultPerformance,
+	layerId,
 	model = soundChooserViewModel,
 	onBack,
 	onChoose
@@ -127,7 +129,13 @@ export function SoundChooserView({
 			controller.previewCoordinator.interrupt()
 			return
 		}
-		controller.previewCoordinator.start('sound', soundDemoProgram(palette, octave, 0))
+		if (layerId !== null) {
+			controller.previewCoordinator.start(
+				'sound',
+				layerId,
+				soundDemoProgram(palette, octave, 0)
+			)
+		}
 	}
 	const releaseForMappingChange = (): void => {
 		controller.previewCoordinator.interrupt()
@@ -258,6 +266,7 @@ export function SoundChooserView({
 						>
 							<PerformanceKeyboard
 								layout="compact"
+								layerId={layerId}
 								octave={octave}
 								ownerId={performanceOwnerId}
 								palette={palette}

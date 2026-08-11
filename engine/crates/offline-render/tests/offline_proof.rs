@@ -16,7 +16,7 @@ use tiempio_engine_synth::BassVoicePool;
 
 const VALID_BASS_PLAN: &str =
     include_str!("../../../../fixtures/engine-protocol/valid-bass-plan.json");
-const UNSUPPORTED_DRUM_PLAN: &str =
+const VALID_DRUM_PLAN: &str =
     include_str!("../../../../fixtures/engine-protocol/unsupported-drum-plan.json");
 
 fn command_body(sequence: u64, command_type: &str, payload: &Value) -> Vec<u8> {
@@ -38,8 +38,8 @@ fn handshake(session: &mut ProtocolSession) {
             &json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 2,
-                "patchModelVersion": 1,
+                "renderPlanVersion": 3,
+                "patchModelVersion": 2,
                 "capabilities": ["protocol.typed-json", "render.offline"],
             }),
         ))
@@ -51,6 +51,10 @@ fn fixture_plan() -> Value {
 }
 
 fn request(end_tick: u64) -> OfflineRenderRequest {
+    request_from_plan(&fixture_plan(), end_tick, "render.stage-4")
+}
+
+fn request_from_plan(plan: &Value, end_tick: u64, render_id: &str) -> OfflineRenderRequest {
     let mut session = ProtocolSession::new();
     handshake(&mut session);
     let envelope = session
@@ -58,8 +62,8 @@ fn request(end_tick: u64) -> OfflineRenderRequest {
             1,
             "start-offline-render",
             &json!({
-                "renderId": "render.stage-4",
-                "plan": fixture_plan(),
+                "renderId": render_id,
+                "plan": plan,
                 "sampleRate": 48_000,
                 "blockFrames": 128,
                 "endTick": end_tick,
@@ -67,6 +71,20 @@ fn request(end_tick: u64) -> OfflineRenderRequest {
         ))
         .expect("accepted offline command");
     OfflineRenderRequest::from_command(envelope.command, 1).expect("offline request")
+}
+
+#[test]
+fn procedural_drum_fixture_renders_finite_non_silent_audio() {
+    let plan: Value = serde_json::from_str(VALID_DRUM_PLAN).expect("drum fixture JSON");
+    let mut sink = RenderMetricsSink::new(48_000).expect("metrics configuration");
+    let summary = render_to_sink(request_from_plan(&plan, 960, "render.drums"), &mut sink)
+        .expect("drum render");
+    let metrics = sink.finish();
+    assert_eq!(summary.project_revision, 1);
+    assert_eq!(metrics.non_finite_sample_count, 0);
+    assert_eq!(metrics.clipped_sample_count, 0);
+    assert!(metrics.non_silent_frames > 1_000);
+    assert!(metrics.peak > 0.01 && metrics.peak <= 1.0);
 }
 
 fn assert_close(actual: f64, expected: f64, tolerance: f64) {
@@ -94,29 +112,29 @@ fn fixed_wire_phrase_is_acknowledged_finite_non_silent_and_deterministic() {
     assert_eq!(first_summary.health.active_voices, 0);
     assert_eq!(first.non_finite_sample_count, 0);
     assert_eq!(first.clipped_sample_count, 0);
-    assert_eq!(first.pcm16_fnv1a64, 0x8e3d_8e2e_6e48_671a);
+    assert_eq!(first.pcm16_fnv1a64, 0x0b5a_0b26_16a1_da84);
     assert_eq!(first.non_silent_frames, 88_226);
     assert_eq!(first.leading_silent_frames, 1);
     assert_eq!(first.trailing_silent_frames, 9_220);
     assert_eq!(first.first_non_silent_frame, Some(1));
     assert_eq!(first.last_non_silent_frame, Some(97_446));
-    assert_close(first.peak, 0.365_004_325_550_267_96, 1.0e-6);
-    assert_close(first.rms, 0.127_433_346_049_292_52, 1.0e-6);
-    assert_close(first.dc_offset_left, 0.000_450_464_470_993_145_34, 1.0e-7);
-    assert_close(first.dc_offset_right, 0.000_453_555_810_269_467_6, 1.0e-7);
+    assert_close(first.peak, 0.362_838_537_936_272_8, 1.0e-6);
+    assert_close(first.rms, 0.126_360_742_373_672_37, 1.0e-6);
+    assert_close(first.dc_offset_left, 0.000_434_008_376_289_544_9, 1.0e-7);
+    assert_close(first.dc_offset_right, 0.000_437_110_051_478_169_27, 1.0e-7);
     assert_close(
         first.spectral_band_energy.low,
-        0.014_300_651_717_973_237,
+        0.014_051_584_358_374_702,
         1.0e-6,
     );
     assert_close(
         first.spectral_band_energy.mid,
-        0.001_523_967_743_390_809_8,
+        0.001_504_939_029_665_882_2,
         1.0e-6,
     );
     assert_close(
         first.spectral_band_energy.high,
-        0.000_050_375_125_186_989,
+        0.000_050_582_300_182_336_19,
         1.0e-7,
     );
 }
@@ -270,7 +288,8 @@ fn malformed_protocol_corpus_fails_closed_with_stable_diagnostics() {
             .diagnostic,
         ProtocolDiagnostic::FrameTooLarge
     );
-    let drum_plan: Value = serde_json::from_str(UNSUPPORTED_DRUM_PLAN).expect("drum fixture JSON");
+    let mut drum_plan: Value = serde_json::from_str(VALID_DRUM_PLAN).expect("drum fixture JSON");
+    drum_plan["layers"][0]["source"]["type"] = json!("future-source");
     assert_eq!(
         decode_command_body(&command_body(
             1,

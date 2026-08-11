@@ -30,6 +30,8 @@ const capabilities = Object.freeze<readonly EngineCapabilityCode[]>([
 	'transport.loop',
 	'metronome.native',
 	'synth.bass.deep',
+	'synth.catalog.v2',
+	'drums.procedural.v1',
 	'audition.notes',
 	'preview.programs',
 	'diagnostics.health',
@@ -123,7 +125,7 @@ function flush(): Promise<void> {
 }
 
 describe('ApplicationRuntimeController', () => {
-	it('publishes only supported layers, follows newest revisions and routes transport', async () => {
+	it('publishes synth and drum layers, follows newest revisions and routes transport', async () => {
 		const browser = installBrowserSurfaces()
 		const commands: AnyEngineCommandEnvelope[] = []
 		const recoveries: ProjectSnapshotEnvelope[] = []
@@ -245,8 +247,13 @@ describe('ApplicationRuntimeController', () => {
 			assert.ok(initialPlan !== undefined && initialPlan.type === 'load-render-plan')
 			assert.ok(initialPlan.payload.plan.layers.length > 0)
 			assert.ok(
-				initialPlan.payload.plan.layers.every(
-					(layer) => layer.source.type === 'subtractive-bass'
+				initialPlan.payload.plan.layers.every((layer) =>
+					['subtractive-synth', 'procedural-drums'].includes(layer.source.type)
+				)
+			)
+			assert.ok(
+				initialPlan.payload.plan.layers.some(
+					(layer) => layer.source.type === 'procedural-drums'
 				)
 			)
 			assert.deepEqual(
@@ -254,7 +261,7 @@ describe('ApplicationRuntimeController', () => {
 				[0]
 			)
 			const beforePreview = session.getSnapshot()
-			const previewId = controller.previewCoordinator.start('sound', [
+			const previewId = controller.previewCoordinator.start('sound', 'layer.bass', [
 				{ durationMs: 160, offsetMs: 0, pitches: [57], velocity: 100 },
 				{ durationMs: 160, offsetMs: 160, pitches: [60], velocity: 100 }
 			])
@@ -355,6 +362,7 @@ describe('ApplicationRuntimeController', () => {
 
 			controller.performanceInput.activate(
 				'sound-chooser',
+				'layer.bass',
 				performanceMapping(
 					{ tonic: 9, mode: 'minor' },
 					{ layout: 'compact', rotation: 0, tonicMidi: 45 }

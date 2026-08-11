@@ -3,13 +3,18 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::time::Instant;
 
 use rtrb::{Consumer, PopError, Producer, PushError};
-use tiempio_engine_core::{BassPatchV1, EngineKernel, PreparedPlan, TransportState};
+use tiempio_engine_core::{
+    CompositeVoiceBank, EngineKernel, PreparedPlan, SynthPatchV2, TransportState,
+};
+use tiempio_engine_drums::DrumVoicePool;
 use tiempio_engine_dsp::{DspConfiguration, StereoFrame};
 use tiempio_engine_protocol::{
     ENGINE_PROTOCOL_MAX_BLOCK_FRAMES, ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES,
     ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE, PreviewProgramPayload,
 };
-use tiempio_engine_synth::BassVoicePool;
+use tiempio_engine_synth::SynthVoicePool;
+
+pub type NativeVoiceBank = CompositeVoiceBank<SynthVoicePool, DrumVoicePool>;
 
 pub const CONTROL_QUEUE_CAPACITY: usize = 128;
 pub const EVENT_QUEUE_CAPACITY: usize = 256;
@@ -61,14 +66,14 @@ pub struct PreparedPreview {
     base_identifier: u64,
     duration_frames: u64,
     actions: Box<[PreviewAction]>,
-    patch: BassPatchV1,
+    patch: SynthPatchV2,
 }
 
 impl PreparedPreview {
     pub fn prepare(
         program: PreviewProgramPayload,
         sample_rate: u32,
-        patch: BassPatchV1,
+        patch: SynthPatchV2,
     ) -> Option<Self> {
         let id = PreviewId::new(&program.preview_id)?;
         let base_identifier = stable_preview_hash(&program.preview_id);
@@ -181,7 +186,7 @@ pub enum RealtimeCommand {
         identifier: u64,
         pitch: u8,
         velocity: u8,
-        patch: BassPatchV1,
+        patch: SynthPatchV2,
     },
     NoteOff(u64),
     StartPreview(PreparedPreview),
@@ -259,7 +264,7 @@ impl StreamSignals {
 }
 
 pub struct RealtimeEngine {
-    engine: EngineKernel<BassVoicePool>,
+    engine: EngineKernel<NativeVoiceBank>,
     sample_rate: u32,
     command_rx: Consumer<RealtimeCommand>,
     retired_tx: Producer<RetiredRealtimeAllocation>,
@@ -276,7 +281,7 @@ pub struct RealtimeEngine {
 impl RealtimeEngine {
     #[must_use]
     pub fn new(
-        engine: EngineKernel<BassVoicePool>,
+        engine: EngineKernel<NativeVoiceBank>,
         sample_rate: u32,
         command_rx: Consumer<RealtimeCommand>,
         retired_tx: Producer<RetiredRealtimeAllocation>,
@@ -816,39 +821,53 @@ fn wire_tick(tick: u64) -> f64 {
 }
 
 #[must_use]
-pub fn create_engine(sample_rate: u32) -> EngineKernel<BassVoicePool> {
+pub fn create_engine(sample_rate: u32) -> EngineKernel<NativeVoiceBank> {
     let configuration = DspConfiguration::new(sample_rate, ENGINE_PROTOCOL_MAX_BLOCK_FRAMES)
         .expect("protocol sample rate and maximum block size are valid");
-    EngineKernel::new(configuration, BassVoicePool::new(configuration))
+    EngineKernel::new(
+        configuration,
+        CompositeVoiceBank::new(
+            SynthVoicePool::new(configuration),
+            DrumVoicePool::new(configuration),
+        ),
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use rtrb::RingBuffer;
     use tiempio_engine_core::{
-        BassAmplifierPatchV1, BassFilterPatchV1, BassOscillatorPatchV1, PATCH_MODEL_VERSION,
+        PATCH_MODEL_VERSION, SynthAmplifierPatchV2, SynthFilterPatchV2, SynthMovementPatchV2,
+        SynthOscillatorPatchV2, SynthWaveform,
     };
     use tiempio_engine_protocol::PreviewEventPayload;
 
     use super::*;
 
-    fn preview_patch() -> BassPatchV1 {
-        BassPatchV1 {
+    fn preview_patch() -> SynthPatchV2 {
+        SynthPatchV2 {
             patch_model_version: PATCH_MODEL_VERSION,
-            oscillator: BassOscillatorPatchV1 {
+            oscillator: SynthOscillatorPatchV2 {
+                waveform: SynthWaveform::Saw,
                 detune_cents: 0.0,
                 sub_level: 0.5,
+                noise_level: 0.0,
+                pulse_width: 0.5,
             },
-            filter: BassFilterPatchV1 {
+            filter: SynthFilterPatchV2 {
                 cutoff_hz: 500.0,
                 envelope_amount: 0.4,
                 resonance: 0.2,
             },
-            amplifier: BassAmplifierPatchV1 {
+            amplifier: SynthAmplifierPatchV2 {
                 attack_ms: 0.0,
                 decay_ms: 0.0,
                 release_ms: 1.0,
                 sustain: 1.0,
+            },
+            movement: SynthMovementPatchV2 {
+                rate_hz: 0.0,
+                depth: 0.0,
             },
             drive: 0.0,
             stereo_width: 0.0,
@@ -859,6 +878,7 @@ mod tests {
     fn preview_program(preview_id: &str) -> PreviewProgramPayload {
         PreviewProgramPayload {
             preview_id: preview_id.to_owned(),
+            layer_id: "layer.bass".to_owned(),
             program_version: 1,
             events: vec![PreviewEventPayload {
                 offset_ms: 1,

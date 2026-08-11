@@ -1,29 +1,37 @@
 use allocation_counter::measure;
 use tiempio_engine_core::{
-    BassAmplifierPatchV1, BassFilterPatchV1, BassLayerPlan, BassOscillatorPatchV1, BassPatchV1,
-    EngineKernel, LoopRegion, MeterPoint, MidiNoteEvent, PATCH_MODEL_VERSION, PreparedPlan,
-    RENDER_PLAN_VERSION, RenderPlan, RenderPlanRevision, TICKS_PER_QUARTER, TempoPoint,
+    EngineKernel, InstrumentLayerPlan, LayerSource, LoopRegion, MeterPoint, MidiNoteEvent,
+    PATCH_MODEL_VERSION, PreparedPlan, RENDER_PLAN_VERSION, RenderPlan, RenderPlanRevision,
+    SynthAmplifierPatchV2, SynthFilterPatchV2, SynthMovementPatchV2, SynthOscillatorPatchV2,
+    SynthPatchV2, SynthWaveform, TICKS_PER_QUARTER, TempoPoint,
 };
 use tiempio_engine_dsp::{DspConfiguration, StereoFrame};
 use tiempio_engine_synth::BassVoicePool;
 
-fn patch() -> BassPatchV1 {
-    BassPatchV1 {
+fn patch() -> SynthPatchV2 {
+    SynthPatchV2 {
         patch_model_version: PATCH_MODEL_VERSION,
-        oscillator: BassOscillatorPatchV1 {
+        oscillator: SynthOscillatorPatchV2 {
+            waveform: SynthWaveform::Saw,
             detune_cents: -3.0,
             sub_level: 0.75,
+            noise_level: 0.02,
+            pulse_width: 0.5,
         },
-        filter: BassFilterPatchV1 {
+        filter: SynthFilterPatchV2 {
             cutoff_hz: 340.0,
             envelope_amount: 0.42,
             resonance: 0.34,
         },
-        amplifier: BassAmplifierPatchV1 {
+        amplifier: SynthAmplifierPatchV2 {
             attack_ms: 2.0,
             decay_ms: 30.0,
             release_ms: 40.0,
             sustain: 0.7,
+        },
+        movement: SynthMovementPatchV2 {
+            rate_hz: 0.2,
+            depth: 0.1,
         },
         drive: 0.08,
         stereo_width: 0.03,
@@ -52,18 +60,20 @@ fn plan(revision: u64) -> RenderPlan {
             start_tick: 0,
             end_tick: 3_840,
         },
-        layers: vec![BassLayerPlan {
+        layers: vec![InstrumentLayerPlan {
             id: "layer.bass".to_owned(),
             gain: 1.0,
             pan: 0.0,
-            patch: patch(),
-            events: vec![MidiNoteEvent {
-                id: "note.one".to_owned(),
-                start_tick: 0,
-                duration_ticks: 1_920,
-                pitch: 36,
-                velocity: 100,
-            }],
+            source: LayerSource::Synth {
+                patch: patch(),
+                events: vec![MidiNoteEvent {
+                    id: "note.one".to_owned(),
+                    start_tick: 0,
+                    duration_ticks: 1_920,
+                    pitch: 36,
+                    velocity: 100,
+                }],
+            },
         }],
     }
 }

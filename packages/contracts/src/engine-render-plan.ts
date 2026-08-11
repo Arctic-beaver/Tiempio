@@ -3,9 +3,12 @@ import {
 	type EngineDiagnosticCode
 } from './generated/engine-protocol.generated.js'
 
-export const engineRenderPlanVersion = 2 as const
-export const enginePatchModelVersion = 1 as const
+export const engineRenderPlanVersion = 3 as const
+export const enginePatchModelVersion = 2 as const
 export const engineTicksPerQuarter = 960 as const
+
+export type EngineWireSynthWaveform = 'saw' | 'square' | 'triangle' | 'sine'
+export type EngineWireDrumInstrument = 'kick' | 'clap' | 'closedHat' | 'openHat' | 'perc'
 
 export interface EngineWireTempoPoint {
 	readonly microBpm: number
@@ -24,7 +27,7 @@ export interface EngineWireLoop {
 	readonly startTick: number
 }
 
-export interface EngineWireBassPatchV1 {
+export interface EngineWireSynthPatchV2 {
 	readonly amplifier: {
 		readonly attackMs: number
 		readonly decayMs: number
@@ -37,13 +40,35 @@ export interface EngineWireBassPatchV1 {
 		readonly envelopeAmount: number
 		readonly resonance: number
 	}
+	readonly movement: {
+		readonly depth: number
+		readonly rateHz: number
+	}
 	readonly oscillator: {
 		readonly detuneCents: number
+		readonly noiseLevel: number
+		readonly pulseWidth: number
 		readonly subLevel: number
+		readonly waveform: EngineWireSynthWaveform
 	}
 	readonly outputGain: number
 	readonly patchModelVersion: typeof enginePatchModelVersion
 	readonly stereoWidth: number
+}
+
+export interface EngineWireDrumVoicePatchV2 {
+	readonly algorithm: 'kick' | 'clap' | 'closed-hat' | 'open-hat' | 'perc'
+	readonly decayMs: number
+	readonly drive: number
+	readonly gain: number
+	readonly noise: number
+	readonly pitchHz: number
+	readonly tone: number
+}
+
+export interface EngineWireDrumKitPatchV2 {
+	readonly patchModelVersion: typeof enginePatchModelVersion
+	readonly voices: Readonly<Record<EngineWireDrumInstrument, EngineWireDrumVoicePatchV2>>
 }
 
 export interface EngineWireMidiNote {
@@ -54,20 +79,41 @@ export interface EngineWireMidiNote {
 	readonly velocity: number
 }
 
-export interface EngineWireBassLayer {
+export interface EngineWireDrumHit {
+	readonly id: string
+	readonly instrument: EngineWireDrumInstrument
+	readonly startTick: number
+	readonly swingTicks: number
+	readonly velocity: number
+}
+
+export interface EngineWireSynthLayer {
 	readonly events: readonly EngineWireMidiNote[]
 	readonly gain: number
 	readonly id: string
 	readonly pan: number
 	readonly source: {
-		readonly patch: EngineWireBassPatchV1
-		readonly type: 'subtractive-bass'
+		readonly patch: EngineWireSynthPatchV2
+		readonly type: 'subtractive-synth'
 	}
 }
 
+export interface EngineWireDrumLayer {
+	readonly events: readonly EngineWireDrumHit[]
+	readonly gain: number
+	readonly id: string
+	readonly pan: number
+	readonly source: {
+		readonly patch: EngineWireDrumKitPatchV2
+		readonly type: 'procedural-drums'
+	}
+}
+
+export type EngineWireLayer = EngineWireSynthLayer | EngineWireDrumLayer
+
 export interface EngineWireRenderPlan {
 	readonly endTick: number
-	readonly layers: readonly EngineWireBassLayer[]
+	readonly layers: readonly EngineWireLayer[]
 	readonly loop: EngineWireLoop
 	readonly meterMap: readonly EngineWireMeterPoint[]
 	readonly planVersion: typeof engineRenderPlanVersion
@@ -120,7 +166,18 @@ function stableId(value: unknown): value is string {
 	)
 }
 
-function validPatch(value: unknown): value is EngineWireBassPatchV1 {
+function validAmplifier(value: unknown): boolean {
+	return (
+		record(value) &&
+		exactKeys(value, ['attackMs', 'decayMs', 'releaseMs', 'sustain']) &&
+		finiteRange(value.attackMs, 0, 60_000) &&
+		finiteRange(value.decayMs, 0, 60_000) &&
+		finiteRange(value.releaseMs, 0, 60_000) &&
+		finiteRange(value.sustain, 0, 1)
+	)
+}
+
+function validSynthPatch(value: unknown): value is EngineWireSynthPatchV2 {
 	if (
 		!record(value) ||
 		!exactKeys(value, [
@@ -128,26 +185,35 @@ function validPatch(value: unknown): value is EngineWireBassPatchV1 {
 			'oscillator',
 			'filter',
 			'amplifier',
+			'movement',
 			'drive',
 			'stereoWidth',
 			'outputGain'
 		]) ||
 		value.patchModelVersion !== enginePatchModelVersion ||
 		!record(value.oscillator) ||
-		!exactKeys(value.oscillator, ['detuneCents', 'subLevel']) ||
+		!exactKeys(value.oscillator, [
+			'waveform',
+			'detuneCents',
+			'subLevel',
+			'noiseLevel',
+			'pulseWidth'
+		]) ||
+		!['saw', 'square', 'triangle', 'sine'].includes(String(value.oscillator.waveform)) ||
 		!finiteRange(value.oscillator.detuneCents, -100, 100) ||
 		!finiteRange(value.oscillator.subLevel, 0, 1) ||
+		!finiteRange(value.oscillator.noiseLevel, 0, 1) ||
+		!finiteRange(value.oscillator.pulseWidth, 0.05, 0.95) ||
 		!record(value.filter) ||
 		!exactKeys(value.filter, ['cutoffHz', 'envelopeAmount', 'resonance']) ||
 		!finiteRange(value.filter.cutoffHz, 20, 24_000) ||
-		!finiteRange(value.filter.envelopeAmount, 0, 1) ||
+		!finiteRange(value.filter.envelopeAmount, -1, 1) ||
 		!finiteRange(value.filter.resonance, 0, 1) ||
-		!record(value.amplifier) ||
-		!exactKeys(value.amplifier, ['attackMs', 'decayMs', 'releaseMs', 'sustain']) ||
-		!finiteRange(value.amplifier.attackMs, 0, 60_000) ||
-		!finiteRange(value.amplifier.decayMs, 0, 60_000) ||
-		!finiteRange(value.amplifier.releaseMs, 0, 60_000) ||
-		!finiteRange(value.amplifier.sustain, 0, 1) ||
+		!validAmplifier(value.amplifier) ||
+		!record(value.movement) ||
+		!exactKeys(value.movement, ['rateHz', 'depth']) ||
+		!finiteRange(value.movement.rateHz, 0, 20) ||
+		!finiteRange(value.movement.depth, 0, 1) ||
 		!finiteRange(value.drive, 0, 1) ||
 		!finiteRange(value.stereoWidth, 0, 1) ||
 		!finiteRange(value.outputGain, 0, 2)
@@ -157,7 +223,45 @@ function validPatch(value: unknown): value is EngineWireBassPatchV1 {
 	return true
 }
 
-function validEvent(value: unknown): value is EngineWireMidiNote {
+const drumInstruments = ['kick', 'clap', 'closedHat', 'openHat', 'perc'] as const
+const drumAlgorithms = ['kick', 'clap', 'closed-hat', 'open-hat', 'perc'] as const
+
+function validDrumVoice(value: unknown, instrument: EngineWireDrumInstrument): boolean {
+	const expectedAlgorithm =
+		instrument === 'closedHat'
+			? 'closed-hat'
+			: instrument === 'openHat'
+				? 'open-hat'
+				: instrument
+	return (
+		record(value) &&
+		exactKeys(value, ['algorithm', 'pitchHz', 'tone', 'decayMs', 'noise', 'drive', 'gain']) &&
+		drumAlgorithms.includes(value.algorithm as (typeof drumAlgorithms)[number]) &&
+		value.algorithm === expectedAlgorithm &&
+		finiteRange(value.pitchHz, 20, 20_000) &&
+		finiteRange(value.tone, 0, 1) &&
+		finiteRange(value.decayMs, 1, 10_000) &&
+		finiteRange(value.noise, 0, 1) &&
+		finiteRange(value.drive, 0, 1) &&
+		finiteRange(value.gain, 0, 2)
+	)
+}
+
+function validDrumPatch(value: unknown): value is EngineWireDrumKitPatchV2 {
+	if (
+		!record(value) ||
+		!exactKeys(value, ['patchModelVersion', 'voices']) ||
+		value.patchModelVersion !== enginePatchModelVersion ||
+		!record(value.voices) ||
+		!exactKeys(value.voices, drumInstruments)
+	) {
+		return false
+	}
+	const voices = value.voices
+	return drumInstruments.every((instrument) => validDrumVoice(voices[instrument], instrument))
+}
+
+function validMidiEvent(value: unknown): value is EngineWireMidiNote {
 	if (
 		!record(value) ||
 		!exactKeys(value, ['id', 'startTick', 'durationTicks', 'pitch', 'velocity'])
@@ -178,10 +282,24 @@ function validEvent(value: unknown): value is EngineWireMidiNote {
 	)
 }
 
-export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPlanResult {
-	if (
-		!record(input) ||
-		!exactKeys(input, [
+function validDrumEvent(value: unknown): value is EngineWireDrumHit {
+	return (
+		record(value) &&
+		exactKeys(value, ['id', 'startTick', 'swingTicks', 'instrument', 'velocity']) &&
+		stableId(value.id) &&
+		wireInteger(value.startTick) &&
+		wireInteger(value.swingTicks) &&
+		value.swingTicks <= engineTicksPerQuarter / 4 &&
+		drumInstruments.includes(value.instrument as EngineWireDrumInstrument) &&
+		wireInteger(value.velocity) &&
+		value.velocity >= 1 &&
+		value.velocity <= 127
+	)
+}
+
+function validHeader(input: Record<string, unknown>): boolean {
+	return (
+		exactKeys(input, [
 			'planVersion',
 			'projectId',
 			'projectRevision',
@@ -191,16 +309,17 @@ export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPl
 			'meterMap',
 			'loop',
 			'layers'
-		]) ||
-		input.planVersion !== engineRenderPlanVersion ||
-		!stableId(input.projectId) ||
-		!wireInteger(input.projectRevision) ||
-		input.ticksPerQuarter !== engineTicksPerQuarter ||
-		!wireInteger(input.endTick) ||
-		input.endTick === 0
-	) {
-		return failure('engine.invalid-plan', 'Engine render-plan header is invalid.')
-	}
+		]) &&
+		input.planVersion === engineRenderPlanVersion &&
+		stableId(input.projectId) &&
+		wireInteger(input.projectRevision) &&
+		input.ticksPerQuarter === engineTicksPerQuarter &&
+		wireInteger(input.endTick) &&
+		input.endTick > 0
+	)
+}
+
+function validateTiming(input: Record<string, unknown>): EngineWireRenderPlanResult | null {
 	if (
 		!Array.isArray(input.tempoMap) ||
 		input.tempoMap.length === 0 ||
@@ -232,6 +351,7 @@ export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPl
 		return failure('engine.limit-exceeded', 'Engine meter-map ceiling was exceeded.')
 	}
 	previousTick = -1
+	let preparedBeatCount = 0
 	for (const [index, point] of input.meterMap.entries()) {
 		if (
 			!record(point) ||
@@ -243,19 +363,16 @@ export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPl
 			![1, 2, 4, 8, 16].includes(point.denominator as number) ||
 			point.tick <= previousTick ||
 			(index === 0 && point.tick !== 0) ||
-			point.tick >= input.endTick
+			point.tick >= Number(input.endTick)
 		) {
 			return failure('engine.invalid-plan', 'Engine meter map is invalid or unordered.')
 		}
 		previousTick = point.tick
-	}
-	let preparedBeatCount = 0
-	for (const [index, point] of input.meterMap.entries()) {
 		const next = input.meterMap[index + 1]
-		const segmentEnd = record(next) && wireInteger(next.tick) ? next.tick : input.endTick
-		const denominator = record(point) ? Number(point.denominator) : 0
-		const ticksPerBeat = (engineTicksPerQuarter * 4) / denominator
-		preparedBeatCount += Math.ceil((segmentEnd - Number(point.tick)) / ticksPerBeat)
+		const segmentEnd =
+			record(next) && wireInteger(next.tick) ? next.tick : Number(input.endTick)
+		const ticksPerBeat = (engineTicksPerQuarter * 4) / Number(point.denominator)
+		preparedBeatCount += Math.ceil((segmentEnd - point.tick) / ticksPerBeat)
 		if (preparedBeatCount > engineProtocolLimits.maxPreparedBeats) {
 			return failure('engine.limit-exceeded', 'Engine prepared-beat ceiling was exceeded.')
 		}
@@ -267,10 +384,19 @@ export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPl
 		!wireInteger(input.loop.startTick) ||
 		!wireInteger(input.loop.endTick) ||
 		input.loop.startTick >= input.loop.endTick ||
-		input.loop.endTick > input.endTick
+		input.loop.endTick > Number(input.endTick)
 	) {
 		return failure('engine.invalid-plan', 'Engine loop is invalid.')
 	}
+	return null
+}
+
+export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPlanResult {
+	if (!record(input) || !validHeader(input)) {
+		return failure('engine.invalid-plan', 'Engine render-plan header is invalid.')
+	}
+	const timingFailure = validateTiming(input)
+	if (timingFailure !== null) return timingFailure
 	if (
 		!Array.isArray(input.layers) ||
 		input.layers.length > engineProtocolLimits.maxEngineLayers
@@ -288,38 +414,36 @@ export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPl
 			!finiteRange(layer.gain, 0, 2) ||
 			!finiteRange(layer.pan, -1, 1) ||
 			!record(layer.source) ||
-			!exactKeys(layer.source, ['type', 'patch'])
+			!exactKeys(layer.source, ['type', 'patch']) ||
+			!Array.isArray(layer.events)
 		) {
 			return failure('engine.invalid-plan', 'Engine layer is invalid.')
 		}
 		ids.add(layer.id)
-		if (layer.source.type !== 'subtractive-bass') {
-			return failure(
-				'engine.unsupported-source',
-				'Engine source is not available in Stage 4.'
-			)
+		const isSynth = layer.source.type === 'subtractive-synth'
+		const isDrums = layer.source.type === 'procedural-drums'
+		if (!isSynth && !isDrums) {
+			return failure('engine.unsupported-source', 'Engine source type is unsupported.')
 		}
-		if (!validPatch(layer.source.patch)) {
-			return failure('engine.invalid-plan', 'Resolved Bass patch is invalid.')
-		}
-		if (!Array.isArray(layer.events)) {
-			return failure('engine.invalid-plan', 'Engine layer events are invalid.')
+		if (isSynth ? !validSynthPatch(layer.source.patch) : !validDrumPatch(layer.source.patch)) {
+			return failure('engine.invalid-plan', 'Resolved engine patch is invalid.')
 		}
 		eventCount += layer.events.length
 		if (eventCount > engineProtocolLimits.maxMusicalEvents) {
 			return failure('engine.limit-exceeded', 'Engine musical-event ceiling was exceeded.')
 		}
-		let previous: EngineWireMidiNote | null = null
+		let previous: { readonly id: string; readonly startTick: number } | null = null
 		for (const event of layer.events) {
-			if (!validEvent(event) || ids.has(event.id)) {
-				return failure('engine.invalid-plan', 'Engine MIDI event is invalid or duplicated.')
+			const valid = isSynth ? validMidiEvent(event) : validDrumEvent(event)
+			if (!valid || ids.has(event.id)) {
+				return failure('engine.invalid-plan', 'Engine event is invalid or duplicated.')
 			}
 			if (
 				previous !== null &&
 				(previous.startTick > event.startTick ||
 					(previous.startTick === event.startTick && previous.id > event.id))
 			) {
-				return failure('engine.invalid-plan', 'Engine MIDI events are not stably ordered.')
+				return failure('engine.invalid-plan', 'Engine events are not stably ordered.')
 			}
 			ids.add(event.id)
 			previous = event

@@ -6,7 +6,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use rtrb::{Consumer, Producer, PushError, RingBuffer};
-use tiempio_engine_core::{MAX_SAFE_INTEGER, PreparedPlan, RenderPlan};
+use tiempio_engine_core::{LayerSource, MAX_SAFE_INTEGER, PreparedPlan, RenderPlan, SynthPatchV2};
 use tiempio_engine_protocol::{
     AudioConfiguration, ENGINE_PROTOCOL_MAX_FRAME_BYTES, ENGINE_PROTOCOL_VERSION, EngineCommand,
     EngineEvent, HandshakePeer, NoteOnPayload, PreviewIdentifierPayload, PreviewProgramPayload,
@@ -30,6 +30,8 @@ const HOST_CAPABILITIES: &[&str] = &[
     "transport.loop",
     "metronome.native",
     "synth.bass.deep",
+    "synth.catalog.v2",
+    "drums.procedural.v1",
     "audition.notes",
     "preview.programs",
     "diagnostics.health",
@@ -193,12 +195,11 @@ impl<Backend: OutputBackend> HostController<Backend> {
         let Some(patch) = self
             .latest_plan
             .as_ref()
-            .and_then(|plan| plan.layers.first())
-            .map(|layer| layer.patch.clone())
+            .and_then(|plan| synth_patch_for_layer(plan, &payload.layer_id))
         else {
             return self.emit_diagnostic(
                 "engine.invalid-plan",
-                "Audition requires an active Bass render plan.",
+                "Audition requires the requested active synth layer.",
             );
         };
         self.send_realtime(RealtimeCommand::NoteOn {
@@ -222,12 +223,11 @@ impl<Backend: OutputBackend> HostController<Backend> {
         let Some(patch) = self
             .latest_plan
             .as_ref()
-            .and_then(|plan| plan.layers.first())
-            .map(|layer| layer.patch.clone())
+            .and_then(|plan| synth_patch_for_layer(plan, &payload.layer_id))
         else {
             return self.emit_diagnostic(
                 "engine.invalid-plan",
-                "Preview requires an active Bass render plan.",
+                "Preview requires the requested active synth layer.",
             );
         };
         let Some(prepared) = PreparedPreview::prepare(payload, sample_rate, patch) else {
@@ -848,6 +848,16 @@ fn write_event(output: &mut impl Write, sequence: &mut u64, event: &EngineEvent)
 
 fn nonzero(value: u64) -> Option<u64> {
     (value > 0).then_some(value)
+}
+
+fn synth_patch_for_layer(plan: &RenderPlan, layer_id: &str) -> Option<SynthPatchV2> {
+    plan.layers
+        .iter()
+        .find(|layer| layer.id == layer_id)
+        .and_then(|layer| match &layer.source {
+            LayerSource::Synth { patch, .. } => Some(patch.clone()),
+            LayerSource::Drums { .. } => None,
+        })
 }
 
 fn stable_audition_identifier(value: &str) -> u64 {

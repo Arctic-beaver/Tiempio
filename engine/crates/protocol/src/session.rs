@@ -248,8 +248,8 @@ mod tests {
             &json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 2,
-                "patchModelVersion": 1,
+                "renderPlanVersion": 3,
+                "patchModelVersion": 2,
                 "capabilities": ["protocol.typed-json"]
             }),
         )
@@ -332,8 +332,8 @@ mod tests {
                 &json!({
                     "protocolVersion": ENGINE_PROTOCOL_VERSION,
                     "peer": "application",
-                    "renderPlanVersion": 2,
-                    "patchModelVersion": 1,
+                    "renderPlanVersion": 3,
+                    "patchModelVersion": 2,
                     "capabilities": [
                         "protocol.typed-json",
                         "audio.native.shared",
@@ -360,6 +360,7 @@ mod tests {
                 "start-preview",
                 &json!({
                     "previewId": "preview.sound.1",
+                    "layerId": "layer.bass",
                     "programVersion": 1,
                     "events": [
                         {"offsetMs": 0, "durationMs": 120, "pitches": [45], "velocity": 100}

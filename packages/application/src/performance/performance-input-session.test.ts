@@ -20,6 +20,7 @@ import {
 
 interface SinkEvent {
 	readonly auditionId: string
+	readonly layerId?: string
 	readonly pitch?: number
 	readonly type: 'off' | 'on'
 }
@@ -30,7 +31,8 @@ function testSession(): {
 } {
 	const events: SinkEvent[] = []
 	const sink: PerformanceVoiceSink = {
-		noteOn: (auditionId, pitch) => events.push({ type: 'on', auditionId, pitch }),
+		noteOn: (auditionId, layerId, pitch) =>
+			events.push({ type: 'on', auditionId, layerId, pitch }),
 		noteOff: (auditionId) => events.push({ type: 'off', auditionId })
 	}
 	return { events, session: new PerformanceInputSession(sink) }
@@ -44,7 +46,7 @@ const aMinor = performanceMapping(
 describe('performance input session', () => {
 	it('source-counts physical and pointer holds without an early note-off', () => {
 		const { events, session } = testSession()
-		session.activate('sound-chooser', aMinor)
+		session.activate('sound-chooser', 'layer.bass', aMinor)
 		const keyboard = performanceSourceId('keyboard', 'KeyA')
 		const pointer = performanceSourceId('pointer', 17)
 		assert.equal(session.pressCode('sound-chooser', keyboard, 'KeyA'), true)
@@ -64,17 +66,17 @@ describe('performance input session', () => {
 
 	it('releases every source before remap, deactivation and owner transfer', () => {
 		const { events, session } = testSession()
-		session.activate('palette', aMinor)
+		session.activate('palette', 'layer.bass', aMinor)
 		session.pressCode('palette', performanceSourceId('keyboard', 'KeyA'), 'KeyA')
 		const rotated = performanceMapping(
 			{ tonic: 9, mode: 'minor' },
 			{ layout: 'compact', rotation: 2, tonicMidi: 45 }
 		)
-		assert.equal(session.remap('palette', rotated), true)
+		assert.equal(session.remap('palette', 'layer.bass', rotated), true)
 		assert.deepEqual(session.getSnapshot().heldKeys, [])
 		assert.equal(events.at(-1)?.type, 'off')
 		session.pressCode('palette', performanceSourceId('keyboard', 'KeyD'), 'KeyD')
-		session.activate('play-drawer', aMinor)
+		session.activate('play-drawer', 'layer.melody', aMinor)
 		assert.equal(session.getSnapshot().ownerId, 'play-drawer')
 		assert.deepEqual(session.getSnapshot().heldKeys, [])
 		assert.equal(session.deactivate('palette'), false)
@@ -83,7 +85,7 @@ describe('performance input session', () => {
 
 	it('keeps an automatic preview source bounded and outside mapped key ownership', () => {
 		const { session } = testSession()
-		session.activate('palette', aMinor)
+		session.activate('palette', 'layer.bass', aMinor)
 		const preview = performanceSourceId('preview', 'palette-step-1')
 		assert.equal(session.pressPitch('palette', preview, 81, null, 90), true)
 		assert.equal(session.pressPitch('palette', preview, 83), false)
@@ -98,7 +100,7 @@ describe('performance input session', () => {
 describe('performance input events', () => {
 	it('uses physical codes across labels and ignores repeats, modifiers and editing fields', () => {
 		const { events, session } = testSession()
-		session.activate('surface', aMinor)
+		session.activate('surface', 'layer.bass', aMinor)
 		let prevented = 0
 		const key = (overrides: Record<string, unknown> = {}): PerformanceKeyboardEvent =>
 			({
@@ -133,7 +135,7 @@ describe('performance input events', () => {
 
 	it('captures independent touches, rejects secondary mouse and releases cancel paths', () => {
 		const { session } = testSession()
-		session.activate('surface', aMinor)
+		session.activate('surface', 'layer.bass', aMinor)
 		const captures = new Set<number>()
 		const target: PerformancePointerCaptureTarget = {
 			hasPointerCapture: (pointerId) => captures.has(pointerId),

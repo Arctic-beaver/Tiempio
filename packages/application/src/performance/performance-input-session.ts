@@ -17,13 +17,14 @@ export interface HeldPerformanceKey {
 export interface PerformanceInputSnapshot {
 	readonly heldKeys: readonly HeldPerformanceKey[]
 	readonly mapping: readonly PerformanceKeyMapping[]
+	readonly layerId: string | null
 	readonly ownerId: string | null
 	readonly revision: number
 }
 
 export interface PerformanceVoiceSink {
 	noteOff(auditionId: string): void
-	noteOn(auditionId: string, pitch: number, velocity: number): void
+	noteOn(auditionId: string, layerId: string, pitch: number, velocity: number): void
 }
 
 interface HeldSource {
@@ -82,10 +83,12 @@ export class PerformanceInputSession {
 	readonly #sink: PerformanceVoiceSink
 	#auditionSequence = 0
 	#mapping: readonly PerformanceKeyMapping[] = Object.freeze([])
+	#layerId: string | null = null
 	#ownerId: string | null = null
 	#revision = 0
 	#snapshot: PerformanceInputSnapshot = Object.freeze({
 		heldKeys: Object.freeze([]),
+		layerId: null,
 		mapping: Object.freeze([]),
 		ownerId: null,
 		revision: 0
@@ -102,21 +105,38 @@ export class PerformanceInputSession {
 
 	public readonly getSnapshot = (): PerformanceInputSnapshot => this.#snapshot
 
-	public activate(ownerId: string, mapping: readonly PerformanceKeyMapping[]): void {
+	public activate(
+		ownerId: string,
+		layerId: string,
+		mapping: readonly PerformanceKeyMapping[]
+	): void {
 		assertBoundedIdentity(ownerId, 'Performance owner ID')
+		assertBoundedIdentity(layerId, 'Performance layer ID')
 		const nextMapping = ownedMapping(mapping)
-		if (this.#ownerId === ownerId && sameMapping(this.#mapping, nextMapping)) return
+		if (
+			this.#ownerId === ownerId &&
+			this.#layerId === layerId &&
+			sameMapping(this.#mapping, nextMapping)
+		)
+			return
 		this.#releaseHeld(false)
 		this.#ownerId = ownerId
+		this.#layerId = layerId
 		this.#mapping = nextMapping
 		this.#publish()
 	}
 
-	public remap(ownerId: string, mapping: readonly PerformanceKeyMapping[]): boolean {
+	public remap(
+		ownerId: string,
+		layerId: string,
+		mapping: readonly PerformanceKeyMapping[]
+	): boolean {
 		if (this.#ownerId !== ownerId) return false
+		assertBoundedIdentity(layerId, 'Performance layer ID')
 		const nextMapping = ownedMapping(mapping)
-		if (sameMapping(this.#mapping, nextMapping)) return false
+		if (this.#layerId === layerId && sameMapping(this.#mapping, nextMapping)) return false
 		this.#releaseHeld(false)
+		this.#layerId = layerId
 		this.#mapping = nextMapping
 		this.#publish()
 		return true
@@ -126,6 +146,7 @@ export class PerformanceInputSession {
 		if (this.#ownerId !== ownerId) return false
 		this.#releaseHeld(false)
 		this.#ownerId = null
+		this.#layerId = null
 		this.#mapping = Object.freeze([])
 		this.#publish()
 		return true
@@ -151,7 +172,8 @@ export class PerformanceInputSession {
 		code: string | null = null,
 		velocity = 102
 	): boolean {
-		if (this.#ownerId !== ownerId || this.#heldSources.has(sourceId)) return false
+		if (this.#ownerId !== ownerId || this.#layerId === null || this.#heldSources.has(sourceId))
+			return false
 		if (!Number.isInteger(pitch) || pitch < 0 || pitch > 127) {
 			throw new RangeError('Performance pitch must be an integer from 0 through 127.')
 		}
@@ -161,7 +183,7 @@ export class PerformanceInputSession {
 		this.#auditionSequence += 1
 		const auditionId = `performance-${String(this.#auditionSequence)}`
 		this.#heldSources.set(sourceId, { auditionId, code, pitch })
-		this.#sink.noteOn(auditionId, pitch, velocity)
+		this.#sink.noteOn(auditionId, this.#layerId, pitch, velocity)
 		this.#publish()
 		return true
 	}
@@ -202,6 +224,7 @@ export class PerformanceInputSession {
 		}
 		this.#snapshot = Object.freeze({
 			ownerId: this.#ownerId,
+			layerId: this.#layerId,
 			mapping: this.#mapping,
 			revision: this.#revision,
 			heldKeys: Object.freeze(

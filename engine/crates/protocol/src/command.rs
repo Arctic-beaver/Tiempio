@@ -96,6 +96,7 @@ fn validate_loop(payload: &LoopPayload) -> Result<(), ProtocolError> {
 
 fn validate_note_on(payload: &NoteOnPayload) -> Result<(), ProtocolError> {
     if !valid_identifier(&payload.audition_id)
+        || !valid_identifier(&payload.layer_id)
         || payload.pitch > 127
         || payload.velocity == 0
         || payload.velocity > 127
@@ -110,6 +111,7 @@ fn validate_note_on(payload: &NoteOnPayload) -> Result<(), ProtocolError> {
 
 fn validate_preview(payload: &PreviewProgramPayload) -> Result<(), ProtocolError> {
     if !valid_identifier(&payload.preview_id)
+        || !valid_identifier(&payload.layer_id)
         || payload.program_version != 1
         || payload.events.is_empty()
         || payload.events.len() > crate::ENGINE_PROTOCOL_MAX_PREVIEW_EVENTS
@@ -495,8 +497,8 @@ mod tests {
             &serde_json::json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 2,
-                "patchModelVersion": 1,
+                "renderPlanVersion": 3,
+                "patchModelVersion": 2,
                 "capabilities": ["protocol.typed-json", "render-plan.full"]
             }),
         );
@@ -513,7 +515,7 @@ mod tests {
         );
 
         let source = serde_json::json!({
-            "planVersion": 2,
+            "planVersion": 3,
             "projectId": "project.fixture",
             "projectRevision": 1,
             "ticksPerQuarter": 960,
@@ -543,6 +545,7 @@ mod tests {
             "start-preview",
             &serde_json::json!({
                 "previewId": "preview.palette.1",
+                "layerId": "layer.bass",
                 "programVersion": 1,
                 "events": [
                     {"offsetMs": 0, "durationMs": 120, "pitches": [57], "velocity": 100},
@@ -560,6 +563,7 @@ mod tests {
             "start-preview",
             &serde_json::json!({
                 "previewId": "preview.chord.1",
+                "layerId": "layer.bass",
                 "programVersion": 1,
                 "events": [
                     {"offsetMs": 0, "durationMs": 120, "pitches": [57, 57], "velocity": 100}

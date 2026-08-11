@@ -18,10 +18,13 @@ describe('engine wire render-plan contracts', () => {
 		}
 	})
 
-	it('rejects a source that is reserved for a later engine phase', () => {
+	it('accepts the shared deterministic procedural drum fixture', () => {
 		const result = validateEngineWireRenderPlan(fixture('unsupported-drum-plan.json'))
-		assert.equal(result.ok, false)
-		if (!result.ok) assert.equal(result.diagnostic, 'engine.unsupported-source')
+		assert.equal(result.ok, true)
+		if (result.ok) {
+			assert.equal(result.value.layers[0]?.source.type, 'procedural-drums')
+			assert.equal(result.value.layers[0]?.events.length, 2)
+		}
 	})
 
 	it('rejects unordered or unbounded project meter maps', () => {

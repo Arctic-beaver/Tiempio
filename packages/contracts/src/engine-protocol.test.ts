@@ -12,14 +12,14 @@ import {
 const compatibleHandshake = {
 	protocolVersion: engineProtocolVersion,
 	peer: 'application',
-	renderPlanVersion: 2,
-	patchModelVersion: 1,
+	renderPlanVersion: 3,
+	patchModelVersion: 2,
 	capabilities: ['protocol.typed-json']
 } as const
 
 describe('engine protocol contracts', () => {
-	it('advances the live Desktop protocol contract to version 4', () => {
-		assert.equal(engineProtocolVersion, 4)
+	it('advances the live Desktop protocol contract to version 5', () => {
+		assert.equal(engineProtocolVersion, 5)
 	})
 
 	it('rejects version mismatch before session creation', () => {
@@ -189,6 +189,7 @@ describe('engine protocol contracts', () => {
 			type: 'start-preview',
 			payload: {
 				previewId: 'preview.palette.1',
+				layerId: 'layer.bass',
 				programVersion: 1,
 				events: [
 					{ offsetMs: 0, durationMs: 120, pitches: [57], velocity: 100 },
