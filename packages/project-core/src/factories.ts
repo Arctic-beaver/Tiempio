@@ -46,7 +46,7 @@ export function createProject(input: CreateProjectInput): ProjectDocument {
 			ticksPerQuarter: defaultTicksPerQuarter,
 			tempoMap: [{ tick: projectTick(0), bpm: 108 }],
 			meterMap: [{ tick: projectTick(0), numerator: 4, denominator: 4 }],
-			key: { tonic: 0, mode: 'minor' },
+			key: { tonic: 9, mode: 'minor' },
 			loop: {
 				enabled: true,
 				startTick: projectTick(0),

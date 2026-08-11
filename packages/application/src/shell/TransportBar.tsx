@@ -14,8 +14,8 @@ export interface TransportBarProperties {
 }
 
 export function TransportBar({
-	detailLabel = 'Key',
-	detailValue = 'A minor',
+	detailLabel,
+	detailValue,
 	meterDescription,
 	meterValue,
 	mode = 'project'
@@ -29,6 +29,8 @@ export function TransportBar({
 		controller.getSnapshot
 	)
 	const compact = mode !== 'project'
+	const projectDetailLabel = detailLabel ?? t('transport.songPalette')
+	const projectDetailValue = detailValue ?? projections.transport.palette.name
 	return (
 		<div aria-label={t('transport.toolbar')} className="transport" role="toolbar">
 			{compact ? null : (
@@ -65,8 +67,8 @@ export function TransportBar({
 						<b>{projections.transport.bpm}</b>
 					</div>
 					<div className="key-control">
-						<span>{detailLabel}</span>
-						<b>{detailValue}</b>
+						<span>{projectDetailLabel}</span>
+						<b>{projectDetailValue}</b>
 					</div>
 					{meterValue === undefined ? null : (
 						<div

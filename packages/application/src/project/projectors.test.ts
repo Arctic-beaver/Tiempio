@@ -91,6 +91,40 @@ describe('studio project projections', () => {
 		assert.equal(pianoRoll.ticksPerBar, 1440)
 	})
 
+	it('projects the canonical song palette without moving existing notes', () => {
+		const session = new ProjectSession(createSeedProject())
+		const before = session
+			.getSnapshot()
+			.project.layers.flatMap((layer) =>
+				layer.clips.flatMap((clip) =>
+					clip.kind === 'midi' ? clip.notes.map(({ pitch }) => pitch) : []
+				)
+			)
+		session.dispatch({
+			type: 'transport.key.set',
+			baseRevision: 0,
+			key: { tonic: 11, mode: 'major' }
+		})
+		const snapshot = session.getSnapshot()
+		const after = snapshot.project.layers.flatMap((layer) =>
+			layer.clips.flatMap((clip) =>
+				clip.kind === 'midi' ? clip.notes.map(({ pitch }) => pitch) : []
+			)
+		)
+		const projections = projectStudio(snapshot, layerId('layer.melody'))
+		assert.deepEqual(after, before)
+		assert.equal(projections.transport.palette.name, 'B major')
+		assert.deepEqual(projections.pianoRoll.palette.noteNames, [
+			'B',
+			'C#',
+			'D#',
+			'E',
+			'F#',
+			'G#',
+			'A#'
+		])
+	})
+
 	it('projects arrangement removal from the typed clip command', () => {
 		const session = new ProjectSession(createSeedProject())
 		const before = projectStudio(session.getSnapshot(), layerId('layer.bass'))

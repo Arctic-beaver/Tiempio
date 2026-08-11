@@ -135,6 +135,8 @@ export function PianoRollView({
 	const gridHeight = model.pitches.length * pianoRowHeight
 	const beatCount = Math.max(1, Math.ceil(model.totalTicks / model.ticksPerBeat))
 	const barCount = Math.max(1, Math.ceil(model.bars))
+	const homeChord = model.palette.chords.find(({ role }) => role === 'home')
+	const homeChordDegrees = new Set(homeChord?.degreeIndices ?? [])
 
 	useEffect(() => {
 		const pending = pendingFocusId.current
@@ -478,15 +480,21 @@ export function PianoRollView({
 						</div>
 						<aside className="harmony-panel">
 							<div className="harmony-head">
-								<h2>A minor</h2>
-								<span className="scale-badge">Natural</span>
+								<h2>{model.palette.name}</h2>
+								<span className="scale-badge">
+									{t(
+										model.palette.mode === 'major'
+											? 'pianoRoll.majorScale'
+											: 'pianoRoll.naturalMinorScale'
+									)}
+								</span>
 							</div>
 							<div className="theory-line">
 								<div className="theory-label">{t('pianoRoll.scaleNotes')}</div>
 								<div className="note-set">
-									{['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((note) => (
+									{model.palette.noteNames.map((note, degreeIndex) => (
 										<span
-											className={`note-pill${note === 'A' ? ' root' : ''}${['C', 'E', 'G'].includes(note) ? ' chord' : ''}`}
+											className={`note-pill${degreeIndex === 0 ? ' root' : ''}${homeChordDegrees.has(degreeIndex) ? ' chord' : ''}`}
 											key={note}
 										>
 											{note}

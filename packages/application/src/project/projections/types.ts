@@ -1,4 +1,5 @@
 import type { LocalizationKey } from '../../../../localization/src/index.js'
+import type { SongPalette } from '../../../../music-theory/src/index.js'
 import type { BassMacroId, ClipId, LayerId, SectionId } from '../../../../project-core/src/index.js'
 import type { StudioViewId } from '../../app/studio-state.js'
 import type { ArrangementViewModel } from '../../features/arrangement/view-model.js'
@@ -65,6 +66,7 @@ export interface SoundSculptProjection extends SoundSculptViewModel {
 export interface TransportProjection {
 	readonly bpm: number
 	readonly looping: boolean
+	readonly palette: SongPalette
 	readonly revision: number
 }
 
