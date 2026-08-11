@@ -8,10 +8,20 @@ import {
 import { useProjectSession } from '../../project/ProjectSessionContext.js'
 import type { EditableNoteValues } from './note-editor-geometry.js'
 
+export interface PianoNoteUpdateOptions {
+	readonly expectedRevision?: number
+	readonly historyGroup?: string
+}
+
 export function usePianoRollActions(): {
 	readonly addNote: (note: EditableNoteValues) => string | null
 	readonly deleteNote: (id: string) => void
-	readonly updateNote: (id: string, note: EditableNoteValues) => void
+	readonly endHistoryGroup: (historyGroup: string) => void
+	readonly updateNote: (
+		id: string,
+		note: EditableNoteValues,
+		options?: PianoNoteUpdateOptions
+	) => void
 } {
 	const projectSession = useProjectSession()
 	const { pianoRoll } = projectSession.projections
@@ -64,23 +74,37 @@ export function usePianoRollActions(): {
 		[pianoRoll, projectSession]
 	)
 	const updateNote = useCallback(
-		(id: string, note: EditableNoteValues): void => {
+		(id: string, note: EditableNoteValues, options: PianoNoteUpdateOptions = {}): void => {
 			const { layerId: layer, clipId: clip } = pianoRoll
 			if (layer === null || clip === null) return
 			const snapshot = projectSession.getSnapshot()
-			projectSession.dispatch({
-				type: 'note.update',
-				baseRevision: snapshot.revision,
-				layerId: layer,
-				clipId: clip,
-				noteId: noteId(id),
-				pitch: note.pitch,
-				startTick: note.startTick,
-				durationTicks: note.durationTicks,
-				velocity: note.velocity
-			})
+			if (
+				options.expectedRevision !== undefined &&
+				options.expectedRevision !== snapshot.revision
+			) {
+				return
+			}
+			projectSession.dispatch(
+				{
+					type: 'note.update',
+					baseRevision: snapshot.revision,
+					layerId: layer,
+					clipId: clip,
+					noteId: noteId(id),
+					pitch: note.pitch,
+					startTick: note.startTick,
+					durationTicks: note.durationTicks,
+					velocity: note.velocity
+				},
+				options.historyGroup === undefined ? {} : { historyGroup: options.historyGroup }
+			)
 		},
 		[pianoRoll, projectSession]
 	)
-	return { addNote, deleteNote, updateNote }
+	return {
+		addNote,
+		deleteNote,
+		endHistoryGroup: projectSession.endHistoryGroup,
+		updateNote
+	}
 }

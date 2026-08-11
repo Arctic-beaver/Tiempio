@@ -1,9 +1,11 @@
 import type { PianoNoteViewModel, PianoPitchViewModel } from './view-model.js'
 
 export const pianoRowHeight = 26 as const
-export const defaultNoteHeight = 18 as const
+export const minimumNoteHeight = 6 as const
+export const maximumNoteHeight = 22 as const
 
-export type NoteEditMode = 'move' | 'resize-end' | 'resize-start'
+export type NoteEditMode =
+	'move' | 'resize-end' | 'resize-start' | 'resize-strength-bottom' | 'resize-strength-top'
 
 export interface EditableNoteValues {
 	readonly durationTicks: number
@@ -45,7 +47,7 @@ function snap(value: number, interval: number): number {
 export function geometryForNote(
 	note: PianoNoteViewModel,
 	totalTicks: number,
-	height = defaultNoteHeight
+	height = noteHeightForVelocity(note.velocity)
 ): NoteGeometry {
 	return {
 		leftPercent: (note.startTick / totalTicks) * 100,
@@ -53,6 +55,11 @@ export function geometryForNote(
 		top: note.row * pianoRowHeight + (pianoRowHeight - height) / 2,
 		height
 	}
+}
+
+export function noteHeightForVelocity(velocity: number): number {
+	const normalized = (clamp(velocity, 1, 127) - 1) / 126
+	return Math.round(minimumNoteHeight + normalized * (maximumNoteHeight - minimumNoteHeight))
 }
 
 export function noteAtGridPoint(
@@ -86,6 +93,14 @@ export function editNoteFromPointer(
 	metrics: PianoGridMetrics
 ): EditableNoteValues {
 	const minimumDuration = metrics.gridTicks
+	if (gesture.mode === 'resize-strength-top' || gesture.mode === 'resize-strength-bottom') {
+		const direction = gesture.mode === 'resize-strength-top' ? -1 : 1
+		const velocityDelta = Math.round((clientY - gesture.originClientY) * direction * 3)
+		return {
+			...gesture.note,
+			velocity: clamp(gesture.note.velocity + velocityDelta, 1, 127)
+		}
+	}
 	const deltaTicks = snap(
 		((clientX - gesture.originClientX) / Math.max(1, metrics.width)) * metrics.totalTicks,
 		metrics.gridTicks

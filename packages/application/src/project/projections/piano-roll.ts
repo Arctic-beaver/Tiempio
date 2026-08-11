@@ -13,14 +13,21 @@ export function projectPianoRoll({
 		midiClip?.kind === 'midi' ? midiClip.notes.map(({ pitch }) => pitch) : []
 	)
 	const ticksPerQuarter = project.transport.ticksPerQuarter
+	const meter = project.transport.meterMap[0] ?? { numerator: 4, denominator: 4 }
+	const ticksPerBeat = (ticksPerQuarter * 4) / meter.denominator
+	const ticksPerBar = ticksPerBeat * meter.numerator
 	const defaultLengthTicks = ticksPerQuarter * 16
 	const totalTicks = midiClip?.lengthTicks ?? defaultLengthTicks
 	return {
 		revision,
 		layerId: tonalLayer?.id ?? null,
 		clipId: midiClip?.id ?? null,
-		bars: Math.max(1, totalTicks / (ticksPerQuarter * 4)),
+		bars: Math.max(1, totalTicks / ticksPerBar),
 		gridTicks: ticksPerQuarter / 4,
+		meterDenominator: meter.denominator,
+		meterNumerator: meter.numerator,
+		ticksPerBar,
+		ticksPerBeat,
 		ticksPerQuarter,
 		totalTicks,
 		pitches: pitches.map((pitch) => ({

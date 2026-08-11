@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { layerId, noteId, ProjectSession } from '../../../project-core/src/index.js'
+import { layerId, noteId, projectTick, ProjectSession } from '../../../project-core/src/index.js'
 import { projectStudio } from './projectors.js'
 import { createSeedProject } from './seed-project.js'
 
@@ -73,6 +73,22 @@ describe('studio project projections', () => {
 		assert.equal(note?.pitchValue, 73)
 		assert.equal(note?.pitch, 'C♯5')
 		assert.equal(note?.row, 0)
+	})
+
+	it('derives beat and bar timing from the project-wide meter', () => {
+		const seed = createSeedProject()
+		const session = new ProjectSession({
+			...seed,
+			transport: {
+				...seed.transport,
+				meterMap: [{ tick: projectTick(0), numerator: 3, denominator: 8 }]
+			}
+		})
+		const pianoRoll = projectStudio(session.getSnapshot(), layerId('layer.melody')).pianoRoll
+		assert.equal(pianoRoll.meterNumerator, 3)
+		assert.equal(pianoRoll.meterDenominator, 8)
+		assert.equal(pianoRoll.ticksPerBeat, 480)
+		assert.equal(pianoRoll.ticksPerBar, 1440)
 	})
 
 	it('projects arrangement removal from the typed clip command', () => {

@@ -44,6 +44,7 @@ export default function EditorSurface({ activeView }: EditorSurfaceProperties): 
 				onAddLayer={addLayer}
 				onAddNote={pianoRoll.addNote}
 				onDeleteNote={pianoRoll.deleteNote}
+				onEndHistoryGroup={pianoRoll.endHistoryGroup}
 				onSelectLayer={selectLayer}
 				onUpdateNote={pianoRoll.updateNote}
 			/>

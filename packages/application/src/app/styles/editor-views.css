@@ -155,7 +155,7 @@
 	background-image:
 		linear-gradient(
 			to right,
-			var(--ti-border-strong) var(--ti-hairline),
+			color-mix(in srgb, var(--ti-border), transparent 45%) var(--ti-hairline),
 			transparent var(--ti-hairline)
 		),
 		linear-gradient(
@@ -163,6 +163,23 @@
 			var(--ti-border) var(--ti-hairline),
 			transparent var(--ti-hairline)
 		);
+}
+
+.piano-beat-lines {
+	position: absolute;
+	z-index: 1;
+	inset: 0;
+	display: grid;
+	pointer-events: none;
+}
+
+.piano-beat-lines span {
+	border-left: var(--ti-hairline) solid var(--ti-border);
+}
+
+.piano-beat-lines .bar-start {
+	border-left-color: var(--ti-border-strong);
+	box-shadow: calc(var(--ti-hairline) * -1) 0 0 var(--ti-border-strong);
 }
 
 .piano-roll-grid::before {
@@ -201,14 +218,29 @@
 	z-index: 3;
 	padding: 0;
 	border: 0;
-	border-radius: 999rem;
-	background: var(--ti-accent);
-	box-shadow: 0 0.25rem 0.6875rem color-mix(in srgb, var(--ti-accent), transparent 70%);
+	background: transparent;
 	touch-action: none;
 }
 
-.piano-note:hover {
+.note-fill {
+	position: absolute;
+	top: 50%;
+	right: 0;
+	left: 0;
+	height: var(--note-visual-height);
+	border-radius: 999rem;
+	background: var(--ti-accent);
+	box-shadow: 0 0.25rem 0.6875rem color-mix(in srgb, var(--ti-accent), transparent 70%);
+	transform: translateY(-50%);
+	pointer-events: none;
+}
+
+.piano-note:hover .note-fill {
 	background: var(--ti-accent-strong);
+}
+
+.piano-note.selected {
+	z-index: 4;
 }
 
 .piano-note:focus,
@@ -241,11 +273,18 @@
 	content: '';
 }
 
+.note-point:hover::after {
+	background: white;
+	box-shadow:
+		0 0 0.35rem white,
+		0 0 0.75rem color-mix(in srgb, white, var(--ti-accent) 24%);
+}
+
 .note-point.start,
 .note-point.end {
-	top: -0.75rem;
+	top: 0;
 	width: 1.5rem;
-	height: calc(100% + 1.5rem);
+	height: 100%;
 	cursor: ew-resize;
 }
 
@@ -267,11 +306,11 @@
 }
 
 .note-point.top {
-	top: -0.75rem;
+	top: calc((100% - var(--note-visual-height)) / 2 - 0.75rem);
 }
 
 .note-point.bottom {
-	bottom: -0.75rem;
+	bottom: calc((100% - var(--note-visual-height)) / 2 - 0.75rem);
 }
 
 .piano-empty-hint {
@@ -289,6 +328,22 @@
 	text-align: center;
 	transform: translateX(-50%);
 	pointer-events: none;
+}
+
+@media (forced-colors: active) {
+	.note-fill {
+		border: var(--ti-hairline) solid HighlightText;
+		background: Highlight;
+		box-shadow: none;
+		forced-color-adjust: none;
+	}
+
+	.note-point::after {
+		border: var(--ti-hairline) solid Canvas;
+		background: Highlight;
+		box-shadow: 0 0 0 0.125rem CanvasText;
+		forced-color-adjust: none;
+	}
 }
 
 .playhead {

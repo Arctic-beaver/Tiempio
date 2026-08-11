@@ -97,7 +97,10 @@ export const englishCatalog = Object.freeze({
 	'pianoRoll.editing': 'Editing',
 	'pianoRoll.editHint':
 		'Double-click empty space to add. Double-click a note to remove. Drag its middle to move or its side points to change length.',
+	'pianoRoll.keyboardHint':
+		'With a note selected: arrows move, [ and ] change length, - and + change strength, Delete removes.',
 	'pianoRoll.emptyHint': 'Double-click anywhere to add your first note.',
+	'pianoRoll.barCount': '{{count}} bars',
 	'pianoRoll.velocity': 'Energy',
 	'pianoRoll.noteAtBeat': '{{pitch}}, beat {{beat}}',
 	'pianoRoll.hint': 'Tab moves through notes · Enter removes the selected note',
@@ -106,7 +109,9 @@ export const englishCatalog = Object.freeze({
 	'pianoRoll.scaleNotes': 'Scale notes',
 	'pianoRoll.selectedNote': 'Selected note',
 	'pianoRoll.selectedNoteNone': 'Select a note to see its pitch, position and length.',
-	'pianoRoll.selectedNoteSummary': '{{pitch}} · beat {{beat}} · {{length}} beats long',
+	'pianoRoll.selectedNoteSummary':
+		'{{pitch}} · beat {{beat}} · {{length}} beats long · strength {{velocity}}',
+	'pianoRoll.meterDescription': '{{beats}} beats in each bar',
 	'pianoRoll.selectedNoteTitle': 'C2 — stable.',
 	'pianoRoll.selectedNoteDescription':
 		'This is the third degree of the current Am chord. It supports the harmony well.',
@@ -185,6 +190,7 @@ export const englishCatalog = Object.freeze({
 	'transport.stop': 'Stop',
 	'transport.record': 'Record',
 	'transport.tempo': 'Tempo',
+	'transport.meter': 'Meter',
 	'transport.position': 'Position',
 	'transport.loop': 'Loop',
 	'transport.toolbar': 'Transport',
@@ -318,7 +324,10 @@ export const russianCatalog = Object.freeze({
 	'pianoRoll.editing': 'Редактирование',
 	'pianoRoll.editHint':
 		'Дважды нажмите на пустое место, чтобы добавить ноту. Дважды нажмите на ноту, чтобы удалить. Перетаскивайте середину или боковые точки.',
+	'pianoRoll.keyboardHint':
+		'Для выбранной ноты: стрелки двигают, [ и ] меняют длину, - и + меняют силу, Delete удаляет.',
 	'pianoRoll.emptyHint': 'Дважды нажмите в любом месте, чтобы добавить первую ноту.',
+	'pianoRoll.barCount': '{{count}} тактов',
 	'pianoRoll.velocity': 'Энергия',
 	'pianoRoll.noteAtBeat': '{{pitch}}, доля {{beat}}',
 	'pianoRoll.hint': 'Tab перемещает по нотам · Enter удаляет выбранную ноту',
@@ -327,7 +336,9 @@ export const russianCatalog = Object.freeze({
 	'pianoRoll.scaleNotes': 'Ноты гаммы',
 	'pianoRoll.selectedNote': 'Выбранная нота',
 	'pianoRoll.selectedNoteNone': 'Выберите ноту, чтобы увидеть её высоту, позицию и длину.',
-	'pianoRoll.selectedNoteSummary': '{{pitch}} · доля {{beat}} · длина {{length}} долей',
+	'pianoRoll.selectedNoteSummary':
+		'{{pitch}} · доля {{beat}} · длина {{length}} долей · сила {{velocity}}',
+	'pianoRoll.meterDescription': '{{beats}} доли в каждом такте',
 	'pianoRoll.selectedNoteTitle': 'C2 — устойчиво.',
 	'pianoRoll.selectedNoteDescription':
 		'Это третья ступень текущего аккорда Am. Она хорошо поддерживает гармонию.',
@@ -406,6 +417,7 @@ export const russianCatalog = Object.freeze({
 	'transport.stop': 'Остановить',
 	'transport.record': 'Записать',
 	'transport.tempo': 'Темп',
+	'transport.meter': 'Размер',
 	'transport.position': 'Позиция',
 	'transport.loop': 'Зациклить',
 	'transport.toolbar': 'Транспорт',
@@ -538,7 +550,10 @@ export const spanishCatalog = Object.freeze({
 	'pianoRoll.editing': 'Edición',
 	'pianoRoll.editHint':
 		'Haz doble clic en un espacio vacío para añadir. Haz doble clic en una nota para eliminarla. Arrastra el centro o los puntos laterales.',
+	'pianoRoll.keyboardHint':
+		'Con una nota seleccionada: las flechas mueven, [ y ] cambian duración, - y + cambian fuerza, Supr elimina.',
 	'pianoRoll.emptyHint': 'Haz doble clic para añadir tu primera nota.',
+	'pianoRoll.barCount': '{{count}} compases',
 	'pianoRoll.velocity': 'Energía',
 	'pianoRoll.noteAtBeat': '{{pitch}}, pulso {{beat}}',
 	'pianoRoll.hint': 'Tab recorre las notas · Enter elimina la nota seleccionada',
@@ -547,7 +562,9 @@ export const spanishCatalog = Object.freeze({
 	'pianoRoll.scaleNotes': 'Notas de la escala',
 	'pianoRoll.selectedNote': 'Nota seleccionada',
 	'pianoRoll.selectedNoteNone': 'Selecciona una nota para ver tono, posición y duración.',
-	'pianoRoll.selectedNoteSummary': '{{pitch}} · pulso {{beat}} · duración {{length}} pulsos',
+	'pianoRoll.selectedNoteSummary':
+		'{{pitch}} · pulso {{beat}} · duración {{length}} pulsos · fuerza {{velocity}}',
+	'pianoRoll.meterDescription': '{{beats}} pulsos en cada compás',
 	'pianoRoll.selectedNoteTitle': 'C2 — estable.',
 	'pianoRoll.selectedNoteDescription':
 		'Es el tercer grado del acorde Am actual. Sostiene bien la armonía.',
@@ -627,6 +644,7 @@ export const spanishCatalog = Object.freeze({
 	'transport.stop': 'Detener',
 	'transport.record': 'Grabar',
 	'transport.tempo': 'Tempo',
+	'transport.meter': 'Compás',
 	'transport.position': 'Posición',
 	'transport.loop': 'Bucle',
 	'transport.toolbar': 'Transporte',

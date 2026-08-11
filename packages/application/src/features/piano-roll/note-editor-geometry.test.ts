@@ -31,7 +31,7 @@ describe('piano-roll note geometry', () => {
 				},
 				15_360
 			),
-			{ leftPercent: 25, widthPercent: 6.25, top: 316, height: 18 }
+			{ leftPercent: 25, widthPercent: 6.25, top: 317, height: 16 }
 		)
 	})
 
@@ -64,6 +64,41 @@ describe('piano-roll note geometry', () => {
 		assert.deepEqual(
 			editNoteFromPointer({ ...gesture, mode: 'resize-end' }, 4000, 100, metrics),
 			{ startTick: 960, durationTicks: 14_400, pitch: 60, velocity: 80 }
+		)
+	})
+
+	it('maps velocity to symmetric bounded thickness and strength dragging', () => {
+		const note = {
+			startTick: 960,
+			durationTicks: 960,
+			pitch: 60,
+			velocity: 80
+		}
+		const top = editNoteFromPointer(
+			{
+				mode: 'resize-strength-top',
+				note,
+				originClientX: 100,
+				originClientY: 100
+			},
+			100,
+			80,
+			metrics
+		)
+		assert.equal(top.velocity, 127)
+		assert.deepEqual(
+			editNoteFromPointer(
+				{
+					mode: 'resize-strength-bottom',
+					note,
+					originClientX: 100,
+					originClientY: 100
+				},
+				100,
+				70,
+				metrics
+			),
+			{ ...note, velocity: 1 }
 		)
 	})
 })

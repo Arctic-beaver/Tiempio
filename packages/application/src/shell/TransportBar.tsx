@@ -8,12 +8,16 @@ import { useApplicationRuntimeController } from '../runtime/ApplicationRuntimeCo
 export interface TransportBarProperties {
 	readonly detailLabel?: string
 	readonly detailValue?: string
+	readonly meterDescription?: string
+	readonly meterValue?: string
 	readonly mode?: 'audition' | 'preview' | 'project'
 }
 
 export function TransportBar({
 	detailLabel = 'Key',
 	detailValue = 'A minor',
+	meterDescription,
+	meterValue,
 	mode = 'project'
 }: TransportBarProperties): JSX.Element {
 	const { t } = useLocalization()
@@ -64,6 +68,16 @@ export function TransportBar({
 						<span>{detailLabel}</span>
 						<b>{detailValue}</b>
 					</div>
+					{meterValue === undefined ? null : (
+						<div
+							aria-label={`${t('transport.meter')}: ${meterValue}. ${meterDescription ?? ''}`}
+							className="meter-control"
+							title={meterDescription}
+						>
+							<span>{t('transport.meter')}</span>
+							<b>{meterValue}</b>
+						</div>
+					)}
 				</>
 			) : (
 				<div className="key-control transport__mode">

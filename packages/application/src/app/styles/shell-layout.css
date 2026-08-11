@@ -344,7 +344,8 @@ body {
 }
 
 .tempo,
-.key-control {
+.key-control,
+.meter-control {
 	display: flex;
 	height: 2.125rem;
 	align-items: center;
@@ -356,7 +357,8 @@ body {
 }
 
 .tempo b,
-.key-control b {
+.key-control b,
+.meter-control b {
 	color: var(--ti-text);
 	font-weight: 650;
 }

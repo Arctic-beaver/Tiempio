@@ -5,6 +5,7 @@ import {
 	useState,
 	type CSSProperties,
 	type JSX,
+	type KeyboardEvent as ReactKeyboardEvent,
 	type PointerEvent as ReactPointerEvent
 } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
@@ -25,15 +26,25 @@ import {
 	type NoteEditGesture,
 	type NoteEditMode
 } from './note-editor-geometry.js'
+import { editNoteFromKeyboard } from './note-editor-keyboard.js'
+import type { PianoNoteUpdateOptions } from './usePianoRollActions.js'
 import type { PianoNoteViewModel, PianoRollViewModel } from './view-model.js'
 
 interface ActiveNoteGesture extends NoteEditGesture {
 	readonly noteId: string
 	readonly pointerId: number
+	readonly revision: number
 }
 
 interface NotePreview {
 	readonly id: string
+	readonly values: EditableNoteValues
+}
+
+interface ActiveKeyboardGesture {
+	readonly code: string
+	readonly group: string
+	readonly noteId: string
 	readonly values: EditableNoteValues
 }
 
@@ -63,24 +74,33 @@ function noteWithPreview(
 	}
 }
 
-function noteStyle(note: PianoNoteViewModel, totalTicks: number): CSSProperties {
+function noteStyle(
+	note: PianoNoteViewModel,
+	totalTicks: number
+): CSSProperties & { readonly '--note-visual-height': string } {
 	const geometry = geometryForNote(note, totalTicks)
 	return {
 		left: `${String(geometry.leftPercent)}%`,
-		top: `${String(geometry.top)}px`,
+		top: `${String(note.row * pianoRowHeight + 1)}px`,
 		width: `${String(geometry.widthPercent)}%`,
-		height: `${String(geometry.height)}px`
+		height: '24px',
+		'--note-visual-height': `${String(geometry.height)}px`
 	}
 }
 
 export interface PianoRollViewProperties {
 	readonly layers: LayersProjection
-	readonly model: PianoRollViewModel
+	readonly model: PianoRollViewModel & { readonly revision: number }
 	readonly onAddLayer: () => void
 	readonly onAddNote: (note: EditableNoteValues) => string | null
 	readonly onDeleteNote: (noteId: string) => void
+	readonly onEndHistoryGroup: (historyGroup: string) => void
 	readonly onSelectLayer: (item: ProjectedLayerItem) => void
-	readonly onUpdateNote: (noteId: string, note: EditableNoteValues) => void
+	readonly onUpdateNote: (
+		noteId: string,
+		note: EditableNoteValues,
+		options?: PianoNoteUpdateOptions
+	) => void
 }
 
 export function PianoRollView({
@@ -89,6 +109,7 @@ export function PianoRollView({
 	onAddLayer,
 	onAddNote,
 	onDeleteNote,
+	onEndHistoryGroup,
 	onSelectLayer,
 	onUpdateNote
 }: PianoRollViewProperties): JSX.Element {
@@ -100,11 +121,16 @@ export function PianoRollView({
 	const gridRef = useRef<HTMLDivElement | null>(null)
 	const noteRefs = useRef(new Map<string, HTMLButtonElement>())
 	const pendingFocusId = useRef<string | null>(null)
+	const keyboardGestureRef = useRef<ActiveKeyboardGesture | null>(null)
 	const selectedLayer = layers.items.find((item) => item.id === layers.activeLayerId)
 	const subtitle = `${editorLayerName(selectedLayer)} · ${editorLayerSound(selectedLayer)}`
-	const selectedNote = model.notes.find((note) => note.id === selectedNoteId) ?? null
+	const selectedNoteSource = model.notes.find((note) => note.id === selectedNoteId) ?? null
+	const selectedNote =
+		selectedNoteSource === null ? null : noteWithPreview(selectedNoteSource, preview, model)
 	const pitchValues = pitchModelsToValues(model.pitches)
 	const gridHeight = model.pitches.length * pianoRowHeight
+	const beatCount = Math.max(1, Math.ceil(model.totalTicks / model.ticksPerBeat))
+	const barCount = Math.max(1, Math.ceil(model.bars))
 
 	useEffect(() => {
 		const pending = pendingFocusId.current
@@ -141,6 +167,11 @@ export function PianoRollView({
 		mode: NoteEditMode
 	): void => {
 		if (event.button !== 0) return
+		const keyboardGesture = keyboardGestureRef.current
+		if (keyboardGesture !== null) {
+			onEndHistoryGroup(keyboardGesture.group)
+			keyboardGestureRef.current = null
+		}
 		event.preventDefault()
 		event.stopPropagation()
 		const button = event.currentTarget.closest('button')
@@ -150,6 +181,7 @@ export function PianoRollView({
 		const active: ActiveNoteGesture = {
 			noteId: note.id,
 			pointerId: event.pointerId,
+			revision: model.revision,
 			mode,
 			note: editableValues(note),
 			originClientX: event.clientX,
@@ -159,6 +191,53 @@ export function PianoRollView({
 		const nextPreview = { id: note.id, values: active.note }
 		previewRef.current = nextPreview
 		setPreview(nextPreview)
+	}
+
+	const endKeyboardGesture = (code?: string): void => {
+		const active = keyboardGestureRef.current
+		if (active === null || (code !== undefined && active.code !== code)) return
+		onEndHistoryGroup(active.group)
+		keyboardGestureRef.current = null
+	}
+
+	const handleNoteKeyDown = (
+		event: ReactKeyboardEvent<HTMLButtonElement>,
+		note: PianoNoteViewModel
+	): void => {
+		const group = [
+			'note-key',
+			note.id,
+			event.code,
+			event.altKey ? 'alt' : '-',
+			event.ctrlKey ? 'ctrl' : '-',
+			event.metaKey ? 'meta' : '-',
+			event.shiftKey ? 'shift' : '-'
+		].join(':')
+		const active = keyboardGestureRef.current
+		if (active !== null && active.group !== group) endKeyboardGesture()
+		const sourceValues = active?.group === group ? active.values : editableValues(note)
+		const edit = editNoteFromKeyboard(sourceValues, event, {
+			gridTicks: model.gridTicks,
+			ticksPerBar: model.ticksPerBar,
+			ticksPerBeat: model.ticksPerBeat,
+			totalTicks: model.totalTicks
+		})
+		if (edit === null) return
+		event.preventDefault()
+		event.stopPropagation()
+		if (edit.kind === 'delete') {
+			endKeyboardGesture()
+			setSelectedNoteId(null)
+			onDeleteNote(note.id)
+			return
+		}
+		keyboardGestureRef.current = {
+			code: event.code,
+			group,
+			noteId: note.id,
+			values: edit.values
+		}
+		onUpdateNote(note.id, edit.values, { historyGroup: group })
 	}
 
 	const moveGesture = (event: ReactPointerEvent<HTMLButtonElement>): void => {
@@ -184,7 +263,9 @@ export function PianoRollView({
 		previewRef.current = null
 		setPreview(null)
 		if (commit && completedPreview?.id === gesture.noteId) {
-			onUpdateNote(gesture.noteId, completedPreview.values)
+			onUpdateNote(gesture.noteId, completedPreview.values, {
+				expectedRevision: gesture.revision
+			})
 		}
 	}
 
@@ -212,7 +293,14 @@ export function PianoRollView({
 						</button>
 					</>
 				}
-				center={<TransportBar />}
+				center={
+					<TransportBar
+						meterDescription={t('pianoRoll.meterDescription', {
+							beats: model.meterNumerator
+						})}
+						meterValue={`${String(model.meterNumerator)}/${String(model.meterDenominator)}`}
+					/>
+				}
 				subtitle={subtitle}
 				title={layers.projectTitle}
 			/>
@@ -246,10 +334,10 @@ export function PianoRollView({
 									aria-hidden="true"
 									className="roll-ruler"
 									style={{
-										gridTemplateColumns: `repeat(${String(Math.ceil(model.bars))}, minmax(3.5rem, 1fr))`
+										gridTemplateColumns: `repeat(${String(barCount)}, minmax(3.5rem, 1fr))`
 									}}
 								>
-									{Array.from({ length: Math.ceil(model.bars) }, (_, index) => (
+									{Array.from({ length: barCount }, (_, index) => (
 										<span key={index}>{index + 1}</span>
 									))}
 								</div>
@@ -275,9 +363,27 @@ export function PianoRollView({
 									ref={gridRef}
 									style={{
 										height: `${String(gridHeight)}px`,
-										backgroundSize: `${String(100 / model.bars)}% 100%, 100% ${String(pianoRowHeight)}px`
+										backgroundSize: `${String((model.gridTicks / model.totalTicks) * 100)}% 100%, 100% ${String(pianoRowHeight)}px`
 									}}
 								>
+									<div
+										aria-hidden="true"
+										className="piano-beat-lines"
+										style={{
+											gridTemplateColumns: `repeat(${String(beatCount)}, minmax(0, 1fr))`
+										}}
+									>
+										{Array.from({ length: beatCount }, (_, index) => (
+											<span
+												className={
+													index % model.meterNumerator === 0
+														? 'bar-start'
+														: ''
+												}
+												key={index}
+											/>
+										))}
+									</div>
 									<TransportPlayhead />
 									{model.notes.length === 0 ? (
 										<p aria-hidden="true" className="piano-empty-hint">
@@ -297,6 +403,7 @@ export function PianoRollView({
 												data-note-id={note.id}
 												key={note.id}
 												onBlur={() => {
+													endKeyboardGesture()
 													if (gestureRef.current === null)
 														setSelectedNoteId(null)
 												}}
@@ -306,6 +413,10 @@ export function PianoRollView({
 													onDeleteNote(note.id)
 												}}
 												onFocus={() => setSelectedNoteId(note.id)}
+												onKeyDown={(event) =>
+													handleNoteKeyDown(event, sourceNote)
+												}
+												onKeyUp={(event) => endKeyboardGesture(event.code)}
 												onPointerCancel={(event) =>
 													finishGesture(event, false)
 												}
@@ -322,23 +433,25 @@ export function PianoRollView({
 												style={noteStyle(note, model.totalTicks)}
 												type="button"
 											>
+												<span aria-hidden="true" className="note-fill" />
 												{(['start', 'end', 'top', 'bottom'] as const).map(
 													(point) => (
 														<span
 															aria-hidden="true"
 															className={`note-point ${point}`}
 															key={point}
-															onPointerDown={
-																point === 'start' || point === 'end'
-																	? (event) =>
-																			beginGesture(
-																				event,
-																				sourceNote,
-																				point === 'start'
-																					? 'resize-start'
-																					: 'resize-end'
-																			)
-																	: undefined
+															onPointerDown={(event) =>
+																beginGesture(
+																	event,
+																	sourceNote,
+																	point === 'start'
+																		? 'resize-start'
+																		: point === 'end'
+																			? 'resize-end'
+																			: point === 'top'
+																				? 'resize-strength-top'
+																				: 'resize-strength-bottom'
+																)
 															}
 														/>
 													)
@@ -379,13 +492,18 @@ export function PianoRollView({
 													1,
 												length:
 													selectedNote.durationTicks /
-													model.ticksPerQuarter
+													model.ticksPerQuarter,
+												velocity: selectedNote.velocity
 											})}
 								</div>
 							</div>
 							<div className="theory-line">
 								<div className="theory-label">{t('pianoRoll.editing')}</div>
-								<div className="theory-copy">{t('pianoRoll.editHint')}</div>
+								<div className="theory-copy">
+									{t('pianoRoll.editHint')}
+									<br />
+									{t('pianoRoll.keyboardHint')}
+								</div>
 							</div>
 						</aside>
 					</div>
@@ -398,13 +516,15 @@ export function PianoRollView({
 								{t('pianoRoll.length')} 100%
 							</button>
 							<button className="text-tool" disabled type="button">
-								{t('pianoRoll.velocity')} 80
+								{t('pianoRoll.velocity')} {selectedNote?.velocity ?? 80}
 							</button>
 						</div>
 						<div className="cycle-strip">
 							<Repeat2 aria-hidden="true" />
 							<div aria-hidden="true" className="cycle">
-								<div className="cycle-sound">{t('pianoRoll.fourBars')}</div>
+								<div className="cycle-sound">
+									{t('pianoRoll.barCount', { count: model.bars })}
+								</div>
 								<div className="cycle-rest">{t('pianoRoll.rest')}</div>
 							</div>
 						</div>

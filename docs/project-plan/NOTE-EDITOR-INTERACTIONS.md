@@ -3,7 +3,7 @@
 ## Status and delivery boundary
 
 This document records the user-approved product and UX direction for credible note editing after
-the Stage 5 packaged-app acceptance session. Planning is approved; implementation has not started.
+the Stage 5 packaged-app acceptance session. Planning is approved and implementation is active.
 
 The task integration branch is `feature/note-editor-interactions`, based on the completed
 `fix/phase-5-manual-acceptance` integration branch. Implementation is a large task and must use one
@@ -13,6 +13,25 @@ request, create another worktree or modify `.github/workflows` without explicit 
 Stage 6 remains gated until this plan is implemented and its automated and manual acceptance gates
 pass. The completed non-note remediation stays intact and must not be rewritten as part of this
 work.
+
+### Implementation status — 2026-08-11
+
+- Stage A is complete and merged into the task integration history at `6eedf87` (`Add note command
+history controls`). It added atomic note updates and first-note clip creation, physical scoped
+  shortcuts, application Undo/Redo and explicit history groups for a held key. Validation passed
+  108 contract tests and 86 repository-policy tests.
+- Stage B is complete and merged into the task integration history at `9d8f36d` (`Implement direct
+note manipulation`). The Piano Roll now renders only canonical project notes, expands its pitch
+  range rather than hiding valid notes, has a truthful empty state, and supports exact double-click
+  add/remove, center movement, duration resizing and focus-only four-point affordances. Validation
+  passed 112 contract tests and 86 repository-policy tests.
+- Stage C is in progress on `feature/note-editor-expression-and-keys`. Its remaining acceptance
+  boundary is symmetric velocity editing, hierarchical meter/bar/beat/grid presentation, complete
+  physical-key editing and held-key history verification.
+- Stages D and E have not started. Shortcut settings/persistence and final integrated package/manual
+  acceptance remain mandatory before this plan can be called complete.
+- Live A-L audition remains existing functionality. Recording a played performance into timed Piano
+  Roll notes remains explicitly deferred for a separate product and interaction plan.
 
 ## Product goals
 
