@@ -2,11 +2,15 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
 	assetId,
+	createCleanPulseDrumSource,
 	createDeepBassInstrument,
 	createLayer,
 	createProject,
+	createSynthInstrument,
 	deepBassDefaultMacros,
+	drumVoiceVariantCatalog,
 	resolveDeepBassPatch,
+	synthPresetCatalog,
 	updateDeepBassMacro
 } from './index.js'
 
@@ -31,6 +35,65 @@ describe('project model factories', () => {
 		assert.notDeepEqual(changed.resolvedPatch, first.resolvedPatch)
 		assert.equal(first.macros.brightness, deepBassDefaultMacros.brightness)
 		assert.equal(Object.isFrozen(first.resolvedPatch.filter), true)
+	})
+
+	it('resolves all 27 catalog characters into finite bounded patches', () => {
+		assert.equal(synthPresetCatalog.length, 27)
+		assert.equal(new Set(synthPresetCatalog.map((definition) => definition.id)).size, 27)
+		assert.deepEqual(
+			Object.fromEntries(
+				['bass', 'lead', 'pad', 'pluck', 'texture'].map((family) => [
+					family,
+					synthPresetCatalog.filter((definition) => definition.family === family).length
+				])
+			),
+			{ bass: 6, lead: 7, pad: 5, pluck: 4, texture: 5 }
+		)
+		for (const definition of synthPresetCatalog) {
+			const instrument = createSynthInstrument(definition.id)
+			assert.equal(instrument.family, definition.family)
+			assert.equal(instrument.presetId, definition.id)
+			assert.equal(
+				JSON.stringify(instrument.resolvedPatch).includes('null'),
+				false,
+				definition.id
+			)
+			for (const value of Object.values(instrument.resolvedPatch.oscillator)) {
+				if (typeof value === 'number')
+					assert.equal(Number.isFinite(value), true, definition.id)
+			}
+		}
+	})
+
+	it('keeps extreme semantic values finite and bounded for every character', () => {
+		for (const definition of synthPresetCatalog) {
+			for (const value of [0, 1]) {
+				const instrument = createSynthInstrument(definition.id, {
+					brightness: value,
+					hardness: value,
+					dirt: value,
+					length: value,
+					width: value
+				})
+				assert.ok(instrument.resolvedPatch.filter.cutoffHz >= 40)
+				assert.ok(instrument.resolvedPatch.filter.cutoffHz <= 18_000)
+				assert.ok(instrument.resolvedPatch.outputGain >= 0.18)
+				assert.ok(instrument.resolvedPatch.outputGain <= 0.9)
+			}
+		}
+	})
+
+	it('resolves one reviewed procedural patch for every drum voice variant', () => {
+		assert.equal(drumVoiceVariantCatalog.length, 15)
+		const source = createCleanPulseDrumSource()
+		assert.deepEqual(Object.keys(source.resolvedPatch.voices), [
+			'kick',
+			'clap',
+			'closedHat',
+			'openHat',
+			'perc'
+		])
+		assert.equal(source.resolvedPatch.voices.kick.variantId, 'kick.deep')
 	})
 
 	it('creates each pitched layer with a stable default performance mapping', () => {

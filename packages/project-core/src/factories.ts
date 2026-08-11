@@ -26,9 +26,10 @@ import {
 	type ProjectLayer,
 	type ProjectRole,
 	type ProjectSection,
-	type SectionId
+	type SectionId,
+	type SynthPresetId
 } from './model.js'
-import { createDeepBassInstrument } from './presets.js'
+import { createCleanPulseDrumSource, createSynthInstrument } from './presets.js'
 
 export interface CreateProjectInput {
 	readonly projectId: ProjectId | string
@@ -63,6 +64,7 @@ export interface CreateLayerInput {
 	readonly assetId?: AssetId
 	readonly id: LayerId | string
 	readonly name: string
+	readonly presetId?: SynthPresetId
 	readonly role: ProjectRole
 }
 
@@ -73,17 +75,19 @@ export function createLayer(input: CreateLayerInput): ProjectLayer {
 	}
 	const source =
 		input.role === 'rhythm'
-			? ({
-					type: 'drum',
-					kitId: 'drums.basic',
-					kitRevision: 1,
-					patchModelVersion: 1
-				} as const)
+			? createCleanPulseDrumSource()
 			: input.role === 'reference'
 				? ({ type: 'reference', assetId: input.assetId as AssetId } as const)
 				: ({
 						type: 'synth',
-						instrument: createDeepBassInstrument(),
+						instrument: createSynthInstrument(
+							input.presetId ??
+								(input.role === 'harmony'
+									? 'pad.warm'
+									: input.role === 'melody'
+										? 'lead.glass'
+										: 'bass.deep')
+						),
 						performance: { key: { tonic: 9, mode: 'minor' }, octave: 2 }
 					} as const)
 	return cloneAndFreeze({
@@ -174,6 +178,8 @@ export function createDrumEvent(input: CreateDrumEventInput): DrumEvent {
 }
 
 export interface CreateDrumClipInput {
+	readonly character?: DrumClip['character']
+	readonly density?: number
 	readonly events?: readonly DrumEvent[]
 	readonly id: ClipId | string
 	readonly lengthTicks: number
@@ -182,6 +188,7 @@ export interface CreateDrumClipInput {
 	readonly startTick: number
 	readonly stepCount?: number
 	readonly stepsPerQuarter?: 1 | 2 | 4 | 8
+	readonly swing?: number
 }
 
 export function createDrumClip(input: CreateDrumClipInput): DrumClip {
@@ -192,6 +199,9 @@ export function createDrumClip(input: CreateDrumClipInput): DrumClip {
 		lengthTicks: projectTick(input.lengthTicks),
 		sectionId: input.sectionId ?? null,
 		loop: input.loop ?? true,
+		character: input.character ?? 'custom',
+		density: input.density ?? 0.38,
+		swing: input.swing ?? 0.08,
 		pattern: {
 			stepCount: input.stepCount ?? 16,
 			stepsPerQuarter: input.stepsPerQuarter ?? 4

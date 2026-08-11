@@ -1,4 +1,4 @@
-import type { BassMacroId } from '../../../../project-core/src/index.js'
+import { synthPresetDefinition, type SynthMacroId } from '../../../../project-core/src/index.js'
 import type { StudioProjectionContext } from './projection-context.js'
 import type { SoundSculptProjection } from './types.js'
 
@@ -7,7 +7,7 @@ const macroByDimension = Object.freeze({
 	movement: 'hardness',
 	space: 'width',
 	texture: 'dirt'
-} as const satisfies Readonly<Record<string, BassMacroId>>)
+} as const satisfies Readonly<Record<string, SynthMacroId>>)
 
 export function projectSoundSculpt({
 	revision,
@@ -17,7 +17,7 @@ export function projectSoundSculpt({
 	return {
 		revision,
 		layerId: tonalLayer?.id ?? null,
-		soundName: instrument?.presetId === 'bass.deep' ? 'Deep' : '—',
+		soundName: instrument === null ? '—' : synthPresetDefinition(instrument.presetId).name,
 		macroByDimension,
 		dimensions: [
 			{

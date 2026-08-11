@@ -1,13 +1,15 @@
-import { createDeepBassInstrument, updateDeepBassMacro } from './presets.js'
+import { createSynthInstrument, updateDrumVoiceVariant, updateSynthMacro } from './presets.js'
 import { createLayer, createProject } from './factories.js'
 import {
+	drumEventId,
 	midiPitch,
 	projectTick,
 	type AssetId,
-	type BassInstrumentStateV1,
-	type BassMacroId,
 	type ClipId,
 	type DrumEvent,
+	type DrumInstrument,
+	type DrumPatternCharacter,
+	type DrumVoiceVariantId,
 	type LayerId,
 	type LayerPerformanceMapping,
 	type MidiNote,
@@ -17,7 +19,10 @@ import {
 	type ProjectId,
 	type ProjectKey,
 	type ProjectRole,
-	type ProjectSection
+	type ProjectSection,
+	type SynthInstrumentStateV2,
+	type SynthMacroId,
+	type SynthPresetId
 } from './model.js'
 import { validateProjectDocument } from './validation.js'
 
@@ -54,14 +59,14 @@ export interface AddLayerCommand extends RevisionedProjectCommand {
 
 export interface SelectCharacterCommand extends RevisionedProjectCommand {
 	readonly layerId: LayerId
-	readonly presetId: 'bass.deep'
+	readonly presetId: SynthPresetId
 	readonly type: 'layer.character.select'
 }
 
 export interface ConfigureLayerSoundCommand extends RevisionedProjectCommand {
 	readonly layerId: LayerId
 	readonly performance: LayerPerformanceMapping
-	readonly presetId: 'bass.deep'
+	readonly presetId: SynthPresetId
 	readonly type: 'layer.sound.configure'
 }
 
@@ -73,7 +78,7 @@ export interface SetLayerPerformanceCommand extends RevisionedProjectCommand {
 
 export interface CommitMacroCommand extends RevisionedProjectCommand {
 	readonly layerId: LayerId
-	readonly macro: BassMacroId
+	readonly macro: SynthMacroId
 	readonly type: 'layer.macro.commit'
 	readonly value: number
 }
@@ -187,6 +192,34 @@ export interface ToggleDrumEventCommand extends RevisionedProjectCommand {
 	readonly type: 'drum-event.toggle'
 }
 
+export interface SelectDrumVoiceCommand extends RevisionedProjectCommand {
+	readonly instrument: DrumInstrument
+	readonly layerId: LayerId
+	readonly type: 'drum.voice.select'
+	readonly variantId: DrumVoiceVariantId
+}
+
+export interface SetDrumPatternCommand extends RevisionedProjectCommand {
+	readonly character: Exclude<DrumPatternCharacter, 'custom'>
+	readonly clipId: ClipId
+	readonly layerId: LayerId
+	readonly type: 'drum.pattern.set'
+}
+
+export interface SetDrumDensityCommand extends RevisionedProjectCommand {
+	readonly clipId: ClipId
+	readonly density: number
+	readonly layerId: LayerId
+	readonly type: 'drum.density.set'
+}
+
+export interface SetDrumSwingCommand extends RevisionedProjectCommand {
+	readonly clipId: ClipId
+	readonly layerId: LayerId
+	readonly swing: number
+	readonly type: 'drum.swing.set'
+}
+
 export type ProjectCommand =
 	| AddLayerCommand
 	| SelectCharacterCommand
@@ -209,6 +242,10 @@ export type ProjectCommand =
 	| PlaceClipCommand
 	| DeleteClipCommand
 	| ToggleDrumEventCommand
+	| SelectDrumVoiceCommand
+	| SetDrumPatternCommand
+	| SetDrumDensityCommand
+	| SetDrumSwingCommand
 
 export type ProjectCommandResult =
 	| { readonly project: ProjectDocument; readonly status: 'applied' }
@@ -339,6 +376,114 @@ function updateMidiNote(
 	})
 }
 
+interface DrumPatternPoint {
+	readonly instrument: DrumInstrument
+	readonly step: number
+	readonly threshold: number
+	readonly velocity: number
+}
+
+const drumPatternRecipes = Object.freeze({
+	straight: Object.freeze([
+		{ instrument: 'kick', step: 0, threshold: 0, velocity: 116 },
+		{ instrument: 'kick', step: 8, threshold: 0.18, velocity: 108 },
+		{ instrument: 'kick', step: 12, threshold: 0.72, velocity: 92 },
+		{ instrument: 'clap', step: 4, threshold: 0.12, velocity: 106 },
+		{ instrument: 'clap', step: 12, threshold: 0.12, velocity: 110 },
+		...Array.from({ length: 8 }, (_, index) => ({
+			instrument: 'closedHat' as const,
+			step: index * 2,
+			threshold: index % 2 === 0 ? 0.2 : 0.48,
+			velocity: index % 2 === 0 ? 82 : 68
+		})),
+		{ instrument: 'openHat', step: 14, threshold: 0.64, velocity: 74 },
+		{ instrument: 'perc', step: 6, threshold: 0.84, velocity: 72 }
+	]),
+	sparse: Object.freeze([
+		{ instrument: 'kick', step: 0, threshold: 0, velocity: 114 },
+		{ instrument: 'kick', step: 10, threshold: 0.54, velocity: 92 },
+		{ instrument: 'clap', step: 12, threshold: 0.18, velocity: 104 },
+		{ instrument: 'closedHat', step: 2, threshold: 0.34, velocity: 68 },
+		{ instrument: 'closedHat', step: 10, threshold: 0.46, velocity: 64 },
+		{ instrument: 'openHat', step: 14, threshold: 0.7, velocity: 72 },
+		{ instrument: 'perc', step: 7, threshold: 0.82, velocity: 68 }
+	]),
+	driving: Object.freeze([
+		...Array.from({ length: 4 }, (_, index) => ({
+			instrument: 'kick' as const,
+			step: index * 4,
+			threshold: index % 2 === 0 ? 0 : 0.28,
+			velocity: index % 2 === 0 ? 116 : 102
+		})),
+		{ instrument: 'clap', step: 4, threshold: 0.12, velocity: 108 },
+		{ instrument: 'clap', step: 12, threshold: 0.12, velocity: 112 },
+		...Array.from({ length: 16 }, (_, step) => ({
+			instrument: 'closedHat' as const,
+			step,
+			threshold: step % 2 === 0 ? 0.22 : 0.66,
+			velocity: step % 4 === 0 ? 84 : 62
+		})),
+		{ instrument: 'openHat', step: 7, threshold: 0.58, velocity: 76 },
+		{ instrument: 'openHat', step: 15, threshold: 0.58, velocity: 78 }
+	]),
+	broken: Object.freeze([
+		{ instrument: 'kick', step: 0, threshold: 0, velocity: 116 },
+		{ instrument: 'kick', step: 7, threshold: 0.3, velocity: 96 },
+		{ instrument: 'kick', step: 11, threshold: 0.58, velocity: 88 },
+		{ instrument: 'clap', step: 5, threshold: 0.16, velocity: 104 },
+		{ instrument: 'clap', step: 13, threshold: 0.16, velocity: 110 },
+		{ instrument: 'closedHat', step: 2, threshold: 0.24, velocity: 70 },
+		{ instrument: 'closedHat', step: 6, threshold: 0.32, velocity: 76 },
+		{ instrument: 'closedHat', step: 9, threshold: 0.46, velocity: 66 },
+		{ instrument: 'closedHat', step: 14, threshold: 0.32, velocity: 74 },
+		{ instrument: 'openHat', step: 10, threshold: 0.64, velocity: 76 },
+		{ instrument: 'perc', step: 3, threshold: 0.72, velocity: 68 },
+		{ instrument: 'perc', step: 15, threshold: 0.82, velocity: 72 }
+	])
+} satisfies Readonly<Record<Exclude<DrumPatternCharacter, 'custom'>, readonly DrumPatternPoint[]>>)
+
+function normalizedUnit(value: number, label: string): number {
+	if (!Number.isFinite(value) || value < 0 || value > 1) {
+		fail('INVALID_COMMAND', `${label} must be finite and between 0 and 1.`)
+	}
+	return value
+}
+
+function stableTextHash(value: string): string {
+	let hash = 2_166_136_261
+	for (let index = 0; index < value.length; index += 1) {
+		hash ^= value.charCodeAt(index)
+		hash = Math.imul(hash, 16_777_619)
+	}
+	return (hash >>> 0).toString(36)
+}
+
+function generatedDrumEvents(
+	clipIdValue: ClipId,
+	stepCount: number,
+	character: Exclude<DrumPatternCharacter, 'custom'>,
+	density: number
+): readonly DrumEvent[] {
+	const used = new Set<string>()
+	const events: DrumEvent[] = []
+	for (const point of drumPatternRecipes[character]) {
+		if (density < point.threshold) continue
+		const step = Math.min(stepCount - 1, Math.floor((point.step * stepCount) / 16))
+		const key = `${point.instrument}:${String(step)}`
+		if (used.has(key)) continue
+		used.add(key)
+		events.push({
+			id: drumEventId(
+				`event.pattern.${stableTextHash(clipIdValue)}.${character}.${point.instrument}.${String(step)}`
+			),
+			instrument: point.instrument,
+			step,
+			velocity: point.velocity
+		})
+	}
+	return events
+}
+
 function applyCommand(project: ProjectDocument, command: ProjectCommand): ProjectDocument {
 	switch (command.type) {
 		case 'layer.add': {
@@ -361,7 +506,7 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 						'Sound characters can only be selected for synth layers.'
 					)
 				}
-				const instrument = createDeepBassInstrument()
+				const instrument = createSynthInstrument(command.presetId)
 				if (
 					layer.source.instrument.presetId === command.presetId &&
 					semanticEqual(layer.source.instrument, instrument)
@@ -375,7 +520,7 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 				if (layer.source.type !== 'synth') {
 					fail('INCOMPATIBLE_TARGET', 'Sounds can only be configured for synth layers.')
 				}
-				const instrument = createDeepBassInstrument()
+				const instrument = createSynthInstrument(command.presetId)
 				const performance = normalizePerformance(command.performance)
 				if (
 					layer.source.instrument.presetId === command.presetId &&
@@ -408,7 +553,7 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 					...layer,
 					source: {
 						...layer.source,
-						instrument: updateDeepBassMacro(
+						instrument: updateSynthMacro(
 							layer.source.instrument,
 							command.macro,
 							command.value
@@ -620,9 +765,72 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 				if (existing >= 0) {
 					const events = [...clip.events]
 					events.splice(existing, 1)
-					return { ...clip, events }
+					return { ...clip, character: 'custom', events }
 				}
-				return { ...clip, events: [...clip.events, command.eventWhenAdded] }
+				return {
+					...clip,
+					character: 'custom',
+					events: [...clip.events, command.eventWhenAdded]
+				}
+			})
+		case 'drum.voice.select':
+			return updateLayer(project, command.layerId, (layer) => {
+				if (layer.source.type !== 'drum') {
+					fail('INCOMPATIBLE_TARGET', 'Drum voices can only be selected for drum layers.')
+				}
+				if (layer.source.voiceVariants[command.instrument] === command.variantId)
+					return layer
+				return {
+					...layer,
+					source: updateDrumVoiceVariant(
+						layer.source,
+						command.instrument,
+						command.variantId
+					)
+				}
+			})
+		case 'drum.pattern.set':
+			return updateClip(project, command.layerId, command.clipId, (clip) => {
+				if (clip.kind !== 'drum') {
+					fail('INCOMPATIBLE_TARGET', 'Drum patterns require a drum clip.')
+				}
+				const events = generatedDrumEvents(
+					clip.id,
+					clip.pattern.stepCount,
+					command.character,
+					clip.density
+				)
+				if (clip.character === command.character && semanticEqual(clip.events, events))
+					return clip
+				return { ...clip, character: command.character, events }
+			})
+		case 'drum.density.set':
+			return updateClip(project, command.layerId, command.clipId, (clip) => {
+				if (clip.kind !== 'drum')
+					fail('INCOMPATIBLE_TARGET', 'Density requires a drum clip.')
+				const density = normalizedUnit(command.density, 'Drum density')
+				const character = clip.character === 'custom' ? 'straight' : clip.character
+				const events = generatedDrumEvents(
+					clip.id,
+					clip.pattern.stepCount,
+					character,
+					density
+				)
+				if (
+					clip.density === density &&
+					clip.character === character &&
+					semanticEqual(clip.events, events)
+				) {
+					return clip
+				}
+				return { ...clip, character, density, events }
+			})
+		case 'drum.swing.set':
+			return updateClip(project, command.layerId, command.clipId, (clip) => {
+				if (clip.kind !== 'drum') fail('INCOMPATIBLE_TARGET', 'Swing requires a drum clip.')
+				const swing = normalizedUnit(command.swing, 'Drum swing')
+				if (clip.swing === swing) return clip
+				return { ...clip, swing }
 			})
 	}
 }
@@ -694,13 +902,13 @@ export function reduceProjectCommand(
 }
 
 export type MacroPreviewResult =
-	| { readonly instrument: BassInstrumentStateV1; readonly status: 'ready' }
+	| { readonly instrument: SynthInstrumentStateV2; readonly status: 'ready' }
 	| { readonly failure: ProjectCommandFailure; readonly status: 'rejected' }
 
 export function previewBassMacro(
 	project: ProjectDocument,
 	layerId: LayerId,
-	macro: BassMacroId,
+	macro: SynthMacroId,
 	value: number
 ): MacroPreviewResult {
 	const layer = project.layers.find((candidate) => candidate.id === layerId)
@@ -719,7 +927,7 @@ export function previewBassMacro(
 	try {
 		return {
 			status: 'ready',
-			instrument: updateDeepBassMacro(layer.source.instrument, macro, value)
+			instrument: updateSynthMacro(layer.source.instrument, macro, value)
 		}
 	} catch (error) {
 		return {
@@ -731,3 +939,5 @@ export function previewBassMacro(
 		}
 	}
 }
+
+export const previewSynthMacro = previewBassMacro

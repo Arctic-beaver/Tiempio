@@ -84,12 +84,12 @@ function drumLayer(sections: readonly ProjectSection[]): ProjectLayer {
 					}),
 					createDrumEvent({
 						id: `event.drums.${String(sectionIndex)}.snare`,
-						instrument: 'snare',
+						instrument: 'clap',
 						step: 4
 					}),
 					createDrumEvent({
 						id: `event.drums.${String(sectionIndex)}.hat`,
-						instrument: 'hat',
+						instrument: 'closedHat',
 						step: 2
 					})
 				]

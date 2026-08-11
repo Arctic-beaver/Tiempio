@@ -8,9 +8,10 @@ const drumRows: readonly {
 	readonly labelKey: LocalizationKey
 }[] = Object.freeze([
 	Object.freeze({ id: 'kick', labelKey: 'drums.kick' }),
-	Object.freeze({ id: 'snare', labelKey: 'drums.snare' }),
-	Object.freeze({ id: 'hat', labelKey: 'drums.hat' }),
-	Object.freeze({ id: 'clap', labelKey: 'drums.clap' })
+	Object.freeze({ id: 'clap', labelKey: 'drums.clap' }),
+	Object.freeze({ id: 'closedHat', labelKey: 'drums.hat' }),
+	Object.freeze({ id: 'openHat', labelKey: 'drums.hat' }),
+	Object.freeze({ id: 'perc', labelKey: 'drums.snare' })
 ])
 
 export function projectDrums({

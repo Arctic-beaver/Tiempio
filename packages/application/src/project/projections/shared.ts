@@ -1,5 +1,5 @@
 import type { LocalizationKey } from '../../../../localization/src/index.js'
-import type { ProjectLayer } from '../../../../project-core/src/index.js'
+import { synthPresetDefinition, type ProjectLayer } from '../../../../project-core/src/index.js'
 import type { StudioViewId } from '../../app/studio-state.js'
 import type { LayerColor } from './types.js'
 
@@ -29,8 +29,10 @@ export function layerPresentation(
 }
 
 export function soundName(layer: ProjectLayer): string {
-	if (layer.source.type === 'synth') return 'Deep'
-	if (layer.source.type === 'drum') return 'Basic kit'
+	if (layer.source.type === 'synth') {
+		return synthPresetDefinition(layer.source.instrument.presetId).name
+	}
+	if (layer.source.type === 'drum') return 'Clean Pulse'
 	return 'Reference'
 }
 

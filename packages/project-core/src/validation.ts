@@ -9,6 +9,12 @@ import {
 	projectSchemaVersion,
 	type ProjectDocument
 } from './model.js'
+import {
+	createCleanPulseDrumSource,
+	createSynthInstrument,
+	drumVoiceVariantCatalog,
+	synthPresetCatalog
+} from './presets.js'
 
 export type ProjectValidationIssueCode =
 	| 'CYCLE'
@@ -33,7 +39,16 @@ export type ProjectValidationResult =
 
 const roles = new Set(['rhythm', 'bass', 'harmony', 'melody', 'custom', 'reference'])
 const modes = new Set(['major', 'minor'])
-const drumInstruments = new Set(['kick', 'snare', 'hat', 'clap'])
+const drumInstruments = new Set(['kick', 'clap', 'closedHat', 'openHat', 'perc'])
+const drumPatternCharacters = new Set(['straight', 'sparse', 'driving', 'broken', 'custom'])
+const synthWaveforms = new Set(['saw', 'square', 'triangle', 'sine'])
+const synthFamilies = new Set(['bass', 'lead', 'pad', 'pluck', 'texture'])
+const presetFamilies: ReadonlyMap<string, string> = new Map(
+	synthPresetCatalog.map((definition) => [definition.id, definition.family])
+)
+const drumVariantInstruments: ReadonlyMap<string, string> = new Map(
+	drumVoiceVariantCatalog.map((definition) => [definition.variantId, definition.instrument])
+)
 const macroNames = ['brightness', 'hardness', 'dirt', 'length', 'width'] as const
 const maximumIssues = 100
 
@@ -425,12 +440,26 @@ function validateResolvedPatch(value: unknown, context: ValidationContext, path:
 	const patch = record(value, context, path)
 	if (patch === null) return
 	literal(patch.patchModelVersion, patchModelVersion, context, `${path}.patchModelVersion`, true)
-	literal(patch.voice, 'subtractive-bass', context, `${path}.voice`)
+	literal(patch.voice, 'subtractive-synth', context, `${path}.voice`)
 	const oscillator = record(patch.oscillator, context, `${path}.oscillator`)
 	if (oscillator !== null) {
-		literal(oscillator.waveform, 'saw', context, `${path}.oscillator.waveform`)
+		if (typeof oscillator.waveform !== 'string' || !synthWaveforms.has(oscillator.waveform)) {
+			issue(
+				context,
+				'INVALID_VALUE',
+				`${path}.oscillator.waveform`,
+				'Expected a supported oscillator waveform.'
+			)
+		}
 		finiteNumber(oscillator.detuneCents, context, `${path}.oscillator.detuneCents`, -100, 100)
 		finiteNumber(oscillator.subLevel, context, `${path}.oscillator.subLevel`, 0, 1)
+		finiteNumber(oscillator.noiseLevel, context, `${path}.oscillator.noiseLevel`, 0, 1)
+		finiteNumber(oscillator.pulseWidth, context, `${path}.oscillator.pulseWidth`, 0.05, 0.95)
+	}
+	const movement = record(patch.movement, context, `${path}.movement`)
+	if (movement !== null) {
+		finiteNumber(movement.rateHz, context, `${path}.movement.rateHz`, 0, 20)
+		finiteNumber(movement.depth, context, `${path}.movement.depth`, 0, 1)
 	}
 	const filter = record(patch.filter, context, `${path}.filter`)
 	if (filter !== null) {
@@ -461,8 +490,37 @@ function validateSynthSource(value: unknown, context: ValidationContext, path: s
 	}
 	const instrument = record(source.instrument, context, `${path}.instrument`)
 	if (instrument === null) return
-	literal(instrument.family, 'bass', context, `${path}.instrument.family`)
-	literal(instrument.presetId, 'bass.deep', context, `${path}.instrument.presetId`)
+	const family =
+		typeof instrument.family === 'string' && synthFamilies.has(instrument.family)
+			? instrument.family
+			: null
+	if (family === null) {
+		issue(
+			context,
+			'INVALID_VALUE',
+			`${path}.instrument.family`,
+			'Expected a supported synth family.'
+		)
+	}
+	const presetFamily =
+		typeof instrument.presetId === 'string'
+			? presetFamilies.get(instrument.presetId)
+			: undefined
+	if (presetFamily === undefined) {
+		issue(
+			context,
+			'INVALID_VALUE',
+			`${path}.instrument.presetId`,
+			'Expected a supported synth preset.'
+		)
+	} else if (family !== null && presetFamily !== family) {
+		issue(
+			context,
+			'INCOMPATIBLE_SOURCE',
+			`${path}.instrument.presetId`,
+			'The synth preset does not belong to its family.'
+		)
+	}
 	integer(
 		instrument.presetRevision,
 		context,
@@ -483,6 +541,108 @@ function validateSynthSource(value: unknown, context: ValidationContext, path: s
 			finiteNumber(macros[name], context, `${path}.instrument.macros.${name}`, 0, 1)
 	}
 	validateResolvedPatch(instrument.resolvedPatch, context, `${path}.instrument.resolvedPatch`)
+	if (presetFamily !== undefined && macros !== null) {
+		try {
+			const expected = createSynthInstrument(
+				instrument.presetId as Parameters<typeof createSynthInstrument>[0],
+				macros as unknown as Parameters<typeof createSynthInstrument>[1]
+			)
+			if (
+				JSON.stringify(expected.resolvedPatch) !== JSON.stringify(instrument.resolvedPatch)
+			) {
+				issue(
+					context,
+					'INVALID_VALUE',
+					`${path}.instrument.resolvedPatch`,
+					'The resolved synth patch does not match its preset and macros.'
+				)
+			}
+		} catch {
+			// Field-level issues already describe malformed macros.
+		}
+	}
+}
+
+function validateDrumSource(
+	value: Record<string, unknown>,
+	context: ValidationContext,
+	path: string
+): void {
+	literal(value.kitId, 'drums.clean-pulse', context, `${path}.kitId`)
+	literal(value.kitRevision, 1, context, `${path}.kitRevision`)
+	const variants = record(value.voiceVariants, context, `${path}.voiceVariants`)
+	if (variants !== null) {
+		for (const instrument of drumInstruments) {
+			const variant = variants[instrument]
+			if (typeof variant !== 'string' || drumVariantInstruments.get(variant) !== instrument) {
+				issue(
+					context,
+					'INVALID_VALUE',
+					`${path}.voiceVariants.${instrument}`,
+					`Expected a ${instrument} voice variant.`
+				)
+			}
+		}
+	}
+	const patch = record(value.resolvedPatch, context, `${path}.resolvedPatch`)
+	if (patch !== null) {
+		literal(
+			patch.patchModelVersion,
+			patchModelVersion,
+			context,
+			`${path}.resolvedPatch.patchModelVersion`,
+			true
+		)
+		const voices = record(patch.voices, context, `${path}.resolvedPatch.voices`)
+		if (voices !== null) {
+			for (const instrument of drumInstruments) {
+				const voicePath = `${path}.resolvedPatch.voices.${instrument}`
+				const voice = record(voices[instrument], context, voicePath)
+				if (voice === null) continue
+				const expectedAlgorithm =
+					instrument === 'closedHat'
+						? 'closed-hat'
+						: instrument === 'openHat'
+							? 'open-hat'
+							: instrument
+				literal(voice.algorithm, expectedAlgorithm, context, `${voicePath}.algorithm`)
+				finiteNumber(voice.pitchHz, context, `${voicePath}.pitchHz`, 20, 20_000)
+				finiteNumber(voice.tone, context, `${voicePath}.tone`, 0, 1)
+				finiteNumber(voice.decayMs, context, `${voicePath}.decayMs`, 1, 10_000)
+				finiteNumber(voice.noise, context, `${voicePath}.noise`, 0, 1)
+				finiteNumber(voice.drive, context, `${voicePath}.drive`, 0, 1)
+				finiteNumber(voice.gain, context, `${voicePath}.gain`, 0, 2)
+				if (
+					typeof voice.variantId !== 'string' ||
+					drumVariantInstruments.get(voice.variantId) !== instrument
+				) {
+					issue(
+						context,
+						'INVALID_VALUE',
+						`${voicePath}.variantId`,
+						`Expected a ${instrument} voice variant.`
+					)
+				}
+			}
+		}
+	}
+	if (variants !== null) {
+		try {
+			const expected = createCleanPulseDrumSource(
+				variants as unknown as Parameters<typeof createCleanPulseDrumSource>[0]
+			)
+			if (JSON.stringify(expected.resolvedPatch) !== JSON.stringify(value.resolvedPatch)) {
+				issue(
+					context,
+					'INVALID_VALUE',
+					`${path}.resolvedPatch`,
+					'The resolved drum patch does not match its selected variants.'
+				)
+			}
+		} catch {
+			// Field-level issues already describe malformed variants.
+		}
+	}
 }
 
 interface ProjectReferences {
@@ -536,6 +696,16 @@ function validateDrumClip(
 	path: string,
 	identifiers: ProjectIdentifiers
 ): void {
+	if (typeof clip.character !== 'string' || !drumPatternCharacters.has(clip.character)) {
+		issue(
+			context,
+			'INVALID_VALUE',
+			`${path}.character`,
+			'Expected a supported drum pattern character.'
+		)
+	}
+	finiteNumber(clip.density, context, `${path}.density`, 0, 1)
+	finiteNumber(clip.swing, context, `${path}.swing`, 0, 1)
 	const pattern = record(clip.pattern, context, `${path}.pattern`)
 	let stepCount: number | null = null
 	let stepsPerQuarter: number | null = null
@@ -737,15 +907,7 @@ function validateLayers(
 						'Rhythm layers require a drum source.'
 					)
 				else {
-					literal(source.kitId, 'drums.basic', context, `${path}.source.kitId`)
-					literal(source.kitRevision, 1, context, `${path}.source.kitRevision`)
-					literal(
-						source.patchModelVersion,
-						patchModelVersion,
-						context,
-						`${path}.source.patchModelVersion`,
-						true
-					)
+					validateDrumSource(source, context, `${path}.source`)
 				}
 			} else if (role === 'reference') {
 				if (source.type !== 'reference')
