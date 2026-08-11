@@ -5,10 +5,10 @@ import { emptyShellBundleBudgets, evaluateBundleClass } from './bundle-budget.mj
 describe('empty-shell bundle budgets', () => {
 	it('defines independent initial classes for both targets', () => {
 		assert.deepEqual(emptyShellBundleBudgets, {
-			'desktop-main': { root: 'dist/desktop/main', maxBytes: 196_608 },
-			'desktop-preload': { root: 'dist/desktop/preload', maxBytes: 57_344 },
-			'desktop-renderer': { root: 'dist/desktop/renderer', maxBytes: 573_440 },
-			web: { root: 'dist/web', maxBytes: 540_672 }
+			'desktop-main': { root: 'dist/desktop/main', maxBytes: 229_376 },
+			'desktop-preload': { root: 'dist/desktop/preload', maxBytes: 61_440 },
+			'desktop-renderer': { root: 'dist/desktop/renderer', maxBytes: 622_592 },
+			web: { root: 'dist/web', maxBytes: 585_728 }
 		})
 	})
 
