@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState, type JSX, type KeyboardEvent } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
+import { FloatingOverlay } from './FloatingOverlay.js'
+import { floatingOverlayPathIsOwned } from './floating-overlay.js'
 
 export interface SelectOption<Value extends string> {
 	readonly description?: string
@@ -42,17 +44,28 @@ export function Select<Value extends string>({
 	const [activeIndex, setActiveIndex] = useState(selectedIndex)
 	const rootReference = useRef<HTMLDivElement>(null)
 	const triggerReference = useRef<HTMLButtonElement>(null)
+	const listboxReference = useRef<HTMLDivElement>(null)
 	const listboxId = useId()
 	const labelId = useId()
 
 	useEffect(() => {
 		if (!open) return
 		const dismissOutside = (event: PointerEvent): void => {
-			if (rootReference.current?.contains(event.target as Node) === false) setOpen(false)
+			const owners = [rootReference.current, listboxReference.current].filter(
+				(owner): owner is HTMLDivElement => owner !== null
+			)
+			if (!floatingOverlayPathIsOwned(event.composedPath(), owners)) setOpen(false)
 		}
 		document.addEventListener('pointerdown', dismissOutside)
 		return () => document.removeEventListener('pointerdown', dismissOutside)
 	}, [open])
+
+	useEffect(() => {
+		if (!open || activeIndex < 0) return
+		listboxReference.current
+			?.querySelector<HTMLElement>(`[data-option-index="${String(activeIndex)}"]`)
+			?.scrollIntoView({ block: 'nearest' })
+	}, [activeIndex, open])
 
 	const openListbox = (direction: 1 | -1 = 1): void => {
 		const initial =
@@ -132,10 +145,14 @@ export function Select<Value extends string>({
 				<ChevronDown aria-hidden="true" size="1em" strokeWidth={1.8} />
 			</button>
 			{open ? (
-				<div
+				<FloatingOverlay
+					alignment="start"
+					anchorRef={triggerReference}
 					aria-labelledby={labelId}
 					className="ti-select__options ti-scroll-surface"
 					id={listboxId}
+					onAnchorMissing={() => setOpen(false)}
+					panelRef={listboxReference}
 					role="listbox"
 				>
 					{options.map((option, index) => (
@@ -144,6 +161,7 @@ export function Select<Value extends string>({
 							aria-selected={option.value === value}
 							className="ti-select__option"
 							data-active={index === activeIndex || undefined}
+							data-option-index={index}
 							id={`${listboxId}-option-${String(index)}`}
 							key={option.value}
 							onClick={() => choose(index)}
@@ -166,7 +184,7 @@ export function Select<Value extends string>({
 							/>
 						</div>
 					))}
-				</div>
+				</FloatingOverlay>
 			) : null}
 		</div>
 	)

@@ -1,5 +1,6 @@
 import type { JSX, ReactNode } from 'react'
 import type { ApplicationRuntime } from '../../../contracts/src/index.js'
+import { OverlayBoundary } from '../../../design-system/src/index.js'
 import type { ProjectSession } from '../../../project-core/src/index.js'
 import { ProjectSessionProvider } from '../project/ProjectSessionProvider.js'
 import type { ApplicationController } from '../runtime/ApplicationController.js'
@@ -24,12 +25,14 @@ export function ApplicationProviders({
 		<RuntimeProvider runtime={runtime}>
 			<ApplicationRuntimeControllerContext.Provider value={controller}>
 				<PresentationSettingsProvider>
-					<ProjectSessionProvider
-						initialSession={initialSession}
-						onSessionChange={(session) => controller.bindProjectSession(session)}
-					>
-						{children}
-					</ProjectSessionProvider>
+					<OverlayBoundary>
+						<ProjectSessionProvider
+							initialSession={initialSession}
+							onSessionChange={(session) => controller.bindProjectSession(session)}
+						>
+							{children}
+						</ProjectSessionProvider>
+					</OverlayBoundary>
 				</PresentationSettingsProvider>
 			</ApplicationRuntimeControllerContext.Provider>
 		</RuntimeProvider>

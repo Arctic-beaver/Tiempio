@@ -7,7 +7,12 @@ import {
 	type JSX,
 	type KeyboardEvent as ReactKeyboardEvent
 } from 'react'
-import { IconButton, Select, TextButton } from '../../../../design-system/src/index.js'
+import {
+	IconButton,
+	OverlayBoundary,
+	Select,
+	TextButton
+} from '../../../../design-system/src/index.js'
 import { useLocalization, type SupportedLocale } from '../../../../localization/src/index.js'
 import '../../app/styles/settings.css'
 import {
@@ -211,108 +216,115 @@ export function SettingsDialog({ onClose, open }: SettingsDialogProperties): JSX
 	if (!open) return null
 	return (
 		<div className="settings-dialog">
-			<button
-				aria-label={t('common.close')}
-				className="settings-dialog__backdrop"
-				onClick={close}
-				type="button"
-			/>
-			<div
-				aria-label={t('settings.title')}
-				aria-modal="true"
-				className="settings-dialog__panel"
-				onKeyDown={handlePanelKeyDown}
-				ref={panelReference}
-				role="dialog"
-			>
-				<header className="settings-dialog__header">
-					<div>
-						<h1>{t('settings.title')}</h1>
-						<span aria-live="polite">
-							{t(persistenceKeys[settings.persistenceState])}
-						</span>
-					</div>
-					<IconButton icon={<X />} label={t('common.close')} onClick={close} />
-				</header>
-				<div className="settings-dialog__content">
-					<section className="settings-section">
-						<h2>{t('settings.appearance')}</h2>
-						<div className="settings-appearance-grid">
-							<Select
-								label={t('common.theme')}
-								onChange={settings.setColorScheme}
-								options={themeValues.map((value) => ({
-									value,
-									label: t(`common.${value}`)
-								}))}
-								value={settings.colorScheme}
-							/>
-							<Select<SupportedLocale>
-								label={t('common.language')}
-								onChange={settings.setLocale}
-								options={localeValues.map((value) => ({
-									value,
-									label:
-										value === 'en'
-											? 'English'
-											: value === 'ru'
-												? 'Русский'
-												: 'Español'
-								}))}
-								value={settings.locale}
-							/>
-						</div>
-					</section>
-					<section className="settings-section settings-shortcuts">
-						<div className="settings-section__heading">
-							<div>
-								<h2>{t('settings.keyboardShortcuts')}</h2>
-								<p>{t('settings.captureHint')}</p>
-							</div>
-							<TextButton icon={<RotateCcw />} onClick={settings.resetAllShortcuts}>
-								{t('settings.resetAll')}
-							</TextButton>
-						</div>
-						{groups.map(({ group, commands }) => (
-							<ShortcutGroup
-								capture={capture}
-								commands={commands}
-								group={group}
-								key={group}
-								onCapture={setCapture}
-								onCaptureKeyDown={captureShortcut}
-							/>
-						))}
-						{message === null ? null : (
-							<p aria-live="assertive" className="settings-shortcut-message">
-								{message}
-							</p>
-						)}
-					</section>
-				</div>
-				{pendingConflict === null ? null : (
-					<div aria-live="assertive" className="settings-conflict">
-						<p>
-							{t('settings.conflict', {
-								command: t(commandDefinition(pendingConflict.conflictId).labelKey)
-							})}
-						</p>
+			<OverlayBoundary>
+				<button
+					aria-label={t('common.close')}
+					className="settings-dialog__backdrop"
+					onClick={close}
+					type="button"
+				/>
+				<div
+					aria-label={t('settings.title')}
+					aria-modal="true"
+					className="settings-dialog__panel"
+					onKeyDown={handlePanelKeyDown}
+					ref={panelReference}
+					role="dialog"
+				>
+					<header className="settings-dialog__header">
 						<div>
-							<TextButton onClick={replaceConflict} tone="accent">
-								{t('settings.replace')}
-							</TextButton>
-							<TextButton
-								onClick={() => {
-									setPendingConflict(null)
-									setCapture(null)
-								}}
-							>
-								{t('settings.cancel')}
-							</TextButton>
+							<h1>{t('settings.title')}</h1>
+							<span aria-live="polite">
+								{t(persistenceKeys[settings.persistenceState])}
+							</span>
 						</div>
+						<IconButton icon={<X />} label={t('common.close')} onClick={close} />
+					</header>
+					<div className="settings-dialog__content">
+						<section className="settings-section">
+							<h2>{t('settings.appearance')}</h2>
+							<div className="settings-appearance-grid">
+								<Select
+									label={t('common.theme')}
+									onChange={settings.setColorScheme}
+									options={themeValues.map((value) => ({
+										value,
+										label: t(`common.${value}`)
+									}))}
+									value={settings.colorScheme}
+								/>
+								<Select<SupportedLocale>
+									label={t('common.language')}
+									onChange={settings.setLocale}
+									options={localeValues.map((value) => ({
+										value,
+										label:
+											value === 'en'
+												? 'English'
+												: value === 'ru'
+													? 'Русский'
+													: 'Español'
+									}))}
+									value={settings.locale}
+								/>
+							</div>
+						</section>
+						<section className="settings-section settings-shortcuts">
+							<div className="settings-section__heading">
+								<div>
+									<h2>{t('settings.keyboardShortcuts')}</h2>
+									<p>{t('settings.captureHint')}</p>
+								</div>
+								<TextButton
+									icon={<RotateCcw />}
+									onClick={settings.resetAllShortcuts}
+								>
+									{t('settings.resetAll')}
+								</TextButton>
+							</div>
+							{groups.map(({ group, commands }) => (
+								<ShortcutGroup
+									capture={capture}
+									commands={commands}
+									group={group}
+									key={group}
+									onCapture={setCapture}
+									onCaptureKeyDown={captureShortcut}
+								/>
+							))}
+							{message === null ? null : (
+								<p aria-live="assertive" className="settings-shortcut-message">
+									{message}
+								</p>
+							)}
+						</section>
 					</div>
-				)}
-			</div>
+					{pendingConflict === null ? null : (
+						<div aria-live="assertive" className="settings-conflict">
+							<p>
+								{t('settings.conflict', {
+									command: t(
+										commandDefinition(pendingConflict.conflictId).labelKey
+									)
+								})}
+							</p>
+							<div>
+								<TextButton onClick={replaceConflict} tone="accent">
+									{t('settings.replace')}
+								</TextButton>
+								<TextButton
+									onClick={() => {
+										setPendingConflict(null)
+										setCapture(null)
+									}}
+								>
+									{t('settings.cancel')}
+								</TextButton>
+							</div>
+						</div>
+					)}
+				</div>
+			</OverlayBoundary>
 		</div>
 	)
 

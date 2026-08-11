@@ -340,13 +340,17 @@ button {
 	position: relative;
 }
 
+.ti-overlay-layer {
+	position: fixed;
+	z-index: 120;
+	inset: 0;
+	pointer-events: none;
+}
+
 .ti-popover__panel,
 .ti-select__options {
-	position: absolute;
-	z-index: 80;
-	top: calc(100% + var(--ti-space-2));
-	min-width: min(18rem, 85vw);
-	max-height: min(22rem, 65dvh);
+	position: fixed;
+	pointer-events: auto;
 	border: var(--ti-hairline) solid var(--ti-border);
 	border-radius: var(--ti-radius-md);
 	background: var(--ti-surface-raised);
@@ -355,15 +359,6 @@ button {
 
 .ti-popover__panel {
 	padding: var(--ti-space-3);
-}
-
-.ti-popover__panel[data-placement="start"] {
-	left: 0;
-}
-
-.ti-popover__panel[data-placement="end"],
-.ti-select__options {
-	right: 0;
 }
 
 .ti-select {
@@ -396,6 +391,7 @@ button {
 
 .ti-select__options {
 	overflow: auto;
+	overscroll-behavior: contain;
 	padding: var(--ti-space-1);
 }
 
