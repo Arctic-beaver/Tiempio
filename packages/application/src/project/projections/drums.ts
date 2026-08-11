@@ -16,13 +16,22 @@ const drumRows: readonly {
 export function projectDrums({
 	drumClip,
 	drumLayer,
+	project,
 	revision
 }: StudioProjectionContext): DrumsProjection {
+	const defaultLengthTicks = project.transport.ticksPerQuarter * 4
+	const stepCount = drumClip?.kind === 'drum' ? drumClip.pattern.stepCount : 16
+	const totalTicks =
+		drumClip?.kind === 'drum'
+			? (stepCount * project.transport.ticksPerQuarter) / drumClip.pattern.stepsPerQuarter
+			: defaultLengthTicks
 	return {
 		revision,
 		layerId: drumLayer?.id ?? null,
 		clipId: drumClip?.id ?? null,
-		stepCount: drumClip?.kind === 'drum' ? drumClip.pattern.stepCount : 16,
+		startTick: drumClip?.startTick ?? 0,
+		stepCount,
+		totalTicks,
 		rows: drumRows.map((row) => ({
 			...row,
 			activeSteps:

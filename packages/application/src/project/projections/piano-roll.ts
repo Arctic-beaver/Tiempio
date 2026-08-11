@@ -28,6 +28,7 @@ export function projectPianoRoll({
 		meterDenominator: meter.denominator,
 		meterNumerator: meter.numerator,
 		palette: songPalette(project.transport.key),
+		startTick: midiClip?.startTick ?? 0,
 		ticksPerBar,
 		ticksPerBeat,
 		ticksPerQuarter,

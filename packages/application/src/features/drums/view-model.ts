@@ -9,11 +9,15 @@ export interface DrumRowViewModel {
 
 export interface DrumsViewModel {
 	readonly rows: readonly DrumRowViewModel[]
+	readonly startTick: number
 	readonly stepCount: number
+	readonly totalTicks: number
 }
 
 export const drumsViewModel: DrumsViewModel = Object.freeze({
+	startTick: 0,
 	stepCount: 16,
+	totalTicks: 3840,
 	rows: Object.freeze([
 		Object.freeze({ id: 'kick', labelKey: 'drums.kick', activeSteps: [0, 4, 8, 11, 12] }),
 		Object.freeze({ id: 'snare', labelKey: 'drums.snare', activeSteps: [4, 12] }),

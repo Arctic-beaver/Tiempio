@@ -3,6 +3,8 @@ import { useLocalization } from '../../../../localization/src/index.js'
 import type { DrumInstrument } from '../../../../project-core/src/index.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
 import { TransportBar } from '../../shell/TransportBar.js'
+import { TransportPlayhead } from '../../shell/TransportPlayhead.js'
+import { TransportRuler } from '../../shell/TransportRuler.js'
 import type { LayersProjection, ProjectedLayerItem } from '../../project/projections/types.js'
 import { EditorLayerList } from '../shared/EditorLayerList.js'
 import { editorLayerName, editorLayerSound } from '../shared/editor-layer-presentation.js'
@@ -108,11 +110,12 @@ export function DrumsView({
 						))}
 					</div>
 					<div aria-label={t('drums.title')} className="drum-grid" role="group">
-						<div aria-hidden="true" className="drum-ruler">
-							{Array.from({ length: model.stepCount }, (_, step) => (
-								<span key={step}>{step % 4 === 0 ? step / 4 + 1 : ''}</span>
-							))}
-						</div>
+						<TransportRuler
+							className="drum-ruler"
+							endTick={model.startTick + model.totalTicks}
+							granularity="beat"
+							startTick={model.startTick}
+						/>
 						{visualRows.map((visualRow) => {
 							const sourceRow = model.rows.find(
 								(row) => row.id === visualRow.instrument
@@ -150,6 +153,10 @@ export function DrumsView({
 								</div>
 							)
 						})}
+						<TransportPlayhead
+							endTick={model.startTick + model.totalTicks}
+							startTick={model.startTick}
+						/>
 					</div>
 					<aside className="pattern-panel">
 						<h2>Straight</h2>

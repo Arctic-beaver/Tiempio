@@ -2,6 +2,7 @@ import { useMemo, useSyncExternalStore, type JSX } from 'react'
 import { CommandProvider } from '../commands/CommandProvider.js'
 import type { CommandHandlerMap } from '../commands/command-availability.js'
 import { useApplicationRuntime } from '../providers/RuntimeContext.js'
+import { usePresentationSettings } from '../providers/PresentationSettingsContext.js'
 import { useProjectSession } from '../project/ProjectSessionContext.js'
 import { useTransportCommandHandlers } from '../project/useTransportCommandHandlers.js'
 import { useApplicationRuntimeController } from '../runtime/ApplicationRuntimeControllerContext.js'
@@ -12,6 +13,7 @@ import { useStudioNavigation } from './useStudioNavigation.js'
 export function StudioApplication(): JSX.Element {
 	const runtime = useApplicationRuntime()
 	const controller = useApplicationRuntimeController()
+	const { metronomeEnabled, setMetronomeEnabled } = usePresentationSettings()
 	const engine = useSyncExternalStore(
 		controller.subscribe,
 		controller.getSnapshot,
@@ -24,6 +26,7 @@ export function StudioApplication(): JSX.Element {
 		() => ({
 			...navigation.commandHandlers,
 			...transportCommandHandlers,
+			'transport.toggle-metronome': () => setMetronomeEnabled(!metronomeEnabled),
 			'project.undo': projectSession.undo,
 			'project.redo': projectSession.redo
 		}),
@@ -31,6 +34,8 @@ export function StudioApplication(): JSX.Element {
 			navigation.commandHandlers,
 			projectSession.redo,
 			projectSession.undo,
+			metronomeEnabled,
+			setMetronomeEnabled,
 			transportCommandHandlers
 		]
 	)

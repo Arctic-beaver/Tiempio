@@ -1,4 +1,4 @@
-import { Copy, Repeat2, Scissors } from 'lucide-react'
+import { Copy, Repeat2, Scissors, X } from 'lucide-react'
 import {
 	useEffect,
 	useRef,
@@ -15,6 +15,7 @@ import type { LayersProjection, ProjectedLayerItem } from '../../project/project
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
 import { TransportBar } from '../../shell/TransportBar.js'
 import { TransportPlayhead } from '../../shell/TransportPlayhead.js'
+import { TransportRuler } from '../../shell/TransportRuler.js'
 import { EditorLayerList } from '../shared/EditorLayerList.js'
 import { editorLayerName, editorLayerSound } from '../shared/editor-layer-presentation.js'
 import {
@@ -49,6 +50,24 @@ interface ActiveKeyboardGesture {
 	readonly group: string
 	readonly noteId: string
 	readonly values: EditableNoteValues
+}
+
+const pianoHintPreferenceKey = 'tiempio.piano-roll.first-use-hint-dismissed'
+
+function pianoHintWasDismissed(): boolean {
+	try {
+		return globalThis.localStorage?.getItem(pianoHintPreferenceKey) === 'true'
+	} catch {
+		return false
+	}
+}
+
+function rememberPianoHintDismissal(): void {
+	try {
+		globalThis.localStorage?.setItem(pianoHintPreferenceKey, 'true')
+	} catch {
+		// The hint can still be dismissed for this session when storage is unavailable.
+	}
 }
 
 function editableValues(note: PianoNoteViewModel): EditableNoteValues {
@@ -118,6 +137,9 @@ export function PianoRollView({
 }: PianoRollViewProperties): JSX.Element {
 	const { t } = useLocalization()
 	const { shortcutOverrides } = usePresentationSettings()
+	const [hintDismissed, setHintDismissed] = useState(
+		() => pianoHintWasDismissed() || model.notes.length > 0
+	)
 	const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
 	const [preview, setPreview] = useState<NotePreview | null>(null)
 	const previewRef = useRef<NotePreview | null>(null)
@@ -134,7 +156,6 @@ export function PianoRollView({
 	const pitchValues = pitchModelsToValues(model.pitches)
 	const gridHeight = model.pitches.length * pianoRowHeight
 	const beatCount = Math.max(1, Math.ceil(model.totalTicks / model.ticksPerBeat))
-	const barCount = Math.max(1, Math.ceil(model.bars))
 	const homeChord = model.palette.chords.find(({ role }) => role === 'home')
 	const homeChordDegrees = new Set(homeChord?.degreeIndices ?? [])
 
@@ -345,18 +366,14 @@ export function PianoRollView({
 								aria-label={t('pianoRoll.title')}
 								className="piano-roll"
 								role="group"
+								style={{ minWidth: `${String(Math.max(544, beatCount * 48))}px` }}
 							>
-								<div
-									aria-hidden="true"
+								<TransportRuler
 									className="roll-ruler"
-									style={{
-										gridTemplateColumns: `repeat(${String(barCount)}, minmax(3.5rem, 1fr))`
-									}}
-								>
-									{Array.from({ length: barCount }, (_, index) => (
-										<span key={index}>{index + 1}</span>
-									))}
-								</div>
+									endTick={model.startTick + model.totalTicks}
+									granularity="beat"
+									startTick={model.startTick}
+								/>
 								<div
 									className="piano-roll-grid"
 									onDoubleClick={(event) => {
@@ -371,6 +388,8 @@ export function PianoRollView({
 										)
 										const id = onAddNote(note)
 										if (id !== null) {
+											setHintDismissed(true)
+											rememberPianoHintDismissal()
 											pendingFocusId.current = id
 											setSelectedNoteId(id)
 										}
@@ -400,11 +419,26 @@ export function PianoRollView({
 											/>
 										))}
 									</div>
-									<TransportPlayhead />
-									{model.notes.length === 0 ? (
-										<p aria-hidden="true" className="piano-empty-hint">
-											{t('pianoRoll.emptyHint')}
-										</p>
+									<TransportPlayhead
+										endTick={model.startTick + model.totalTicks}
+										startTick={model.startTick}
+									/>
+									{model.notes.length === 0 && !hintDismissed ? (
+										<div className="piano-empty-hint" role="note">
+											<span>{t('pianoRoll.emptyHint')}</span>
+											<button
+												aria-label={t('pianoRoll.dismissHint')}
+												onClick={() => {
+													setHintDismissed(true)
+													rememberPianoHintDismissal()
+												}}
+												onDoubleClick={(event) => event.stopPropagation()}
+												onPointerDown={(event) => event.stopPropagation()}
+												type="button"
+											>
+												<X aria-hidden="true" />
+											</button>
+										</div>
 									) : null}
 									{model.notes.map((sourceNote) => {
 										const note = noteWithPreview(sourceNote, preview, model)
