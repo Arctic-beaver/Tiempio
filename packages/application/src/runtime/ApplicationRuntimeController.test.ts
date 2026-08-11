@@ -444,6 +444,17 @@ describe('ApplicationRuntimeController', () => {
 				assert.equal(retriedPlan.payload.plan.projectRevision, 1)
 			}
 
+			controller.auditionDrum('layer.drums', 'openHat')
+			await flush()
+			await flush()
+			const drumAudition = commands.at(-1)
+			assert.equal(drumAudition?.type, 'note-on')
+			if (drumAudition?.type === 'note-on') {
+				assert.equal(drumAudition.payload.layerId, 'layer.drums')
+				assert.equal(drumAudition.payload.pitch, 46)
+				assert.equal(drumAudition.payload.velocity, 112)
+			}
+
 			controller.performanceInput.pressCode(
 				'sound-chooser',
 				performanceSourceId('keyboard', 'KeyF'),

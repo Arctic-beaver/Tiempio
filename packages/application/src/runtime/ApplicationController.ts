@@ -3,7 +3,7 @@ import {
 	type ApplicationRuntime,
 	type AudioHealthSnapshot
 } from '../../../contracts/src/index.js'
-import { type ProjectSession } from '../../../project-core/src/index.js'
+import { type DrumInstrument, type ProjectSession } from '../../../project-core/src/index.js'
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
 import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
 
@@ -32,6 +32,7 @@ export interface ApplicationController {
 	readonly previewCoordinator: AuditionPreviewCoordinator
 	readonly getSnapshot: () => ApplicationControllerSnapshot
 	readonly subscribe: (listener: () => void) => () => void
+	auditionDrum(layerId: string, instrument: DrumInstrument): void
 	bindProjectSession(session: ProjectSession): void
 	retryAudio(): Promise<void>
 	seek(tick: number): void
@@ -73,6 +74,7 @@ export function createUnavailableApplicationController(
 		previewCoordinator,
 		getSnapshot: () => unavailableSnapshot,
 		subscribe: () => () => undefined,
+		auditionDrum: () => undefined,
 		bindProjectSession: () => undefined,
 		retryAudio: async () => undefined,
 		seek: () => undefined,

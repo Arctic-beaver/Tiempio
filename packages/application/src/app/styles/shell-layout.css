@@ -385,6 +385,38 @@ body {
 	padding: 1rem;
 }
 
+.transport__drum-swing {
+	height: var(--ti-control-height);
+	border-left: var(--ti-hairline) solid var(--ti-border);
+}
+
+.transport__drum-swing .ti-popover__trigger {
+	height: var(--ti-control-height);
+	gap: 0.375rem;
+	padding: 0 0.5rem;
+	border-radius: 0;
+	color: var(--ti-text-muted);
+	font-size: 0.75rem;
+	font-weight: 400;
+}
+
+.transport__drum-swing .ti-popover__trigger b {
+	color: var(--ti-text);
+	font-weight: 650;
+}
+
+.drum-swing-popover {
+	width: min(16rem, calc(100vw - 2rem));
+	padding: 1rem;
+}
+
+.drum-swing-popover p {
+	margin: 0.75rem 0 0;
+	color: var(--ti-text-muted);
+	font-size: 0.625rem;
+	line-height: 1.45;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.transport__beat-dot {
 		transition: none;
