@@ -42,7 +42,9 @@ export function ActiveStudioView({ activeView }: ActiveStudioViewProperties): JS
 	}
 	return (
 		<Suspense fallback={<LazyViewFallback />}>
-			{activeView === 'first-layer' || activeView === 'sound-chooser' ? (
+			{activeView === 'first-layer' ||
+			activeView === 'sound-chooser' ||
+			activeView === 'song-palette' ? (
 				<WorkflowSurface activeView={activeView} />
 			) : (
 				<EditorSurface activeView={activeView} />

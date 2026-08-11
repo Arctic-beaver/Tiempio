@@ -11,7 +11,7 @@ import { FloatingOverlay } from './FloatingOverlay.js'
 import { floatingOverlayPathIsOwned } from './floating-overlay.js'
 
 export interface PopoverProperties {
-	readonly children: ReactNode
+	readonly children: ReactNode | ((close: () => void) => ReactNode)
 	readonly disabled?: boolean
 	readonly icon?: ReactNode
 	readonly label: string
@@ -49,6 +49,9 @@ export function Popover({
 		setOpen(false)
 		triggerReference.current?.focus()
 	}
+	const close = (): void => {
+		setOpen(false)
+	}
 
 	return (
 		<div className="ti-popover" onKeyDown={handleKeyDown} ref={rootReference}>
@@ -80,7 +83,7 @@ export function Popover({
 					panelRef={panelReference}
 					role="dialog"
 				>
-					{children}
+					{typeof children === 'function' ? children(close) : children}
 				</FloatingOverlay>
 			) : null}
 		</div>

@@ -41,6 +41,7 @@ test('command ids, definitions and activity placements stay unique', () => {
 test('every studio view resolves through the registry', () => {
 	assert.equal(commandForView('first-layer'), 'studio.first-layer')
 	assert.equal(commandForView('sound-chooser'), 'studio.sound-chooser')
+	assert.equal(commandForView('song-palette'), 'studio.song-palette')
 	assert.equal(commandForView('sound-sculpt'), 'studio.sound-sculpt')
 })
 

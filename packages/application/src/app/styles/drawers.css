@@ -25,6 +25,10 @@
 	box-shadow: var(--ti-shadow);
 }
 
+.studio-drawer[data-size="wide"] .studio-drawer__panel {
+	width: min(52rem, 94vw);
+}
+
 .studio-drawer[data-side="left"] .studio-drawer__panel {
 	left: 0;
 }

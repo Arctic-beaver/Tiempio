@@ -8,6 +8,7 @@ export interface StudioDrawerProperties {
 	readonly label: string
 	readonly onClose: () => void
 	readonly open: boolean
+	readonly size?: 'standard' | 'wide'
 	readonly side: 'left' | 'right'
 }
 
@@ -16,6 +17,7 @@ export function StudioDrawer({
 	label,
 	onClose,
 	open,
+	size = 'standard',
 	side
 }: StudioDrawerProperties): JSX.Element | null {
 	const { t } = useLocalization()
@@ -58,7 +60,7 @@ export function StudioDrawer({
 
 	if (!open) return null
 	return (
-		<div className="studio-drawer" data-side={side}>
+		<div className="studio-drawer" data-side={side} data-size={size}>
 			<button
 				aria-label={t('layout.closeDrawer')}
 				className="studio-drawer__backdrop"

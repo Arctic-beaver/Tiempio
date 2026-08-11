@@ -2,6 +2,7 @@ export const studioViewIds = Object.freeze([
 	'home',
 	'first-layer',
 	'sound-chooser',
+	'song-palette',
 	'piano-roll',
 	'drums',
 	'arrangement',
@@ -9,7 +10,7 @@ export const studioViewIds = Object.freeze([
 ] as const)
 
 export type StudioViewId = (typeof studioViewIds)[number]
-export type StudioDrawer = 'navigation' | 'context' | null
+export type StudioDrawer = 'navigation' | 'context' | 'play' | null
 
 export interface StudioNavigationState {
 	readonly activeDrawer: StudioDrawer

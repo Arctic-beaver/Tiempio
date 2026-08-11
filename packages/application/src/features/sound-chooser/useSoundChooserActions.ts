@@ -20,7 +20,7 @@ export function useSoundChooserActions(): {
 				presetId: 'bass.deep'
 			})
 		}
-		execute(commandForView('piano-roll'))
+		execute(commandForView('song-palette'))
 	}, [execute, projectSession])
 	const returnToLayerChoice = useCallback((): void => {
 		execute(commandForView('first-layer'))
