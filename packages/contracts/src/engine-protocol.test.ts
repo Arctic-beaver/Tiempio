@@ -12,14 +12,14 @@ import {
 const compatibleHandshake = {
 	protocolVersion: engineProtocolVersion,
 	peer: 'application',
-	renderPlanVersion: 1,
+	renderPlanVersion: 2,
 	patchModelVersion: 1,
 	capabilities: ['protocol.typed-json']
 } as const
 
 describe('engine protocol contracts', () => {
-	it('advances the live Desktop protocol contract to version 3', () => {
-		assert.equal(engineProtocolVersion, 3)
+	it('advances the live Desktop protocol contract to version 4', () => {
+		assert.equal(engineProtocolVersion, 4)
 	})
 
 	it('rejects version mismatch before session creation', () => {
@@ -124,6 +124,29 @@ describe('engine protocol contracts', () => {
 				}
 			}).ok,
 			true
+		)
+	})
+
+	it('validates ephemeral native metronome controls', () => {
+		assert.equal(
+			validateEngineCommandEnvelope({
+				protocolVersion: engineProtocolVersion,
+				requestId: 'request-metronome-enabled',
+				sequence: 1,
+				type: 'set-metronome-enabled',
+				payload: { enabled: true }
+			}).ok,
+			true
+		)
+		assert.equal(
+			validateEngineCommandEnvelope({
+				protocolVersion: engineProtocolVersion,
+				requestId: 'request-metronome-volume',
+				sequence: 2,
+				type: 'set-metronome-volume',
+				payload: { volume: 1.01 }
+			}).ok,
+			false
 		)
 	})
 

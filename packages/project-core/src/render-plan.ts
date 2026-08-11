@@ -59,6 +59,7 @@ export interface RenderPlanLayer {
 }
 
 export interface ProjectRenderPlan {
+	readonly endTick: number
 	readonly key: ProjectKey
 	readonly layers: readonly RenderPlanLayer[]
 	readonly loop: ProjectLoop
@@ -194,6 +195,18 @@ export function compileProjectRenderPlan(
 				events: layerEvents(layer)
 			}
 		})
+	const endTick = Math.max(
+		validation.project.transport.loop.endTick,
+		...validation.project.sections.map((section) => section.startTick + section.lengthTicks),
+		...validation.project.transport.tempoMap.map((point) => point.tick + 1),
+		...validation.project.transport.meterMap.map(
+			(point) =>
+				point.tick + (validation.project.transport.ticksPerQuarter * 4) / point.denominator
+		),
+		...validation.project.layers.flatMap((layer) =>
+			layer.clips.map((clip) => clip.startTick + clip.lengthTicks)
+		)
+	)
 	return {
 		status: 'ready',
 		plan: cloneAndFreeze({
@@ -201,6 +214,7 @@ export function compileProjectRenderPlan(
 			projectId: validation.project.projectId,
 			projectRevision,
 			ticksPerQuarter: validation.project.transport.ticksPerQuarter,
+			endTick,
 			tempoMap: validation.project.transport.tempoMap,
 			meterMap: validation.project.transport.meterMap,
 			key: validation.project.transport.key,
@@ -225,10 +239,12 @@ export function compileEngineWireRenderPlan(
 		projectId: projectPlan.projectId,
 		projectRevision: projectPlan.projectRevision,
 		ticksPerQuarter: engineTicksPerQuarter,
+		endTick: projectPlan.endTick,
 		tempoMap: projectPlan.tempoMap.map((point) => ({
 			tick: point.tick,
 			microBpm: Math.round(point.bpm * 1_000_000)
 		})),
+		meterMap: projectPlan.meterMap,
 		loop: projectPlan.loop,
 		layers: projectPlan.layers.map((layer) => {
 			if (layer.source.type !== 'synth') {

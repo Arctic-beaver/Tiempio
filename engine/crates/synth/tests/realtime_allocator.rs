@@ -1,7 +1,7 @@
 use allocation_counter::measure;
 use tiempio_engine_core::{
     BassAmplifierPatchV1, BassFilterPatchV1, BassLayerPlan, BassOscillatorPatchV1, BassPatchV1,
-    EngineKernel, LoopRegion, MidiNoteEvent, PATCH_MODEL_VERSION, PreparedPlan,
+    EngineKernel, LoopRegion, MeterPoint, MidiNoteEvent, PATCH_MODEL_VERSION, PreparedPlan,
     RENDER_PLAN_VERSION, RenderPlan, RenderPlanRevision, TICKS_PER_QUARTER, TempoPoint,
 };
 use tiempio_engine_dsp::{DspConfiguration, StereoFrame};
@@ -37,9 +37,15 @@ fn plan(revision: u64) -> RenderPlan {
         project_id: "project.realtime-harness".to_owned(),
         project_revision: RenderPlanRevision::new(revision),
         ticks_per_quarter: TICKS_PER_QUARTER,
+        end_tick: 3_840,
         tempo_map: vec![TempoPoint {
             tick: 0,
             micro_bpm: 120_000_000,
+        }],
+        meter_map: vec![MeterPoint {
+            tick: 0,
+            numerator: 4,
+            denominator: 4,
         }],
         loop_region: LoopRegion {
             enabled: false,

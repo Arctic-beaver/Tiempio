@@ -39,6 +39,8 @@ export interface ApplicationController {
 		readonly startTick: number
 		readonly endTick: number
 	}): void
+	setMetronomeEnabled(enabled: boolean): void
+	setMetronomeVolume(volume: number): void
 	start(): Promise<void>
 	stop(): void
 	togglePlayback(): void
@@ -73,6 +75,8 @@ export function createUnavailableApplicationController(
 		bindProjectSession: () => undefined,
 		seek: () => undefined,
 		setLoop: () => undefined,
+		setMetronomeEnabled: () => undefined,
+		setMetronomeVolume: () => undefined,
 		start: async () => {
 			if (runtime.lifecycle.availability === 'available') {
 				await runtime.lifecycle.api.ready()

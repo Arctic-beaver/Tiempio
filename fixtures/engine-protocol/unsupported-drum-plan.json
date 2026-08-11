@@ -1,12 +1,20 @@
 {
-	"planVersion": 1,
+	"planVersion": 2,
 	"projectId": "project.unsupported",
 	"projectRevision": 1,
 	"ticksPerQuarter": 960,
+	"endTick": 3840,
 	"tempoMap": [
 		{
 			"tick": 0,
 			"microBpm": 108000000
+		}
+	],
+	"meterMap": [
+		{
+			"tick": 0,
+			"numerator": 4,
+			"denominator": 4
 		}
 	],
 	"loop": {

@@ -119,6 +119,8 @@ describe('project render plan', () => {
 		if (wire.status !== 'ready') return
 		assert.equal(wire.plan.projectRevision, 9)
 		assert.equal(wire.plan.tempoMap[0]?.microBpm, 108_000_000)
+		assert.deepEqual(wire.plan.meterMap[0], { tick: 0, numerator: 4, denominator: 4 })
+		assert.equal(wire.plan.endTick, projectPlan.plan.endTick)
 		assert.equal(wire.plan.layers[0]?.source.type, 'subtractive-bass')
 		assert.equal(wire.plan.layers[0]?.events[0]?.id, 'note.early')
 	})

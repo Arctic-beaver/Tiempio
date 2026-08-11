@@ -3,12 +3,18 @@ import {
 	type EngineDiagnosticCode
 } from './generated/engine-protocol.generated.js'
 
-export const engineRenderPlanVersion = 1 as const
+export const engineRenderPlanVersion = 2 as const
 export const enginePatchModelVersion = 1 as const
 export const engineTicksPerQuarter = 960 as const
 
 export interface EngineWireTempoPoint {
 	readonly microBpm: number
+	readonly tick: number
+}
+
+export interface EngineWireMeterPoint {
+	readonly denominator: 1 | 2 | 4 | 8 | 16
+	readonly numerator: number
 	readonly tick: number
 }
 
@@ -60,8 +66,10 @@ export interface EngineWireBassLayer {
 }
 
 export interface EngineWireRenderPlan {
+	readonly endTick: number
 	readonly layers: readonly EngineWireBassLayer[]
 	readonly loop: EngineWireLoop
+	readonly meterMap: readonly EngineWireMeterPoint[]
 	readonly planVersion: typeof engineRenderPlanVersion
 	readonly projectId: string
 	readonly projectRevision: number
@@ -178,14 +186,18 @@ export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPl
 			'projectId',
 			'projectRevision',
 			'ticksPerQuarter',
+			'endTick',
 			'tempoMap',
+			'meterMap',
 			'loop',
 			'layers'
 		]) ||
 		input.planVersion !== engineRenderPlanVersion ||
 		!stableId(input.projectId) ||
 		!wireInteger(input.projectRevision) ||
-		input.ticksPerQuarter !== engineTicksPerQuarter
+		input.ticksPerQuarter !== engineTicksPerQuarter ||
+		!wireInteger(input.endTick) ||
+		input.endTick === 0
 	) {
 		return failure('engine.invalid-plan', 'Engine render-plan header is invalid.')
 	}
@@ -213,12 +225,49 @@ export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPl
 		previousTick = point.tick
 	}
 	if (
+		!Array.isArray(input.meterMap) ||
+		input.meterMap.length === 0 ||
+		input.meterMap.length > engineProtocolLimits.maxMeterPoints
+	) {
+		return failure('engine.limit-exceeded', 'Engine meter-map ceiling was exceeded.')
+	}
+	previousTick = -1
+	for (const [index, point] of input.meterMap.entries()) {
+		if (
+			!record(point) ||
+			!exactKeys(point, ['tick', 'numerator', 'denominator']) ||
+			!wireInteger(point.tick) ||
+			!wireInteger(point.numerator) ||
+			point.numerator < 1 ||
+			point.numerator > 32 ||
+			![1, 2, 4, 8, 16].includes(point.denominator as number) ||
+			point.tick <= previousTick ||
+			(index === 0 && point.tick !== 0) ||
+			point.tick >= input.endTick
+		) {
+			return failure('engine.invalid-plan', 'Engine meter map is invalid or unordered.')
+		}
+		previousTick = point.tick
+	}
+	let preparedBeatCount = 0
+	for (const [index, point] of input.meterMap.entries()) {
+		const next = input.meterMap[index + 1]
+		const segmentEnd = record(next) && wireInteger(next.tick) ? next.tick : input.endTick
+		const denominator = record(point) ? Number(point.denominator) : 0
+		const ticksPerBeat = (engineTicksPerQuarter * 4) / denominator
+		preparedBeatCount += Math.ceil((segmentEnd - Number(point.tick)) / ticksPerBeat)
+		if (preparedBeatCount > engineProtocolLimits.maxPreparedBeats) {
+			return failure('engine.limit-exceeded', 'Engine prepared-beat ceiling was exceeded.')
+		}
+	}
+	if (
 		!record(input.loop) ||
 		!exactKeys(input.loop, ['enabled', 'startTick', 'endTick']) ||
 		typeof input.loop.enabled !== 'boolean' ||
 		!wireInteger(input.loop.startTick) ||
 		!wireInteger(input.loop.endTick) ||
-		input.loop.startTick >= input.loop.endTick
+		input.loop.startTick >= input.loop.endTick ||
+		input.loop.endTick > input.endTick
 	) {
 		return failure('engine.invalid-plan', 'Engine loop is invalid.')
 	}

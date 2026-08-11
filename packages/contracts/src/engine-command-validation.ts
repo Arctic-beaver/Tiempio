@@ -229,6 +229,16 @@ function validCommandPayload(
 			? null
 			: protocolFailure('protocol.invalid-envelope', 'Loop payload is invalid.')
 	}
+	if (type === 'set-metronome-enabled') {
+		return record(value) && exactKeys(value, ['enabled']) && typeof value.enabled === 'boolean'
+			? null
+			: protocolFailure('protocol.invalid-envelope', 'Metronome enabled payload is invalid.')
+	}
+	if (type === 'set-metronome-volume') {
+		return record(value) && exactKeys(value, ['volume']) && finiteRange(value.volume, 0, 1)
+			? null
+			: protocolFailure('protocol.invalid-envelope', 'Metronome volume payload is invalid.')
+	}
 	if (type === 'note-on') {
 		return record(value) &&
 			exactKeys(value, ['auditionId', 'pitch', 'velocity']) &&

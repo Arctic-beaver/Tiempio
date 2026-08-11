@@ -28,6 +28,7 @@ const capabilities = Object.freeze<readonly EngineCapabilityCode[]>([
 	'render-plan.full',
 	'transport.basic',
 	'transport.loop',
+	'metronome.native',
 	'synth.bass.deep',
 	'audition.notes',
 	'preview.programs',
@@ -226,8 +227,15 @@ describe('ApplicationRuntimeController', () => {
 			await flush()
 			assert.equal(controller.getSnapshot().available, true)
 			assert.deepEqual(
-				commands.slice(0, 4).map((command) => command.type),
-				['handshake', 'configure-audio', 'load-render-plan', 'start-audio']
+				commands.slice(0, 6).map((command) => command.type),
+				[
+					'handshake',
+					'configure-audio',
+					'load-render-plan',
+					'set-metronome-enabled',
+					'set-metronome-volume',
+					'start-audio'
+				]
 			)
 			const initialPlan = commands.find((command) => command.type === 'load-render-plan')
 			assert.ok(initialPlan !== undefined && initialPlan.type === 'load-render-plan')

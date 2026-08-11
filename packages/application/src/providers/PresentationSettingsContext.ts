@@ -12,11 +12,15 @@ export type SettingsPersistenceState = 'session-only' | 'loading' | 'saved' | 'f
 export interface PresentationSettingsContextValue {
 	readonly colorScheme: ColorSchemePreference
 	readonly locale: SupportedLocale
+	readonly metronomeEnabled: boolean
+	readonly metronomeVolume: number
 	readonly persistenceState: SettingsPersistenceState
 	readonly resetAllShortcuts: () => void
 	readonly resetShortcutBindings: (commandId: CommandId) => void
 	readonly setColorScheme: (colorScheme: ColorSchemePreference) => void
 	readonly setLocale: (locale: SupportedLocale) => void
+	readonly setMetronomeEnabled: (enabled: boolean) => void
+	readonly setMetronomeVolume: (volume: number) => void
 	readonly setShortcutBindings: (
 		commandId: CommandId,
 		bindings: readonly CommandShortcut[]

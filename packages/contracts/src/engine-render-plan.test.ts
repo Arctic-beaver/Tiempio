@@ -23,4 +23,29 @@ describe('engine wire render-plan contracts', () => {
 		assert.equal(result.ok, false)
 		if (!result.ok) assert.equal(result.diagnostic, 'engine.unsupported-source')
 	})
+
+	it('rejects unordered or unbounded project meter maps', () => {
+		const plan = fixture('valid-bass-plan.json') as Record<string, unknown>
+		assert.equal(
+			validateEngineWireRenderPlan({
+				...plan,
+				meterMap: [{ tick: 0, numerator: 4, denominator: 3 }]
+			}).ok,
+			false
+		)
+		assert.equal(
+			validateEngineWireRenderPlan({
+				...plan,
+				meterMap: [{ tick: 1, numerator: 4, denominator: 4 }]
+			}).ok,
+			false
+		)
+		assert.equal(
+			validateEngineWireRenderPlan({
+				...plan,
+				endTick: 8_193 * 960
+			}).ok,
+			false
+		)
+	})
 })

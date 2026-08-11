@@ -11,10 +11,10 @@ use crate::{
     AudioConfiguration, ENGINE_CAPABILITY_CODES, ENGINE_PROTOCOL_MAX_BATCH_ITEMS,
     ENGINE_PROTOCOL_MAX_FRAME_BYTES, ENGINE_PROTOCOL_MAX_PAYLOAD_BYTES, ENGINE_PROTOCOL_VERSION,
     EmptyPayload, EngineHandshake, HeartbeatPayload, IdentifierPayload, LoopPayload, MacroPayload,
-    NoteOnPayload, OfflineRenderPayload, PlayPayload, PreviewIdentifierPayload,
-    PreviewProgramPayload, ProtocolDiagnostic, ProtocolError, RawCommandEnvelope,
-    RenderIdentifierPayload, RenderPlanDeltaChange, RenderPlanDeltaPayload, TickPayload,
-    WireRenderPlan,
+    MetronomeEnabledPayload, MetronomeVolumePayload, NoteOnPayload, OfflineRenderPayload,
+    PlayPayload, PreviewIdentifierPayload, PreviewProgramPayload, ProtocolDiagnostic,
+    ProtocolError, RawCommandEnvelope, RenderIdentifierPayload, RenderPlanDeltaChange,
+    RenderPlanDeltaPayload, TickPayload, WireRenderPlan,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -29,6 +29,8 @@ pub enum EngineCommand {
     Stop,
     Seek(TickPayload),
     SetLoop(LoopPayload),
+    SetMetronomeEnabled(MetronomeEnabledPayload),
+    SetMetronomeVolume(MetronomeVolumePayload),
     NoteOn(NoteOnPayload),
     NoteOff(IdentifierPayload),
     StartPreview(PreviewProgramPayload),
@@ -315,6 +317,21 @@ fn decode_transport_command(
             validate_loop(&payload)?;
             EngineCommand::SetLoop(payload)
         }
+        "set-metronome-enabled" => {
+            let payload = parse_payload(payload_value, "Set metronome enabled")?;
+            EngineCommand::SetMetronomeEnabled(payload)
+        }
+        "set-metronome-volume" => {
+            let payload: MetronomeVolumePayload =
+                parse_payload(payload_value, "Set metronome volume")?;
+            if !payload.volume.is_finite() || !(0.0..=1.0).contains(&payload.volume) {
+                return Err(ProtocolError::new(
+                    ProtocolDiagnostic::InvalidEnvelope,
+                    "Metronome volume is invalid.",
+                ));
+            }
+            EngineCommand::SetMetronomeVolume(payload)
+        }
         "note-on" => {
             let payload = parse_payload(payload_value, "Note on")?;
             validate_note_on(&payload)?;
@@ -478,7 +495,7 @@ mod tests {
             &serde_json::json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 1,
+                "renderPlanVersion": 2,
                 "patchModelVersion": 1,
                 "capabilities": ["protocol.typed-json", "render-plan.full"]
             }),
@@ -496,11 +513,13 @@ mod tests {
         );
 
         let source = serde_json::json!({
-            "planVersion": 1,
+            "planVersion": 2,
             "projectId": "project.fixture",
             "projectRevision": 1,
             "ticksPerQuarter": 960,
+            "endTick": 3840,
             "tempoMap": [{"tick": 0, "microBpm": 108_000_000}],
+            "meterMap": [{"tick": 0, "numerator": 4, "denominator": 4}],
             "loop": {"enabled": false, "startTick": 0, "endTick": 3840},
             "layers": [{
                 "id": "layer.drums",

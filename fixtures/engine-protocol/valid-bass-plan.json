@@ -1,12 +1,25 @@
 {
-	"planVersion": 1,
+	"planVersion": 2,
 	"projectId": "project.engine-fixture",
 	"projectRevision": 7,
 	"ticksPerQuarter": 960,
+	"endTick": 6720,
 	"tempoMap": [
 		{
 			"tick": 0,
 			"microBpm": 108000000
+		}
+	],
+	"meterMap": [
+		{
+			"tick": 0,
+			"numerator": 4,
+			"denominator": 4
+		},
+		{
+			"tick": 3840,
+			"numerator": 3,
+			"denominator": 4
 		}
 	],
 	"loop": {

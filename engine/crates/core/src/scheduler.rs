@@ -1,8 +1,9 @@
 use std::cmp::Ordering;
 
-use crate::{RenderPlan, TempoError, TempoTimeline, validate_render_plan};
+use crate::{PlanValidationCode, RenderPlan, TempoError, TempoTimeline, validate_render_plan};
 
 pub const MAX_PREPARED_ACTIONS: usize = 8_192;
+pub const MAX_PREPARED_BEATS: usize = 8_192;
 pub const MAX_ACTIONS_PER_BLOCK: usize = 512;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -20,6 +21,13 @@ pub struct PreparedAction {
     plan_order: usize,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PreparedBeat {
+    pub sample_position: u64,
+    pub tick: u64,
+    pub downbeat: bool,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PreparedPlanError {
     InvalidPlan(String),
@@ -32,6 +40,7 @@ pub struct PreparedPlan {
     plan: RenderPlan,
     timeline: TempoTimeline,
     actions: Vec<PreparedAction>,
+    beats: Vec<PreparedBeat>,
     generation: u64,
     loop_start_sample: u64,
     loop_end_sample: u64,
@@ -49,7 +58,11 @@ impl PreparedPlan {
         generation: u64,
     ) -> Result<Self, PreparedPlanError> {
         validate_render_plan(&plan).map_err(|failure| {
-            PreparedPlanError::InvalidPlan(format!("{}: {}", failure.path, failure.message))
+            if failure.code == PlanValidationCode::LimitExceeded {
+                PreparedPlanError::LimitExceeded
+            } else {
+                PreparedPlanError::InvalidPlan(format!("{}: {}", failure.path, failure.message))
+            }
         })?;
         let action_count = plan
             .layers
@@ -95,6 +108,7 @@ impl PreparedPlan {
         }
         actions.sort_by(|left, right| action_order(&plan, left, right));
         validate_action_density(&actions)?;
+        let beats = prepare_beats(&plan, &timeline)?;
         let loop_start_sample = timeline
             .tick_to_sample(plan.loop_region.start_tick)
             .map_err(PreparedPlanError::Tempo)?;
@@ -105,6 +119,7 @@ impl PreparedPlan {
             plan,
             timeline,
             actions,
+            beats,
             generation,
             loop_start_sample,
             loop_end_sample,
@@ -127,6 +142,11 @@ impl PreparedPlan {
     }
 
     #[must_use]
+    pub fn beats(&self) -> &[PreparedBeat] {
+        &self.beats
+    }
+
+    #[must_use]
     pub const fn generation(&self) -> u64 {
         self.generation
     }
@@ -146,6 +166,49 @@ impl PreparedPlan {
         self.actions
             .partition_point(|action| action.sample_position < sample_position)
     }
+
+    #[must_use]
+    pub fn beat_cursor_at(&self, sample_position: u64) -> usize {
+        self.beats
+            .partition_point(|beat| beat.sample_position < sample_position)
+    }
+}
+
+fn prepare_beats(
+    plan: &RenderPlan,
+    timeline: &TempoTimeline,
+) -> Result<Vec<PreparedBeat>, PreparedPlanError> {
+    let mut beats = Vec::new();
+    for (meter_index, meter) in plan.meter_map.iter().enumerate() {
+        let segment_end = plan
+            .meter_map
+            .get(meter_index + 1)
+            .map_or(plan.end_tick, |next| next.tick);
+        let ticks_per_beat = u64::from(plan.ticks_per_quarter)
+            .checked_mul(4)
+            .and_then(|ticks| ticks.checked_div(u64::from(meter.denominator)))
+            .filter(|ticks| *ticks > 0)
+            .ok_or(PreparedPlanError::LimitExceeded)?;
+        let mut beat_tick = meter.tick;
+        let mut beat_index = 0_u64;
+        while beat_tick < segment_end {
+            if beats.len() >= MAX_PREPARED_BEATS {
+                return Err(PreparedPlanError::LimitExceeded);
+            }
+            beats.push(PreparedBeat {
+                sample_position: timeline
+                    .tick_to_sample(beat_tick)
+                    .map_err(PreparedPlanError::Tempo)?,
+                tick: beat_tick,
+                downbeat: beat_index % u64::from(meter.numerator) == 0,
+            });
+            beat_index = beat_index.saturating_add(1);
+            beat_tick = beat_tick
+                .checked_add(ticks_per_beat)
+                .ok_or(PreparedPlanError::LimitExceeded)?;
+        }
+    }
+    Ok(beats)
 }
 
 fn action_order(plan: &RenderPlan, left: &PreparedAction, right: &PreparedAction) -> Ordering {
@@ -187,8 +250,8 @@ fn validate_action_density(actions: &[PreparedAction]) -> Result<(), PreparedPla
 mod tests {
     use crate::{
         BassAmplifierPatchV1, BassFilterPatchV1, BassLayerPlan, BassOscillatorPatchV1, BassPatchV1,
-        LoopRegion, MidiNoteEvent, PATCH_MODEL_VERSION, RENDER_PLAN_VERSION, RenderPlanRevision,
-        TICKS_PER_QUARTER, TempoPoint,
+        LoopRegion, MeterPoint, MidiNoteEvent, PATCH_MODEL_VERSION, RENDER_PLAN_VERSION,
+        RenderPlanRevision, TICKS_PER_QUARTER, TempoPoint,
     };
 
     use super::*;
@@ -220,9 +283,15 @@ mod tests {
             project_id: "project.scheduler".to_owned(),
             project_revision: RenderPlanRevision::new(1),
             ticks_per_quarter: TICKS_PER_QUARTER,
+            end_tick: 3_840,
             tempo_map: vec![TempoPoint {
                 tick: 0,
                 micro_bpm: 120_000_000,
+            }],
+            meter_map: vec![MeterPoint {
+                tick: 0,
+                numerator: 4,
+                denominator: 4,
             }],
             loop_region: LoopRegion {
                 enabled: false,
@@ -279,6 +348,62 @@ mod tests {
                 velocity: 100,
             })
             .collect();
+        assert_eq!(
+            PreparedPlan::prepare(plan, 48_000, 3),
+            Err(PreparedPlanError::LimitExceeded)
+        );
+    }
+
+    #[test]
+    fn precomputes_tempo_and_meter_aware_beat_boundaries() {
+        let mut plan = test_plan();
+        plan.end_tick = 6_720;
+        plan.tempo_map = vec![
+            TempoPoint {
+                tick: 0,
+                micro_bpm: 120_000_000,
+            },
+            TempoPoint {
+                tick: 1_920,
+                micro_bpm: 60_000_000,
+            },
+        ];
+        plan.meter_map = vec![
+            MeterPoint {
+                tick: 0,
+                numerator: 4,
+                denominator: 4,
+            },
+            MeterPoint {
+                tick: 3_840,
+                numerator: 3,
+                denominator: 4,
+            },
+        ];
+        let prepared = PreparedPlan::prepare(plan, 48_000, 3).expect("valid plan");
+        assert_eq!(
+            prepared
+                .beats()
+                .iter()
+                .map(|beat| (beat.tick, beat.sample_position, beat.downbeat))
+                .collect::<Vec<_>>(),
+            vec![
+                (0, 0, true),
+                (960, 24_000, false),
+                (1_920, 48_000, false),
+                (2_880, 96_000, false),
+                (3_840, 144_000, true),
+                (4_800, 192_000, false),
+                (5_760, 240_000, false),
+            ]
+        );
+        assert_eq!(prepared.beat_cursor_at(12_000), 1);
+    }
+
+    #[test]
+    fn rejects_a_project_above_the_prepared_beat_ceiling() {
+        let mut plan = test_plan();
+        plan.end_tick = (u64::try_from(MAX_PREPARED_BEATS).unwrap() + 1) * 960;
         assert_eq!(
             PreparedPlan::prepare(plan, 48_000, 3),
             Err(PreparedPlanError::LimitExceeded)

@@ -31,8 +31,9 @@ import { PersistenceBoundaryError, persistenceApplicationError } from './persist
 const recoveryFilePattern = /^([A-F0-9]{64})\.recovery$/u
 const settingsFileName = 'settings-v1.json'
 const defaultSettings = Object.freeze({
-	version: 2 as const,
+	version: 3 as const,
 	colorScheme: 'system' as const,
+	metronome: Object.freeze({ enabled: false, volume: 0.65 }),
 	shortcutOverrides: Object.freeze([])
 })
 

@@ -214,8 +214,12 @@ export interface ShortcutOverrideSnapshot {
 }
 
 export interface SettingsSnapshot {
-	readonly version: 2
+	readonly version: 3
 	readonly colorScheme: 'system' | 'light' | 'dark'
+	readonly metronome: {
+		readonly enabled: boolean
+		readonly volume: number
+	}
 	readonly shortcutOverrides: readonly ShortcutOverrideSnapshot[]
 }
 
