@@ -30,6 +30,19 @@ export function StudioTopBar({
 	)
 	const { snapshot } = useProjectSession()
 	const engineAvailable = engine.available
+	const engineConnecting =
+		!engineAvailable &&
+		(engine.health?.backendState === 'starting' || engine.health?.backendState === 'restarting')
+	const engineStatusKey = engineAvailable
+		? 'transport.sharedAudio'
+		: engineConnecting
+			? 'transport.audioConnecting'
+			: 'transport.audioOffline'
+	const engineLabelKey = engineAvailable
+		? 'engine.available'
+		: engineConnecting
+			? 'engine.connecting'
+			: 'engine.unavailable'
 	return (
 		<header className="topbar">
 			<div className="top-left">
@@ -64,15 +77,15 @@ export function StudioTopBar({
 					</button>
 				)}
 				<div
-					aria-label={t(engineAvailable ? 'engine.available' : 'engine.unavailable')}
+					aria-label={t(engineLabelKey)}
 					className="audio-chip"
-					data-availability={engineAvailable ? 'available' : 'unavailable'}
+					data-availability={
+						engineAvailable ? 'available' : engineConnecting ? 'pending' : 'unavailable'
+					}
 					role="status"
 				>
 					<span aria-hidden="true" className="status-dot" />
-					<strong>
-						{t(engineAvailable ? 'transport.sharedAudio' : 'transport.audioOffline')}
-					</strong>
+					<strong>{t(engineStatusKey)}</strong>
 					<Volume2 aria-hidden="true" />
 				</div>
 			</div>

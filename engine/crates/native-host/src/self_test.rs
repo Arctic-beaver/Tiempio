@@ -257,10 +257,10 @@ mod tests {
             Arc::new(StreamSignals::default()),
         );
         let mut output = [0.0_f32; 256];
-        realtime.render_f32(&mut output);
+        realtime.render_f32_channels(&mut output, 2);
         let allocation = measure(|| {
             for _ in 0..64 {
-                realtime.render_f32(&mut output);
+                realtime.render_f32_channels(&mut output, 2);
                 std::hint::black_box(output[0]);
             }
         });

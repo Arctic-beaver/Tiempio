@@ -125,57 +125,73 @@ impl RealtimeEngine {
         }
     }
 
-    pub fn render_f32(&mut self, output: &mut [f32]) {
-        let frame_count = output.len() / 2;
+    pub fn render_f32_channels(&mut self, output: &mut [f32], channels: u16) {
+        let channels = usize::from(channels);
+        if channels == 0 {
+            output.fill(0.0);
+            return;
+        }
+        let frame_count = output.len() / channels;
         if !self.render_frames(frame_count) {
             output.fill(0.0);
             return;
         }
         for (samples, frame) in output
-            .chunks_exact_mut(2)
+            .chunks_exact_mut(channels)
             .zip(self.scratch[..frame_count].iter())
         {
-            samples[0] = float_f32(frame.left);
-            samples[1] = float_f32(frame.right);
+            write_f32_frame(samples, frame.left, frame.right);
         }
-        if output.len() % 2 != 0 {
-            output[output.len() - 1] = 0.0;
+        let rendered = frame_count.saturating_mul(channels);
+        if rendered < output.len() {
+            output[rendered..].fill(0.0);
         }
     }
 
-    pub fn render_i16(&mut self, output: &mut [i16]) {
-        let frame_count = output.len() / 2;
+    pub fn render_i16_channels(&mut self, output: &mut [i16], channels: u16) {
+        let channels = usize::from(channels);
+        if channels == 0 {
+            output.fill(0);
+            return;
+        }
+        let frame_count = output.len() / channels;
         if !self.render_frames(frame_count) {
             output.fill(0);
             return;
         }
         for (samples, frame) in output
-            .chunks_exact_mut(2)
+            .chunks_exact_mut(channels)
             .zip(self.scratch[..frame_count].iter())
         {
-            samples[0] = signed_i16(frame.left);
-            samples[1] = signed_i16(frame.right);
+            write_i16_frame(samples, frame.left, frame.right);
         }
-        if output.len() % 2 != 0 {
-            output[output.len() - 1] = 0;
+        let rendered = frame_count.saturating_mul(channels);
+        if rendered < output.len() {
+            output[rendered..].fill(0);
         }
     }
 
-    pub fn render_u16(&mut self, output: &mut [u16]) {
-        let frame_count = output.len() / 2;
+    pub fn render_u16_channels(&mut self, output: &mut [u16], channels: u16) {
+        let channels = usize::from(channels);
+        let silence = u16::MAX / 2 + 1;
+        if channels == 0 {
+            output.fill(silence);
+            return;
+        }
+        let frame_count = output.len() / channels;
         if !self.render_frames(frame_count) {
-            output.fill(u16::MAX / 2 + 1);
+            output.fill(silence);
             return;
         }
         for (samples, frame) in output
-            .chunks_exact_mut(2)
+            .chunks_exact_mut(channels)
             .zip(self.scratch[..frame_count].iter())
         {
-            samples[0] = unsigned_u16(frame.left);
-            samples[1] = unsigned_u16(frame.right);
+            write_u16_frame(samples, frame.left, frame.right);
         }
-        if output.len() % 2 != 0 {
-            output[output.len() - 1] = u16::MAX / 2 + 1;
+        let rendered = frame_count.saturating_mul(channels);
+        if rendered < output.len() {
+            output[rendered..].fill(silence);
         }
     }
 
@@ -347,6 +363,37 @@ impl RealtimeEngine {
     }
 }
 
+fn write_f32_frame(samples: &mut [f32], left: f64, right: f64) {
+    if samples.len() == 1 {
+        samples[0] = float_f32((left + right) * 0.5);
+        return;
+    }
+    samples.fill(0.0);
+    samples[0] = float_f32(left);
+    samples[1] = float_f32(right);
+}
+
+fn write_i16_frame(samples: &mut [i16], left: f64, right: f64) {
+    if samples.len() == 1 {
+        samples[0] = signed_i16((left + right) * 0.5);
+        return;
+    }
+    samples.fill(0);
+    samples[0] = signed_i16(left);
+    samples[1] = signed_i16(right);
+}
+
+fn write_u16_frame(samples: &mut [u16], left: f64, right: f64) {
+    let silence = u16::MAX / 2 + 1;
+    if samples.len() == 1 {
+        samples[0] = unsigned_u16((left + right) * 0.5);
+        return;
+    }
+    samples.fill(silence);
+    samples[0] = unsigned_u16(left);
+    samples[1] = unsigned_u16(right);
+}
+
 #[allow(clippy::cast_possible_truncation)]
 fn signed_i16(sample: f64) -> i16 {
     let bounded = sample.clamp(-1.0, 1.0);
@@ -392,5 +439,22 @@ mod tests {
         assert_eq!(unsigned_u16(-1.0), u16::MIN);
         assert_eq!(unsigned_u16(0.0), 32_768);
         assert_eq!(unsigned_u16(1.0), u16::MAX);
+    }
+
+    #[test]
+    fn maps_logical_stereo_to_mono_stereo_and_multichannel_frames() {
+        let mut mono = [0.0_f32; 1];
+        write_f32_frame(&mut mono, 0.75, 0.25);
+        assert!((mono[0] - 0.5).abs() < f32::EPSILON);
+
+        let mut stereo = [0_i16; 2];
+        write_i16_frame(&mut stereo, -1.0, 1.0);
+        assert_eq!(stereo, [i16::MIN, i16::MAX]);
+
+        let mut surround = [u16::MAX; 6];
+        write_u16_frame(&mut surround, -1.0, 1.0);
+        assert_eq!(surround[0], u16::MIN);
+        assert_eq!(surround[1], u16::MAX);
+        assert!(surround[2..].iter().all(|sample| *sample == 32_768));
     }
 }

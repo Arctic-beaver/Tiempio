@@ -4,7 +4,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{BufferSize, SampleFormat, StreamConfig, SupportedBufferSize};
+use cpal::{SampleFormat, StreamConfig};
 use tiempio_engine_protocol::{AudioConfiguration, AudioDeviceDescriptor};
 
 use crate::realtime::{RealtimeEngine, StreamSignals};
@@ -22,13 +22,14 @@ pub enum OutputSampleFormat {
 pub struct NegotiatedOutput {
     pub device: AudioDeviceDescriptor,
     pub sample_rate: u32,
-    pub block_frames: u32,
+    pub block_frames: Option<u32>,
+    pub channels: u16,
     pub sample_format: OutputSampleFormat,
 }
 
 pub struct BackendConfiguration<Private> {
     pub negotiated: NegotiatedOutput,
-    private: Private,
+    pub(crate) private: Private,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -62,6 +63,14 @@ impl AudioBackendError {
             device_lost: false,
         }
     }
+
+    const fn device_lost() -> Self {
+        Self {
+            code: "audio.device-lost",
+            message: "The active output device was lost.",
+            device_lost: true,
+        }
+    }
 }
 
 pub trait RunningOutput {
@@ -73,6 +82,8 @@ pub trait OutputBackend {
     type Stream: RunningOutput;
 
     fn devices(&self) -> Result<Vec<AudioDeviceDescriptor>, AudioBackendError>;
+
+    fn default_device_id(&self) -> Result<Option<String>, AudioBackendError>;
 
     fn negotiate(
         &self,
@@ -149,6 +160,13 @@ impl OutputBackend for SharedOutputBackend {
         Ok(descriptors)
     }
 
+    fn default_device_id(&self) -> Result<Option<String>, AudioBackendError> {
+        self.host
+            .default_output_device()
+            .map(|device| raw_identifier(&device).map(|identifier| opaque_device_id(&identifier)))
+            .transpose()
+    }
+
     fn negotiate(
         &self,
         requested: &AudioConfiguration,
@@ -161,35 +179,46 @@ impl OutputBackend for SharedOutputBackend {
         let description = device
             .description()
             .map_err(|_| AudioBackendError::unavailable())?;
-        let mut selected = None;
-        for range in device
-            .supported_output_configs()
-            .map_err(|_| AudioBackendError::unavailable())?
-        {
-            if range.channels() != 2
-                || requested.sample_rate < range.min_sample_rate()
-                || requested.sample_rate > range.max_sample_rate()
-                || !buffer_supported(range.buffer_size(), requested.block_frames)
-            {
-                continue;
-            }
-            let Some(format) = supported_format(range.sample_format()) else {
-                continue;
+        let default = device
+            .default_output_config()
+            .map_err(|_| AudioBackendError::unavailable())?;
+        let selected =
+            if default.channels() > 0 && supported_format(default.sample_format()).is_some() {
+                default
+            } else {
+                let mut selected = None;
+                for range in device
+                    .supported_output_configs()
+                    .map_err(|_| AudioBackendError::unavailable())?
+                {
+                    let Some(format) = supported_format(range.sample_format()) else {
+                        continue;
+                    };
+                    if range.channels() == 0 {
+                        continue;
+                    }
+                    let sample_rate = requested
+                        .sample_rate
+                        .clamp(range.min_sample_rate(), range.max_sample_rate());
+                    let channel_score = channel_score(range.channels());
+                    let exact_rate = u8::from(sample_rate == requested.sample_rate);
+                    let score = (channel_score, exact_rate, sample_format_score(format));
+                    if selected
+                        .as_ref()
+                        .is_none_or(|(selected_score, _)| score > *selected_score)
+                    {
+                        selected = Some((score, range.with_sample_rate(sample_rate)));
+                    }
+                }
+                selected
+                    .map(|(_, configuration)| configuration)
+                    .ok_or_else(AudioBackendError::unsupported)?
             };
-            let score = sample_format_score(format);
-            if selected
-                .as_ref()
-                .is_none_or(|(selected_score, _)| score > *selected_score)
-            {
-                selected = Some((score, format));
-            }
-        }
-        let (_, sample_format) = selected.ok_or_else(AudioBackendError::unsupported)?;
-        let stream = StreamConfig {
-            channels: 2,
-            sample_rate: requested.sample_rate,
-            buffer_size: BufferSize::Fixed(requested.block_frames),
-        };
+        let sample_format = supported_format(selected.sample_format())
+            .ok_or_else(AudioBackendError::unsupported)?;
+        let channels = selected.channels();
+        let sample_rate = selected.sample_rate();
+        let stream = selected.config();
         Ok(BackendConfiguration {
             negotiated: NegotiatedOutput {
                 device: AudioDeviceDescriptor {
@@ -197,8 +226,9 @@ impl OutputBackend for SharedOutputBackend {
                     label: bounded_label(description.name()),
                     default: true,
                 },
-                sample_rate: requested.sample_rate,
-                block_frames: requested.block_frames,
+                sample_rate,
+                block_frames: None,
+                channels,
                 sample_format,
             },
             private: SharedPrivateConfiguration {
@@ -219,13 +249,14 @@ impl OutputBackend for SharedOutputBackend {
         let error_callback = move |_| {
             error_signals.stream_error.store(true, Ordering::Release);
         };
+        let channels = configuration.negotiated.channels;
         let stream = match configuration.private.sample_format {
             OutputSampleFormat::F32 => configuration
                 .private
                 .device
                 .build_output_stream::<f32, _, _>(
                     &configuration.private.stream,
-                    move |output, _| realtime.render_f32(output),
+                    move |output, _| realtime.render_f32_channels(output, channels),
                     error_callback,
                     Some(STREAM_START_TIMEOUT),
                 ),
@@ -234,7 +265,7 @@ impl OutputBackend for SharedOutputBackend {
                 .device
                 .build_output_stream::<i16, _, _>(
                     &configuration.private.stream,
-                    move |output, _| realtime.render_i16(output),
+                    move |output, _| realtime.render_i16_channels(output, channels),
                     error_callback,
                     Some(STREAM_START_TIMEOUT),
                 ),
@@ -243,15 +274,25 @@ impl OutputBackend for SharedOutputBackend {
                 .device
                 .build_output_stream::<u16, _, _>(
                     &configuration.private.stream,
-                    move |output, _| realtime.render_u16(output),
+                    move |output, _| realtime.render_u16_channels(output, channels),
                     error_callback,
                     Some(STREAM_START_TIMEOUT),
                 ),
         }
-        .map_err(|_| AudioBackendError::start_failed())?;
-        stream
-            .play()
-            .map_err(|_| AudioBackendError::start_failed())?;
+        .map_err(|error| {
+            if matches!(error, cpal::BuildStreamError::DeviceNotAvailable) {
+                AudioBackendError::device_lost()
+            } else {
+                AudioBackendError::start_failed()
+            }
+        })?;
+        stream.play().map_err(|error| {
+            if matches!(error, cpal::PlayStreamError::DeviceNotAvailable) {
+                AudioBackendError::device_lost()
+            } else {
+                AudioBackendError::start_failed()
+            }
+        })?;
         wait_until_active(&signals)?;
         Ok(SharedOutputStream { stream, signals })
     }
@@ -264,19 +305,20 @@ fn raw_identifier(device: &cpal::Device) -> Result<String, AudioBackendError> {
         .map_err(|_| AudioBackendError::unavailable())
 }
 
-fn buffer_supported(supported: &SupportedBufferSize, requested: u32) -> bool {
-    match supported {
-        SupportedBufferSize::Range { min, max } => (*min..=*max).contains(&requested),
-        SupportedBufferSize::Unknown => true,
-    }
-}
-
 fn supported_format(format: SampleFormat) -> Option<OutputSampleFormat> {
     match format {
         SampleFormat::F32 => Some(OutputSampleFormat::F32),
         SampleFormat::I16 => Some(OutputSampleFormat::I16),
         SampleFormat::U16 => Some(OutputSampleFormat::U16),
         _ => None,
+    }
+}
+
+const fn channel_score(channels: u16) -> u8 {
+    match channels {
+        2 => 3,
+        1 => 2,
+        _ => 1,
     }
 }
 
@@ -364,6 +406,10 @@ impl OutputBackend for NullOutputBackend {
         }])
     }
 
+    fn default_device_id(&self) -> Result<Option<String>, AudioBackendError> {
+        Ok(Some("device.null".to_owned()))
+    }
+
     fn negotiate(
         &self,
         requested: &AudioConfiguration,
@@ -372,7 +418,8 @@ impl OutputBackend for NullOutputBackend {
             negotiated: NegotiatedOutput {
                 device: self.devices()?.remove(0),
                 sample_rate: requested.sample_rate,
-                block_frames: requested.block_frames,
+                block_frames: Some(requested.block_frames),
+                channels: u16::from(requested.channels),
                 sample_format: OutputSampleFormat::F32,
             },
             private: NullPrivateConfiguration,
@@ -385,9 +432,15 @@ impl OutputBackend for NullOutputBackend {
         mut realtime: RealtimeEngine,
         signals: Arc<StreamSignals>,
     ) -> Result<Self::Stream, AudioBackendError> {
-        let block_frames = usize::try_from(configuration.negotiated.block_frames)
-            .map_err(|_| AudioBackendError::unsupported())?;
+        let block_frames = usize::try_from(
+            configuration
+                .negotiated
+                .block_frames
+                .ok_or_else(AudioBackendError::unsupported)?,
+        )
+        .map_err(|_| AudioBackendError::unsupported())?;
         let sample_rate = configuration.negotiated.sample_rate;
+        let channels = configuration.negotiated.channels;
         let thread_signals = Arc::clone(&signals);
         let thread = thread::Builder::new()
             .name("tiempio-null-audio".to_owned())
@@ -398,7 +451,7 @@ impl OutputBackend for NullOutputBackend {
                         / f64::from(sample_rate),
                 );
                 while !thread_signals.shutdown.load(Ordering::Acquire) {
-                    realtime.render_f32(&mut output);
+                    realtime.render_f32_channels(&mut output, channels);
                     thread::sleep(interval);
                 }
             })
@@ -438,6 +491,8 @@ mod tests {
                 > sample_format_score(OutputSampleFormat::U16)
         );
         assert_eq!(supported_format(SampleFormat::F64), None);
+        assert!(channel_score(2) > channel_score(1));
+        assert!(channel_score(1) > channel_score(6));
     }
 
     #[test]

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use rtrb::{Consumer, Producer, PushError, RingBuffer};
 use tiempio_engine_core::{MAX_SAFE_INTEGER, PreparedPlan, RenderPlan};
@@ -34,6 +34,8 @@ const HOST_CAPABILITIES: &[&str] = &[
     "audio.native.shared",
     "audio.devices",
 ];
+const RECOVERY_BASE_DELAY: Duration = Duration::from_millis(250);
+const RECOVERY_MAX_DELAY: Duration = Duration::from_secs(4);
 
 pub(crate) enum WriterEvent {
     Engine(EngineEvent),
@@ -53,6 +55,10 @@ pub(crate) struct HostController<Backend: OutputBackend> {
     backend_state: &'static str,
     device_state: &'static str,
     active_device_id: Option<String>,
+    desired_audio_running: bool,
+    requested_configuration: Option<AudioConfiguration>,
+    recovery_attempt: u32,
+    next_recovery_at: Option<Instant>,
 }
 
 impl<Backend: OutputBackend> HostController<Backend> {
@@ -70,6 +76,10 @@ impl<Backend: OutputBackend> HostController<Backend> {
             backend_state: "stopped",
             device_state: "unavailable",
             active_device_id: None,
+            desired_audio_running: false,
+            requested_configuration: None,
+            recovery_attempt: 0,
+            next_recovery_at: None,
         }
     }
 
@@ -149,6 +159,7 @@ impl<Backend: OutputBackend> HostController<Backend> {
                 self.emit(EngineEvent::Pong {
                     heartbeat_id: payload.heartbeat_id,
                 })?;
+                self.observe_default_output_change()?;
                 self.emit_health()?;
             }
             EngineCommand::Shutdown => {
@@ -166,6 +177,7 @@ impl<Backend: OutputBackend> HostController<Backend> {
                 )?;
             }
         }
+        self.recover_audio_if_due()?;
         Ok(true)
     }
 
@@ -181,6 +193,9 @@ impl<Backend: OutputBackend> HostController<Backend> {
             )?;
             return Ok(());
         }
+        self.requested_configuration = Some(requested.clone());
+        self.configuration = None;
+        self.reset_recovery();
         match self.backend.negotiate(requested) {
             Ok(configuration) => {
                 self.device_state = "available";
@@ -192,15 +207,25 @@ impl<Backend: OutputBackend> HostController<Backend> {
     }
 
     fn start_audio(&mut self) -> Result<(), ()> {
+        self.desired_audio_running = true;
+        self.reset_recovery();
         if self.stream.is_some() {
             return self.emit_health();
         }
+        if self.configuration.is_none() {
+            self.schedule_immediate_recovery();
+            return self.recover_audio_if_due();
+        }
+        self.start_configured_audio()
+    }
+
+    fn start_configured_audio(&mut self) -> Result<(), ()> {
         let Some(configuration) = self.configuration.as_ref() else {
-            self.emit_diagnostic(
-                "audio.configuration-unsupported",
-                "Configure shared output before starting audio.",
-            )?;
-            return Ok(());
+            return self.handle_backend_error(AudioBackendError {
+                code: "audio.configuration-unsupported",
+                message: "Configure shared output before starting audio.",
+                device_lost: false,
+            });
         };
         self.backend_state = "starting";
         self.emit_health()?;
@@ -247,21 +272,33 @@ impl<Backend: OutputBackend> HostController<Backend> {
                 self.stream = Some(stream);
                 self.backend_state = "ready";
                 self.device_state = "available";
+                self.reset_recovery();
                 self.emit(EngineEvent::ActiveDeviceChanged {
                     device_id: self.active_device_id.clone(),
                 })?;
                 self.emit_health()
             }
             Err(error) => {
-                self.backend_state = "failed";
                 self.command_tx = None;
                 self.retired_rx = None;
+                self.configuration = None;
                 self.handle_backend_error(error)
             }
         }
     }
 
     fn stop_audio(&mut self) -> Result<(), ()> {
+        self.desired_audio_running = false;
+        self.reset_recovery();
+        self.stop_stream();
+        self.configuration = None;
+        self.backend_state = "stopped";
+        self.device_state = "unavailable";
+        self.emit(EngineEvent::ActiveDeviceChanged { device_id: None })?;
+        self.emit_health()
+    }
+
+    fn stop_stream(&mut self) {
         if let Some(sender) = self.command_tx.take() {
             let mut sender = sender;
             let _ = sender.push(RealtimeCommand::Shutdown);
@@ -271,11 +308,8 @@ impl<Backend: OutputBackend> HostController<Backend> {
         }
         self.drain_retired();
         self.retired_rx = None;
-        self.backend_state = "stopped";
         self.active_device_id = None;
         self.signals.active_voices.store(0, Ordering::Release);
-        self.emit(EngineEvent::ActiveDeviceChanged { device_id: None })?;
-        self.emit_health()
     }
 
     fn load_plan(&mut self, plan: RenderPlan) -> Result<(), ()> {
@@ -339,21 +373,69 @@ impl<Backend: OutputBackend> HostController<Backend> {
         if !self.signals.stream_error.swap(false, Ordering::AcqRel) {
             return Ok(());
         }
-        if let Some(stream) = self.stream.take() {
-            stream.stop();
+        self.begin_output_recovery(
+            "lost",
+            "audio.device-lost",
+            "The active output device was lost.",
+        )
+    }
+
+    fn observe_default_output_change(&mut self) -> Result<(), ()> {
+        if !self.desired_audio_running || self.stream.is_none() {
+            return Ok(());
         }
-        self.command_tx = None;
-        self.drain_retired();
-        self.retired_rx = None;
-        self.backend_state = "failed";
-        self.device_state = "lost";
-        self.active_device_id = None;
+        match self.backend.default_device_id() {
+            Ok(Some(identifier))
+                if Some(identifier.as_str()) == self.active_device_id.as_deref() =>
+            {
+                Ok(())
+            }
+            Ok(Some(_)) => self.begin_output_recovery(
+                "available",
+                "audio.device-changed",
+                "The default shared-output device changed.",
+            ),
+            Ok(None) => self.begin_output_recovery(
+                "unavailable",
+                "audio.device-lost",
+                "No default shared-output device is available.",
+            ),
+            Err(error) => self.begin_output_recovery(
+                if error.device_lost {
+                    "lost"
+                } else {
+                    "unavailable"
+                },
+                error.code,
+                error.message,
+            ),
+        }
+    }
+
+    fn begin_output_recovery(
+        &mut self,
+        device_state: &'static str,
+        diagnostic_code: &str,
+        diagnostic_message: &str,
+    ) -> Result<(), ()> {
+        self.stop_stream();
+        self.configuration = None;
+        self.backend_state = "starting";
+        self.device_state = device_state;
+        self.schedule_immediate_recovery();
         self.emit(EngineEvent::ActiveDeviceChanged { device_id: None })?;
-        self.emit_diagnostic("audio.device-lost", "The active output device was lost.")?;
+        self.emit_diagnostic(diagnostic_code, diagnostic_message)?;
         self.emit_health()
     }
 
     fn handle_backend_error(&mut self, error: AudioBackendError) -> Result<(), ()> {
+        self.configuration = None;
+        self.backend_state = if self.desired_audio_running {
+            self.schedule_recovery();
+            "starting"
+        } else {
+            "failed"
+        };
         self.device_state = if error.device_lost {
             "lost"
         } else {
@@ -361,6 +443,56 @@ impl<Backend: OutputBackend> HostController<Backend> {
         };
         self.emit_diagnostic(error.code, error.message)?;
         self.emit_health()
+    }
+
+    fn recover_audio_if_due(&mut self) -> Result<(), ()> {
+        if !self.desired_audio_running || self.stream.is_some() {
+            return Ok(());
+        }
+        let Some(deadline) = self.next_recovery_at else {
+            return Ok(());
+        };
+        if Instant::now() < deadline {
+            return Ok(());
+        }
+        self.next_recovery_at = None;
+        let Some(requested) = self.requested_configuration.clone() else {
+            return self.handle_backend_error(AudioBackendError {
+                code: "audio.configuration-unsupported",
+                message: "No desired shared-output configuration is available.",
+                device_lost: false,
+            });
+        };
+        self.backend_state = "starting";
+        self.emit_health()?;
+        match self.backend.negotiate(&requested) {
+            Ok(configuration) => {
+                self.device_state = "available";
+                self.configuration = Some(configuration);
+                self.start_configured_audio()
+            }
+            Err(error) => self.handle_backend_error(error),
+        }
+    }
+
+    fn schedule_immediate_recovery(&mut self) {
+        if self.desired_audio_running {
+            self.next_recovery_at = Some(Instant::now());
+        }
+    }
+
+    fn schedule_recovery(&mut self) {
+        if !self.desired_audio_running || self.next_recovery_at.is_some() {
+            return;
+        }
+        let delay = recovery_delay(self.recovery_attempt);
+        self.recovery_attempt = self.recovery_attempt.saturating_add(1);
+        self.next_recovery_at = Some(Instant::now() + delay);
+    }
+
+    fn reset_recovery(&mut self) {
+        self.recovery_attempt = 0;
+        self.next_recovery_at = None;
     }
 
     fn emit_health(&self) -> Result<(), ()> {
@@ -371,7 +503,7 @@ impl<Backend: OutputBackend> HostController<Backend> {
             active_device_id: self.active_device_id.clone(),
             active_voices,
             backend_state: self.backend_state.to_owned(),
-            block_frames: negotiated.map(|value| value.block_frames),
+            block_frames: negotiated.and_then(|value| value.block_frames),
             device_state: self.device_state.to_owned(),
             mode: negotiated.map(|_| "shared".to_owned()),
             output_muted: active_voices > 0 && !output_signal_observed,
@@ -418,6 +550,13 @@ pub(crate) fn null_controller(
     event_tx: SyncSender<WriterEvent>,
 ) -> HostController<NullOutputBackend> {
     HostController::new(NullOutputBackend, event_tx)
+}
+
+fn recovery_delay(attempt: u32) -> Duration {
+    let multiplier = 1_u32.checked_shl(attempt.min(4)).unwrap_or(16);
+    RECOVERY_BASE_DELAY
+        .saturating_mul(multiplier)
+        .min(RECOVERY_MAX_DELAY)
 }
 
 pub(crate) fn map_realtime_event(event: RealtimeEvent) -> EngineEvent {
@@ -622,7 +761,188 @@ fn stable_audition_identifier(value: &str) -> u64 {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+    use std::sync::atomic::AtomicUsize;
+
+    use serde_json::json;
+
     use super::*;
+
+    #[derive(Clone)]
+    struct SwitchingBackend {
+        state: Arc<Mutex<SwitchingBackendState>>,
+        stops: Arc<AtomicUsize>,
+    }
+
+    struct SwitchingBackendState {
+        available: bool,
+        device_id: String,
+        sample_rate: u32,
+        start_failures: usize,
+        starts: usize,
+    }
+
+    struct SwitchingPrivateConfiguration;
+
+    struct SwitchingStream {
+        realtime: RealtimeEngine,
+        signals: Arc<StreamSignals>,
+        stops: Arc<AtomicUsize>,
+    }
+
+    impl RunningOutput for SwitchingStream {
+        fn stop(self) {
+            self.signals.shutdown.store(true, Ordering::Release);
+            self.stops.fetch_add(1, Ordering::AcqRel);
+            drop(self.realtime);
+        }
+    }
+
+    impl SwitchingBackend {
+        fn new(available: bool) -> Self {
+            Self {
+                state: Arc::new(Mutex::new(SwitchingBackendState {
+                    available,
+                    device_id: "device.test-a".to_owned(),
+                    sample_rate: 48_000,
+                    start_failures: 0,
+                    starts: 0,
+                })),
+                stops: Arc::new(AtomicUsize::new(0)),
+            }
+        }
+
+        fn set_output(&self, available: bool, device_id: &str, sample_rate: u32) {
+            let mut state = self.state.lock().unwrap();
+            state.available = available;
+            state.device_id = device_id.to_owned();
+            state.sample_rate = sample_rate;
+        }
+
+        fn fail_next_start(&self) {
+            self.state.lock().unwrap().start_failures += 1;
+        }
+
+        fn starts(&self) -> usize {
+            self.state.lock().unwrap().starts
+        }
+    }
+
+    impl OutputBackend for SwitchingBackend {
+        type PrivateConfiguration = SwitchingPrivateConfiguration;
+        type Stream = SwitchingStream;
+
+        fn devices(
+            &self,
+        ) -> Result<Vec<tiempio_engine_protocol::AudioDeviceDescriptor>, AudioBackendError>
+        {
+            let state = self.state.lock().unwrap();
+            if !state.available {
+                return Ok(Vec::new());
+            }
+            Ok(vec![tiempio_engine_protocol::AudioDeviceDescriptor {
+                id: state.device_id.clone(),
+                label: "Controlled output".to_owned(),
+                default: true,
+            }])
+        }
+
+        fn default_device_id(&self) -> Result<Option<String>, AudioBackendError> {
+            let state = self.state.lock().unwrap();
+            Ok(state.available.then(|| state.device_id.clone()))
+        }
+
+        fn negotiate(
+            &self,
+            requested: &AudioConfiguration,
+        ) -> Result<BackendConfiguration<Self::PrivateConfiguration>, AudioBackendError> {
+            let state = self.state.lock().unwrap();
+            if !state.available {
+                return Err(AudioBackendError {
+                    code: "audio.device-unavailable",
+                    message: "No compatible output device is available.",
+                    device_lost: false,
+                });
+            }
+            Ok(BackendConfiguration {
+                negotiated: crate::backend::NegotiatedOutput {
+                    device: tiempio_engine_protocol::AudioDeviceDescriptor {
+                        id: state.device_id.clone(),
+                        label: "Controlled output".to_owned(),
+                        default: true,
+                    },
+                    sample_rate: state.sample_rate,
+                    block_frames: Some(requested.block_frames),
+                    channels: 2,
+                    sample_format: crate::backend::OutputSampleFormat::F32,
+                },
+                private: SwitchingPrivateConfiguration,
+            })
+        }
+
+        fn start(
+            &self,
+            _configuration: &BackendConfiguration<Self::PrivateConfiguration>,
+            realtime: RealtimeEngine,
+            signals: Arc<StreamSignals>,
+        ) -> Result<Self::Stream, AudioBackendError> {
+            let mut state = self.state.lock().unwrap();
+            if !state.available {
+                return Err(AudioBackendError {
+                    code: "audio.device-lost",
+                    message: "The active output device was lost.",
+                    device_lost: true,
+                });
+            }
+            if state.start_failures > 0 {
+                state.start_failures -= 1;
+                return Err(AudioBackendError {
+                    code: "audio.start-failed",
+                    message: "The shared-output stream could not be started.",
+                    device_lost: false,
+                });
+            }
+            state.starts += 1;
+            drop(state);
+            signals.callback_count.store(1, Ordering::Release);
+            Ok(SwitchingStream {
+                realtime,
+                signals,
+                stops: Arc::clone(&self.stops),
+            })
+        }
+    }
+
+    fn requested_configuration() -> AudioConfiguration {
+        AudioConfiguration {
+            sample_rate: 48_000,
+            block_frames: 512,
+            channels: 2,
+        }
+    }
+
+    fn fixture_plan() -> RenderPlan {
+        let plan: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/engine-protocol/valid-bass-plan.json"
+        ))
+        .unwrap();
+        let body = serde_json::to_vec(&json!({
+            "protocolVersion": ENGINE_PROTOCOL_VERSION,
+            "requestId": "test.plan",
+            "sequence": 0,
+            "type": "load-render-plan",
+            "payload": { "plan": plan }
+        }))
+        .unwrap();
+        let EngineCommand::LoadRenderPlan(plan) =
+            tiempio_engine_protocol::decode_command_body(&body)
+                .unwrap()
+                .command
+        else {
+            panic!("expected plan command");
+        };
+        plan
+    }
 
     #[test]
     fn framed_reader_rejects_oversized_and_truncated_input_before_dispatch() {
@@ -646,5 +966,118 @@ mod tests {
         assert_eq!(first, stable_audition_identifier("audition.keyboard.c1"));
         assert_ne!(first, stable_audition_identifier("audition.keyboard.c2"));
         assert!(first <= MAX_SAFE_INTEGER);
+    }
+
+    #[test]
+    fn recovers_the_latest_plan_on_a_new_default_output() {
+        let backend = SwitchingBackend::new(true);
+        let backend_control = backend.clone();
+        let (event_tx, _event_rx) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
+        let mut controller = HostController::new(backend, event_tx);
+        controller
+            .dispatch(EngineCommand::ConfigureAudio(requested_configuration()))
+            .unwrap();
+        controller
+            .dispatch(EngineCommand::LoadRenderPlan(fixture_plan()))
+            .unwrap();
+        controller.dispatch(EngineCommand::StartAudio).unwrap();
+        assert_eq!(controller.backend_state, "ready");
+        assert_eq!(
+            controller.active_device_id.as_deref(),
+            Some("device.test-a")
+        );
+        assert_eq!(backend_control.starts(), 1);
+
+        backend_control.set_output(true, "device.test-b", 44_100);
+        controller
+            .dispatch(EngineCommand::Ping(
+                tiempio_engine_protocol::HeartbeatPayload {
+                    heartbeat_id: "test.default-change".to_owned(),
+                },
+            ))
+            .unwrap();
+        assert_eq!(controller.backend_state, "ready");
+        assert_eq!(
+            controller.active_device_id.as_deref(),
+            Some("device.test-b")
+        );
+        assert_eq!(backend_control.starts(), 2);
+
+        backend_control.set_output(false, "device.none", 48_000);
+        controller
+            .signals
+            .stream_error
+            .store(true, Ordering::Release);
+        controller
+            .dispatch(EngineCommand::RequestDiagnostics)
+            .unwrap();
+        assert_eq!(controller.backend_state, "starting");
+        assert_eq!(controller.device_state, "unavailable");
+        assert!(controller.stream.is_none());
+
+        backend_control.set_output(true, "device.test-c", 44_100);
+        thread::sleep(RECOVERY_BASE_DELAY + Duration::from_millis(25));
+        controller
+            .dispatch(EngineCommand::RequestDiagnostics)
+            .unwrap();
+        assert_eq!(controller.backend_state, "ready");
+        assert_eq!(
+            controller.active_device_id.as_deref(),
+            Some("device.test-c")
+        );
+        assert_eq!(
+            controller
+                .configuration
+                .as_ref()
+                .map(|configuration| configuration.negotiated.sample_rate),
+            Some(44_100)
+        );
+        assert!(controller.latest_plan.is_some());
+        assert_eq!(backend_control.starts(), 3);
+        assert_eq!(backend_control.stops.load(Ordering::Acquire), 2);
+    }
+
+    #[test]
+    fn retries_a_failed_reopen_but_explicit_stop_cancels_future_recovery() {
+        let backend = SwitchingBackend::new(true);
+        let backend_control = backend.clone();
+        let (event_tx, _event_rx) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
+        let mut controller = HostController::new(backend, event_tx);
+        controller
+            .dispatch(EngineCommand::ConfigureAudio(requested_configuration()))
+            .unwrap();
+        backend_control.fail_next_start();
+        controller.dispatch(EngineCommand::StartAudio).unwrap();
+        assert_eq!(controller.backend_state, "starting");
+        assert_eq!(backend_control.starts(), 0);
+
+        thread::sleep(RECOVERY_BASE_DELAY + Duration::from_millis(25));
+        controller
+            .dispatch(EngineCommand::RequestDiagnostics)
+            .unwrap();
+        assert_eq!(controller.backend_state, "ready");
+        assert_eq!(backend_control.starts(), 1);
+
+        backend_control.set_output(false, "device.none", 48_000);
+        controller
+            .signals
+            .stream_error
+            .store(true, Ordering::Release);
+        controller.dispatch(EngineCommand::StopAudio).unwrap();
+        backend_control.set_output(true, "device.test-c", 48_000);
+        thread::sleep(RECOVERY_BASE_DELAY + Duration::from_millis(25));
+        controller
+            .dispatch(EngineCommand::RequestDiagnostics)
+            .unwrap();
+        assert_eq!(controller.backend_state, "stopped");
+        assert_eq!(backend_control.starts(), 1);
+    }
+
+    #[test]
+    fn recovery_backoff_is_bounded() {
+        assert_eq!(recovery_delay(0), Duration::from_millis(250));
+        assert_eq!(recovery_delay(1), Duration::from_millis(500));
+        assert_eq!(recovery_delay(4), Duration::from_secs(4));
+        assert_eq!(recovery_delay(u32::MAX), Duration::from_secs(4));
     }
 }
