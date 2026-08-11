@@ -3,6 +3,7 @@ import type { CSSProperties, JSX } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
 import { TransportBar } from '../../shell/TransportBar.js'
+import { TransportPlayhead } from '../../shell/TransportPlayhead.js'
 import type { LayersProjection, ProjectedLayerItem } from '../../project/projections/types.js'
 import { EditorLayerList } from '../shared/EditorLayerList.js'
 import { editorLayerName, editorLayerSound } from '../shared/editor-layer-presentation.js'
@@ -123,7 +124,7 @@ export function PianoRollView({
 									<span key={index}>{index + 1}</span>
 								))}
 							</div>
-							<div aria-hidden="true" className="playhead" />
+							<TransportPlayhead />
 							{hasNotes
 								? model.notes.map((note, index) => (
 										<button

@@ -1,8 +1,9 @@
-import { Play, SkipBack, SkipForward } from 'lucide-react'
-import type { JSX } from 'react'
+import { Pause, Play, SkipBack, SkipForward } from 'lucide-react'
+import { useSyncExternalStore, type JSX } from 'react'
 import { useLocalization } from '../../../localization/src/index.js'
 import { CommandIconButton } from '../commands/CommandIconButton.js'
 import { useProjectSession } from '../project/ProjectSessionContext.js'
+import { useApplicationRuntimeController } from '../runtime/ApplicationRuntimeControllerContext.js'
 
 export interface TransportBarProperties {
 	readonly detailLabel?: string
@@ -17,6 +18,12 @@ export function TransportBar({
 }: TransportBarProperties): JSX.Element {
 	const { t } = useLocalization()
 	const { projections } = useProjectSession()
+	const controller = useApplicationRuntimeController()
+	const engine = useSyncExternalStore(
+		controller.subscribe,
+		controller.getSnapshot,
+		controller.getSnapshot
+	)
 	const compact = mode !== 'project'
 	return (
 		<div aria-label={t('transport.toolbar')} className="transport" role="toolbar">
@@ -33,8 +40,9 @@ export function TransportBar({
 			<CommandIconButton
 				className="icon-button play-button"
 				commandId="transport.toggle-playback"
-				icon={<Play />}
-				label={t('transport.play')}
+				icon={engine.playing ? <Pause /> : <Play />}
+				label={t(engine.playing ? 'transport.pause' : 'transport.play')}
+				selected={engine.playing}
 			/>
 			{compact ? null : (
 				<button

@@ -14,6 +14,7 @@ import type { CSSProperties, JSX, ReactNode } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
 import { TransportBar } from '../../shell/TransportBar.js'
+import { TransportPlayhead } from '../../shell/TransportPlayhead.js'
 import type { LayersProjection, ProjectedLayerItem } from '../../project/projections/types.js'
 import { editorLayerName, editorLayerSound } from '../shared/editor-layer-presentation.js'
 import type { ArrangementLayerViewModel, ArrangementViewModel } from './view-model.js'
@@ -228,7 +229,7 @@ export function ArrangementView({
 							</div>
 						)
 					})}
-					<div aria-hidden="true" className="playhead arrange-playhead" />
+					<TransportPlayhead />
 				</div>
 				<aside className="arrange-inspector">
 					<h2>Main bass</h2>
