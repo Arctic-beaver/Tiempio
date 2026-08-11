@@ -9,6 +9,7 @@ import {
 	type ClipId,
 	type DrumEvent,
 	type LayerId,
+	type LayerPerformanceMapping,
 	type MidiNote,
 	type NoteId,
 	type ProjectClip,
@@ -55,6 +56,19 @@ export interface SelectCharacterCommand extends RevisionedProjectCommand {
 	readonly layerId: LayerId
 	readonly presetId: 'bass.deep'
 	readonly type: 'layer.character.select'
+}
+
+export interface ConfigureLayerSoundCommand extends RevisionedProjectCommand {
+	readonly layerId: LayerId
+	readonly performance: LayerPerformanceMapping
+	readonly presetId: 'bass.deep'
+	readonly type: 'layer.sound.configure'
+}
+
+export interface SetLayerPerformanceCommand extends RevisionedProjectCommand {
+	readonly layerId: LayerId
+	readonly performance: LayerPerformanceMapping
+	readonly type: 'layer.performance.set'
 }
 
 export interface CommitMacroCommand extends RevisionedProjectCommand {
@@ -176,6 +190,8 @@ export interface ToggleDrumEventCommand extends RevisionedProjectCommand {
 export type ProjectCommand =
 	| AddLayerCommand
 	| SelectCharacterCommand
+	| ConfigureLayerSoundCommand
+	| SetLayerPerformanceCommand
 	| CommitMacroCommand
 	| AddNoteCommand
 	| UpdateNoteCommand
@@ -245,6 +261,24 @@ function semanticEqual(left: unknown, right: unknown): boolean {
 		)
 	}
 	return false
+}
+
+function normalizePerformance(performance: LayerPerformanceMapping): LayerPerformanceMapping {
+	if (
+		!Number.isSafeInteger(performance.key.tonic) ||
+		performance.key.tonic < 0 ||
+		performance.key.tonic > 11 ||
+		(performance.key.mode !== 'major' && performance.key.mode !== 'minor') ||
+		!Number.isSafeInteger(performance.octave) ||
+		performance.octave < 1 ||
+		performance.octave > 6
+	) {
+		fail('INVALID_COMMAND', 'Layer performance requires a valid key and octave from 1 to 6.')
+	}
+	return {
+		key: { tonic: performance.key.tonic, mode: performance.key.mode },
+		octave: performance.octave
+	}
 }
 
 function updateLayer(
@@ -335,6 +369,34 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 					return layer
 				}
 				return { ...layer, source: { ...layer.source, instrument } }
+			})
+		case 'layer.sound.configure':
+			return updateLayer(project, command.layerId, (layer) => {
+				if (layer.source.type !== 'synth') {
+					fail('INCOMPATIBLE_TARGET', 'Sounds can only be configured for synth layers.')
+				}
+				const instrument = createDeepBassInstrument()
+				const performance = normalizePerformance(command.performance)
+				if (
+					layer.source.instrument.presetId === command.presetId &&
+					semanticEqual(layer.source.instrument, instrument) &&
+					semanticEqual(layer.source.performance, performance)
+				) {
+					return layer
+				}
+				return { ...layer, source: { ...layer.source, instrument, performance } }
+			})
+		case 'layer.performance.set':
+			return updateLayer(project, command.layerId, (layer) => {
+				if (layer.source.type !== 'synth') {
+					fail(
+						'INCOMPATIBLE_TARGET',
+						'Performance mappings can only be changed on synth layers.'
+					)
+				}
+				const performance = normalizePerformance(command.performance)
+				if (semanticEqual(layer.source.performance, performance)) return layer
+				return { ...layer, source: { ...layer.source, performance } }
 			})
 		case 'layer.macro.commit':
 			return updateLayer(project, command.layerId, (layer) => {

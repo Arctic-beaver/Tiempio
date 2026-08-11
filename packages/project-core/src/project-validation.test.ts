@@ -44,6 +44,27 @@ describe('project validation', () => {
 		if (result.ok) assert.equal(Object.isFrozen(result.project.layers[0]?.clips), true)
 	})
 
+	it('requires a bounded performance mapping for every pitched layer', () => {
+		const project = createProject({ projectId: 'project.mapping', title: 'Mapping' })
+		const layer = createLayer({ id: 'layer.mapping', name: 'Mapping', role: 'melody' })
+		assert.equal(layer.source.type, 'synth')
+		if (layer.source.type !== 'synth') return
+		assert.ok(
+			issueCodes({
+				...project,
+				layers: [
+					{
+						...layer,
+						source: {
+							...layer.source,
+							performance: { ...layer.source.performance, octave: 7 }
+						}
+					}
+				]
+			}).includes('INVALID_VALUE')
+		)
+	})
+
 	it('rejects duplicate IDs and missing references', () => {
 		const project = createProject({ projectId: 'project.references', title: 'References' })
 		const first = createLayer({ id: 'layer.duplicate', name: 'First', role: 'bass' })

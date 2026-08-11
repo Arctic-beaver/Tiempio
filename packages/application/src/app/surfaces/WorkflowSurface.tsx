@@ -35,10 +35,16 @@ export default function WorkflowSurface({ activeView }: WorkflowSurfacePropertie
 	}
 	return (
 		<SoundChooserView
+			initialPerformance={{
+				key: {
+					tonic: projections.transport.palette.tonic,
+					mode: projections.transport.palette.mode
+				},
+				octave: projections.transport.octave
+			}}
 			model={deepSoundChooserModel}
 			onBack={soundChooser.returnToLayerChoice}
 			onChoose={soundChooser.chooseSound}
-			palette={projections.transport.palette}
 		/>
 	)
 }

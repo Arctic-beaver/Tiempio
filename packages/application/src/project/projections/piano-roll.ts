@@ -19,6 +19,7 @@ export function projectPianoRoll({
 	const ticksPerBar = ticksPerBeat * meter.numerator
 	const defaultLengthTicks = ticksPerQuarter * 16
 	const totalTicks = midiClip?.lengthTicks ?? defaultLengthTicks
+	const performance = tonalLayer?.source.type === 'synth' ? tonalLayer.source.performance : null
 	return {
 		revision,
 		layerId: tonalLayer?.id ?? null,
@@ -27,7 +28,7 @@ export function projectPianoRoll({
 		gridTicks: ticksPerQuarter / 4,
 		meterDenominator: meter.denominator,
 		meterNumerator: meter.numerator,
-		palette: songPalette(project.transport.key),
+		palette: songPalette(performance?.key ?? project.transport.key),
 		startTick: midiClip?.startTick ?? 0,
 		ticksPerBar,
 		ticksPerBeat,

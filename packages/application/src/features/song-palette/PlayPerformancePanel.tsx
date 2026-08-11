@@ -14,7 +14,7 @@ export function PlayPerformancePanel(): JSX.Element {
 	const { projections } = useProjectSession()
 	const controller = useApplicationRuntimeController()
 	const [layout, setLayout] = useState<PerformanceLayout>('full')
-	const [octave, setOctave] = useState(2)
+	const [octave, setOctave] = useState(projections.transport.octave)
 	const [rotation, setRotation] = useState(0)
 	const [chord, setChord] = useState<BeginnerChordSuggestion | null>(
 		projections.transport.palette.chords[0] ?? null
