@@ -101,6 +101,65 @@ unmodified Ableton-style octave commands. The approved default is:
   the UI must visibly remove their note assignment. It is not required by this approved delivery.
   Never make one key secretly perform both actions.
 
+#### Approved interactive screen keyboard
+
+The displayed performance keys are real playable controls, not a decorative visualization. This is
+required for mouse, pen and tablet use and for teaching the physical laptop mapping.
+
+One shared scale-and-octave mapping owns every input source:
+
+- physical laptop `KeyboardEvent.code` keydown/keyup;
+- mouse or pen pointer down/release on a displayed key;
+- independent touch pointers for multi-touch chords;
+- future MIDI input, if added, through the same held-note presentation contract.
+
+Every displayed key shows the combined held-input state. Pressing physical `KeyA`, clicking the A
+key or touching its tablet key immediately depresses/highlights that same on-screen control. The
+visual state remains active while any source still holds it. Releasing one source must not clear the
+key if another finger or physical key is still holding the same mapped pitch.
+
+The active treatment layers on top of the approved harmonic role instead of replacing it:
+
+- a small physical depression/offset;
+- brighter fill and bounded glow;
+- a non-color active marker or edge change for forced-color/accessibility modes;
+- no looping animation or large outline that obscures tonic/current-chord guidance.
+
+The visual represents `input is held`, not proof that sound reached the output device. Audio
+availability remains a separate truthful status. Visual feedback starts without waiting for an
+engine round trip, while note-on/note-off uses the same source identity and pitch mapping.
+
+Pointer/touch behavior must use press/release semantics rather than a delayed `click`:
+
+- pointer down starts the note and captures that pointer;
+- pointer up stops it;
+- pointer cancel, lost capture, app blur, page visibility loss, palette/octave/instrument change and
+  audio loss release the affected input-source-held notes safely;
+- every touch pointer has an independent audition identity, enabling chords;
+- mouse input accepts only the primary button;
+- browser scrolling/zoom gestures are suppressed only inside the active keyboard region, not across
+  the entire application.
+
+The component is reused in three contexts rather than reimplemented:
+
+1. the existing first-sound audition surface;
+2. the `Song palette` panel, where the selected scale can be heard and explored;
+3. a project `Play` surface/drawer for tablet performance after palette selection.
+
+For tablets, the nine-key A-L core remains the immediately readable default. `Full keyboard` renders
+three distinct physical rows instead of squeezing 26 controls into one line. Touch targets must be
+at least 48 by 48 CSS pixels, with pitch/role more prominent than laptop letters on touch-first
+layouts. Prefer landscape composition for the expanded keyboard, but keep the core playable in
+portrait without horizontal clipping.
+
+The first approved behavior is audition/performance input. Whether these same events are recorded
+as timed Piano Roll notes remains the separate recording decision below; clickable controls must not
+silently create project notes before Record mode is explicitly designed and armed.
+
+`Discussing`: when a held finger slides into another key, either transfer that pointer from the old
+note to the new one for glissando-like play, or require lift-and-retouch for each note. Both are
+feasible, but the choice affects accidental notes, chord stability and tablet feel.
+
 #### Harmonic guidance
 
 Keep the keyboard itself calm. Use exactly three semantic states:
@@ -292,11 +351,19 @@ Never silently move existing project notes when the palette changes.
 - Changing a palette after notes exist can be mistaken for automatic transposition.
 - Color-only harmonic guidance fails accessibility and can become visually noisy in dense editors.
 - Imported or intentionally chromatic projects must remain valid even when beginner input is locked.
+- Physical, mouse and multiple touch sources can hold the same pitch concurrently; source-counted
+  held state must prevent early note-off and stale visual release.
+- Pointer cancellation, window blur, device loss or remapping during a touch chord can leave stuck
+  notes unless every source identity has a bounded release path.
+- A single-row 26-key layout would create unusably small tablet targets; the expanded keyboard must
+  preserve three rows and the 48-by-48 minimum.
 
 ### Separate open decision
 
 1. Is the first delivery a live audition keyboard only, or must it also record a timed performance
    into the Piano Roll before Phase 6?
+2. Does dragging a held finger across keys transfer the note continuously, or must every note start
+   with a fresh touch?
 
 ### Acceptance outline
 
@@ -304,6 +371,10 @@ Never silently move existing project notes when the palette changes.
 - no stuck notes across octave, palette, instrument, focus and audio-device changes;
 - octave buttons plus all approved shortcuts stay scoped and remappable;
 - every generated beginner-mode pitch belongs to the selected scale across the supported range;
+- mouse, pen, multi-touch and physical keys drive the same visible held state without early release;
+- tablet controls meet the minimum touch target and play chords in portrait/core and
+  landscape/expanded layouts;
+- pointer cancel, lost capture, blur, remapping and audio loss leave no stuck sound or active key;
 - scale preview is bounded, cancellable, non-overlapping and never mutates project/history;
 - song palette remains truthful across save/reopen and does not silently transpose notes;
 - tonic/chord/scale hierarchy works without color in Light, Dark and forced-color modes;
