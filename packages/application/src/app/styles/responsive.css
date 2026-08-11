@@ -103,6 +103,29 @@
 		grid-template-columns: minmax(0, 1fr);
 	}
 
+	.sound-mapping-dock {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.sound-mapping-dock__actions {
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-rows: auto;
+		border-top: var(--ti-hairline) solid var(--ti-border);
+		border-left: 0;
+	}
+
+	.sound-mapping-dock__tabs {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.sound-mapping-dock__use {
+		width: auto;
+	}
+
+	.sound-scale-builder {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
 	.footer-guidance > span:last-child,
 	.key-hint {
 		display: none;

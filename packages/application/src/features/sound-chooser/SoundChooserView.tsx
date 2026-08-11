@@ -1,14 +1,29 @@
-import { AudioLines, CircleDot, Headphones, Music2, Square, Waves } from 'lucide-react'
+import {
+	AudioLines,
+	ChevronDown,
+	ChevronUp,
+	CircleDot,
+	Headphones,
+	Keyboard,
+	Music2,
+	SlidersHorizontal,
+	Square,
+	Waves
+} from 'lucide-react'
 import {
 	useEffect,
+	useMemo,
+	useRef,
 	useState,
 	useSyncExternalStore,
 	type CSSProperties,
 	type JSX,
+	type KeyboardEvent as ReactKeyboardEvent,
 	type ReactNode
 } from 'react'
 import { useLocalization, type LocalizationKey } from '../../../../localization/src/index.js'
-import { songPalette, type SongPalette } from '../../../../music-theory/src/index.js'
+import { songPalette } from '../../../../music-theory/src/index.js'
+import type { LayerPerformanceMapping, ProjectKey } from '../../../../project-core/src/index.js'
 import { PerformanceKeyboard } from '../../performance/PerformanceKeyboard.js'
 import { useApplicationRuntimeController } from '../../runtime/ApplicationRuntimeControllerContext.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
@@ -47,20 +62,31 @@ const axes = Object.freeze([
 	Object.freeze({ left: 'Short', right: 'Long', value: '58%' })
 ])
 
-const defaultPalette = songPalette({ tonic: 9, mode: 'minor' })
+const defaultPerformance = Object.freeze({
+	key: Object.freeze({ tonic: 9, mode: 'minor' as const }),
+	octave: 2
+})
+
+type SoundMappingDockView = 'keys' | 'scale'
+
+const dockViews = Object.freeze<readonly SoundMappingDockView[]>(['keys', 'scale'])
+const keysTabId = 'sound-mapping-keys-tab'
+const keysPanelId = 'sound-mapping-keys-panel'
+const scaleTabId = 'sound-mapping-scale-tab'
+const scalePanelId = 'sound-mapping-scale-panel'
 
 export interface SoundChooserViewProperties {
+	readonly initialPerformance?: LayerPerformanceMapping
 	readonly model?: SoundChooserViewModel
 	readonly onBack: () => void
-	readonly onChoose: () => void
-	readonly palette?: SongPalette
+	readonly onChoose: (performance: LayerPerformanceMapping) => void
 }
 
 export function SoundChooserView({
+	initialPerformance = defaultPerformance,
 	model = soundChooserViewModel,
 	onBack,
-	onChoose,
-	palette = defaultPalette
+	onChoose
 }: SoundChooserViewProperties): JSX.Element {
 	const { t } = useLocalization()
 	const controller = useApplicationRuntimeController()
@@ -75,8 +101,19 @@ export function SoundChooserView({
 		controller.previewCoordinator.getSnapshot
 	)
 	const performanceOwnerId = 'sound-chooser'
-	const [octave, setOctave] = useState(2)
-	const [rotation, setRotation] = useState(0)
+	const [dockView, setDockView] = useState<SoundMappingDockView>('keys')
+	const [key, setKey] = useState<ProjectKey>(() => ({ ...initialPerformance.key }))
+	const [octave, setOctave] = useState(initialPerformance.octave)
+	const dockTabRefs = useRef(new Map<SoundMappingDockView, HTMLButtonElement>())
+	const palette = useMemo(() => songPalette(key), [key])
+	const rootOptions = useMemo(
+		() =>
+			Array.from({ length: 12 }, (_, tonic) => ({
+				tonic,
+				label: songPalette({ tonic, mode: key.mode }).tonicName
+			})),
+		[key.mode]
+	)
 	const soundDemoActive = preview.active && preview.kind === 'sound'
 	useEffect(() => {
 		return () => {
@@ -90,7 +127,40 @@ export function SoundChooserView({
 			controller.previewCoordinator.interrupt()
 			return
 		}
-		controller.previewCoordinator.start('sound', soundDemoProgram(palette, octave, rotation))
+		controller.previewCoordinator.start('sound', soundDemoProgram(palette, octave, 0))
+	}
+	const releaseForMappingChange = (): void => {
+		controller.previewCoordinator.interrupt()
+		controller.performanceInput.releaseAll()
+	}
+	const selectDockView = (next: SoundMappingDockView): void => {
+		if (next === dockView) return
+		controller.performanceInput.releaseAll()
+		setDockView(next)
+	}
+	const handleDockTabKeyDown = (
+		event: ReactKeyboardEvent<HTMLButtonElement>,
+		current: SoundMappingDockView
+	): void => {
+		const currentIndex = dockViews.indexOf(current)
+		let nextIndex: number | null = null
+		if (event.code === 'ArrowDown') nextIndex = (currentIndex + 1) % dockViews.length
+		if (event.code === 'ArrowUp') {
+			nextIndex = (currentIndex + dockViews.length - 1) % dockViews.length
+		}
+		if (event.code === 'Home') nextIndex = 0
+		if (event.code === 'End') nextIndex = dockViews.length - 1
+		if (nextIndex === null) return
+		event.preventDefault()
+		const next = dockViews[nextIndex]
+		if (next === undefined) return
+		selectDockView(next)
+		dockTabRefs.current.get(next)?.focus()
+	}
+	const choose = (): void => {
+		controller.previewCoordinator.interrupt()
+		controller.performanceInput.releaseAll()
+		onChoose({ key: { ...key }, octave })
 	}
 	return (
 		<section
@@ -128,9 +198,6 @@ export function SoundChooserView({
 							<h1>Deep Bass</h1>
 							<p>{t('soundChooser.deepBassDescription')}</p>
 						</div>
-						<button className="primary-action" onClick={onChoose} type="button">
-							{t('soundChooser.useSound')}
-						</button>
 					</div>
 					<div className="audition">
 						<div className="audition__header">
@@ -181,15 +248,171 @@ export function SoundChooserView({
 							</button>
 						))}
 					</div>
-					<PerformanceKeyboard
-						layout="compact"
-						octave={octave}
-						onOctaveChange={setOctave}
-						onRotationChange={setRotation}
-						ownerId={performanceOwnerId}
-						palette={palette}
-						rotation={rotation}
-					/>
+					<div className="sound-mapping-dock" data-view={dockView}>
+						<div
+							aria-labelledby={keysTabId}
+							className="sound-mapping-dock__panel"
+							hidden={dockView !== 'keys'}
+							id={keysPanelId}
+							role="tabpanel"
+						>
+							<PerformanceKeyboard
+								layout="compact"
+								octave={octave}
+								ownerId={performanceOwnerId}
+								palette={palette}
+								presentation="strip"
+								rotation={0}
+							/>
+						</div>
+						<div
+							aria-labelledby={scaleTabId}
+							className="sound-mapping-dock__panel sound-mapping-dock__panel--scale"
+							hidden={dockView !== 'scale'}
+							id={scalePanelId}
+							role="tabpanel"
+						>
+							<div className="sound-scale-builder">
+								<div
+									aria-label={t('soundChooser.rootNote')}
+									className="sound-scale-builder__group sound-scale-builder__group--roots"
+									role="group"
+								>
+									<span>{t('soundChooser.rootNote')}</span>
+									<div className="sound-scale-builder__roots">
+										{rootOptions.map((option) => (
+											<button
+												aria-pressed={key.tonic === option.tonic}
+												key={option.tonic}
+												onClick={() => {
+													releaseForMappingChange()
+													setKey({ ...key, tonic: option.tonic })
+												}}
+												type="button"
+											>
+												{option.label}
+											</button>
+										))}
+									</div>
+								</div>
+								<div
+									aria-label={t('soundChooser.scaleType')}
+									className="sound-scale-builder__group"
+									role="group"
+								>
+									<span>{t('soundChooser.scaleType')}</span>
+									<div className="sound-scale-builder__segments">
+										{(['major', 'minor'] as const).map((mode) => (
+											<button
+												aria-pressed={key.mode === mode}
+												key={mode}
+												onClick={() => {
+													releaseForMappingChange()
+													setKey({ ...key, mode })
+												}}
+												type="button"
+											>
+												{t(
+													mode === 'major'
+														? 'soundChooser.major'
+														: 'soundChooser.minor'
+												)}
+											</button>
+										))}
+									</div>
+								</div>
+								<div className="sound-scale-builder__group">
+									<span>{t('songPalette.octave', { octave })}</span>
+									<div className="sound-scale-builder__octave">
+										<button
+											aria-label={t('songPalette.octaveDown')}
+											disabled={octave <= 1}
+											onClick={() => {
+												releaseForMappingChange()
+												setOctave(octave - 1)
+											}}
+											type="button"
+										>
+											<ChevronDown aria-hidden="true" />
+										</button>
+										<strong>{octave}</strong>
+										<button
+											aria-label={t('songPalette.octaveUp')}
+											disabled={octave >= 6}
+											onClick={() => {
+												releaseForMappingChange()
+												setOctave(octave + 1)
+											}}
+											type="button"
+										>
+											<ChevronUp aria-hidden="true" />
+										</button>
+									</div>
+								</div>
+							</div>
+						</div>
+						<aside className="sound-mapping-dock__actions">
+							<div
+								aria-label={t('soundChooser.mappingControls')}
+								aria-orientation="vertical"
+								className="sound-mapping-dock__tabs"
+								role="tablist"
+							>
+								<button
+									aria-controls={keysPanelId}
+									aria-selected={dockView === 'keys'}
+									id={keysTabId}
+									onClick={() => selectDockView('keys')}
+									onKeyDown={(event) => handleDockTabKeyDown(event, 'keys')}
+									ref={(element) => {
+										if (element === null) dockTabRefs.current.delete('keys')
+										else dockTabRefs.current.set('keys', element)
+									}}
+									role="tab"
+									tabIndex={dockView === 'keys' ? 0 : -1}
+									type="button"
+								>
+									<Keyboard aria-hidden="true" />
+									<span>
+										<strong>{t('soundChooser.keysTab')}</strong>
+										<small>A S D F G H J</small>
+									</span>
+								</button>
+								<button
+									aria-controls={scalePanelId}
+									aria-selected={dockView === 'scale'}
+									id={scaleTabId}
+									onClick={() => selectDockView('scale')}
+									onKeyDown={(event) => handleDockTabKeyDown(event, 'scale')}
+									ref={(element) => {
+										if (element === null) dockTabRefs.current.delete('scale')
+										else dockTabRefs.current.set('scale', element)
+									}}
+									role="tab"
+									tabIndex={dockView === 'scale' ? 0 : -1}
+									type="button"
+								>
+									<SlidersHorizontal aria-hidden="true" />
+									<span>
+										<strong>{t('soundChooser.scaleTab')}</strong>
+										<small>
+											{t('soundChooser.mappingSummary', {
+												palette: palette.name,
+												octave
+											})}
+										</small>
+									</span>
+								</button>
+							</div>
+							<button
+								className="primary-action sound-mapping-dock__use"
+								onClick={choose}
+								type="button"
+							>
+								{t('soundChooser.useSound')}
+							</button>
+						</aside>
+					</div>
 				</div>
 				<aside className="semantic-panel">
 					<h2>{t('soundChooser.fineTune')}</h2>

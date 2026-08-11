@@ -382,6 +382,28 @@
 	margin-top: auto;
 }
 
+.performance-keyboard--strip {
+	width: 100%;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+}
+
+.performance-keyboard--strip .performance-keyboard__keys {
+	gap: 0.125rem;
+}
+
+.performance-keyboard--strip .performance-keyboard__row {
+	gap: 0.125rem;
+}
+
+.performance-keyboard--strip .key-white {
+	min-width: 0;
+	min-height: 5rem;
+	border-radius: 0 0 0.375rem 0.375rem;
+}
+
 @media (max-width: 48rem) {
 	.song-palette-panel {
 		grid-template-columns: minmax(0, 1fr);

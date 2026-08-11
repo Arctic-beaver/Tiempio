@@ -18,10 +18,11 @@ export interface PerformanceKeyboardProperties {
 	readonly layout: PerformanceLayout
 	readonly octave: number
 	readonly onLayoutChange?: (layout: PerformanceLayout) => void
-	readonly onOctaveChange: (octave: number) => void
-	readonly onRotationChange: (rotation: number) => void
+	readonly onOctaveChange?: (octave: number) => void
+	readonly onRotationChange?: (rotation: number) => void
 	readonly ownerId: string
 	readonly palette: SongPalette
+	readonly presentation?: 'panel' | 'strip'
 	readonly rotation: number
 }
 
@@ -36,6 +37,7 @@ export function PerformanceKeyboard({
 	onRotationChange,
 	ownerId,
 	palette,
+	presentation = 'panel',
 	rotation
 }: PerformanceKeyboardProperties): JSX.Element {
 	const { t } = useLocalization()
@@ -57,17 +59,18 @@ export function PerformanceKeyboard({
 	const surface = usePerformanceInputSurface(ownerId, mapping)
 	const chordDegrees = new Set(chord?.degreeIndices ?? [])
 	const changeOctave = (next: number): void => {
+		if (onOctaveChange === undefined) return
 		controller.performanceInput.releaseAll()
 		onOctaveChange(next)
 	}
 	const handleKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
 		if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
-			if (event.code === 'ArrowUp' && octave < 6) {
+			if (onOctaveChange !== undefined && event.code === 'ArrowUp' && octave < 6) {
 				event.preventDefault()
 				changeOctave(octave + 1)
 				return
 			}
-			if (event.code === 'ArrowDown' && octave > 1) {
+			if (onOctaveChange !== undefined && event.code === 'ArrowDown' && octave > 1) {
 				event.preventDefault()
 				changeOctave(octave - 1)
 				return
@@ -94,69 +97,80 @@ export function PerformanceKeyboard({
 		<section
 			{...surface}
 			aria-label={t('songPalette.keyboard')}
-			className="performance-keyboard"
+			className={`performance-keyboard performance-keyboard--${presentation}`}
 			data-layout={layout}
+			data-presentation={presentation}
 			onKeyDown={handleKeyDown}
 		>
-			<header className="performance-keyboard__toolbar">
-				<div className="performance-keyboard__rotation">
-					<IconButton
-						icon={<ChevronLeft />}
-						label={t('songPalette.rotateLeft')}
-						onClick={() => {
-							controller.performanceInput.releaseAll()
-							onRotationChange((rotation + 6) % 7)
-						}}
-						size="small"
-					/>
-					<span>{t('songPalette.rotate')}</span>
-					<IconButton
-						icon={<ChevronRight />}
-						label={t('songPalette.rotateRight')}
-						onClick={() => {
-							controller.performanceInput.releaseAll()
-							onRotationChange((rotation + 1) % 7)
-						}}
-						size="small"
-					/>
-				</div>
-				<div className="performance-keyboard__octave">
-					<IconButton
-						disabled={octave <= 1}
-						icon={<ChevronDown />}
-						label={t('songPalette.octaveDown')}
-						onClick={() => changeOctave(octave - 1)}
-						size="small"
-					/>
-					<strong>{t('songPalette.octave', { octave })}</strong>
-					<IconButton
-						disabled={octave >= 6}
-						icon={<ChevronUp />}
-						label={t('songPalette.octaveUp')}
-						onClick={() => changeOctave(octave + 1)}
-						size="small"
-					/>
-				</div>
-				{onLayoutChange === undefined ? null : (
-					<button
-						aria-pressed={layout === 'full'}
-						className="performance-keyboard__layout"
-						onClick={() => onLayoutChange(layout === 'compact' ? 'full' : 'compact')}
-						type="button"
-					>
-						<Keyboard aria-hidden="true" />
-						{t('songPalette.fullKeyboard')}
-					</button>
-				)}
-			</header>
+			{presentation === 'panel' ? (
+				<header className="performance-keyboard__toolbar">
+					{onRotationChange === undefined ? null : (
+						<div className="performance-keyboard__rotation">
+							<IconButton
+								icon={<ChevronLeft />}
+								label={t('songPalette.rotateLeft')}
+								onClick={() => {
+									controller.performanceInput.releaseAll()
+									onRotationChange((rotation + 6) % 7)
+								}}
+								size="small"
+							/>
+							<span>{t('songPalette.rotate')}</span>
+							<IconButton
+								icon={<ChevronRight />}
+								label={t('songPalette.rotateRight')}
+								onClick={() => {
+									controller.performanceInput.releaseAll()
+									onRotationChange((rotation + 1) % 7)
+								}}
+								size="small"
+							/>
+						</div>
+					)}
+					{onOctaveChange === undefined ? null : (
+						<div className="performance-keyboard__octave">
+							<IconButton
+								disabled={octave <= 1}
+								icon={<ChevronDown />}
+								label={t('songPalette.octaveDown')}
+								onClick={() => changeOctave(octave - 1)}
+								size="small"
+							/>
+							<strong>{t('songPalette.octave', { octave })}</strong>
+							<IconButton
+								disabled={octave >= 6}
+								icon={<ChevronUp />}
+								label={t('songPalette.octaveUp')}
+								onClick={() => changeOctave(octave + 1)}
+								size="small"
+							/>
+						</div>
+					)}
+					{onLayoutChange === undefined ? null : (
+						<button
+							aria-pressed={layout === 'full'}
+							className="performance-keyboard__layout"
+							onClick={() =>
+								onLayoutChange(layout === 'compact' ? 'full' : 'compact')
+							}
+							type="button"
+						>
+							<Keyboard aria-hidden="true" />
+							{t('songPalette.fullKeyboard')}
+						</button>
+					)}
+				</header>
+			) : null}
 			<div className="performance-keyboard__keys">
 				{layout === 'compact' ? renderRow('compact') : fullRows.map(renderRow)}
 			</div>
-			<div className="performance-keyboard__legend">
-				<span data-role="tonic">{t('songPalette.homeNote')}</span>
-				<span data-role="chord">{t('songPalette.chordTone')}</span>
-				<span data-role="palette">{t('songPalette.otherNote')}</span>
-			</div>
+			{presentation === 'panel' ? (
+				<div className="performance-keyboard__legend">
+					<span data-role="tonic">{t('songPalette.homeNote')}</span>
+					<span data-role="chord">{t('songPalette.chordTone')}</span>
+					<span data-role="palette">{t('songPalette.otherNote')}</span>
+				</div>
+			) : null}
 		</section>
 	)
 }
