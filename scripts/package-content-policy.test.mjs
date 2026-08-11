@@ -11,7 +11,10 @@ import {
 } from './native-host-integrity.mjs'
 
 const exactBuildConfiguration = Object.freeze({
-	files: ['dist/desktop/**/*', 'package.json'],
+	win: { icon: 'resources/branding/tiempio.ico' },
+	mac: { icon: 'resources/branding/tiempio.icns' },
+	linux: { icon: 'resources/branding/linux' },
+	files: ['dist/desktop/**/*', 'resources/branding/tiempio-512.png', 'package.json'],
 	extraResources: [
 		{
 			from: 'build/native/${platform}-${arch}',
@@ -91,6 +94,15 @@ describe('Desktop package content separation', () => {
 		assert.match(
 			validateDesktopPackageConfiguration({ build: { files: ['dist/**/*'] } }).join('\n'),
 			/must be exactly|unbounded/u
+		)
+	})
+
+	it('requires the Tiempio icon for every packaged platform', () => {
+		assert.match(
+			validateDesktopPackageConfiguration({
+				build: { ...exactBuildConfiguration, win: { icon: 'electron.ico' } }
+			}).join('\n'),
+			/Desktop win icon/u
 		)
 	})
 

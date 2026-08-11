@@ -9,7 +9,11 @@ import {
 	validateNativeHostManifest
 } from './native-host-integrity.mjs'
 
-const expectedDesktopFiles = Object.freeze(['dist/desktop/**/*', 'package.json'])
+const expectedDesktopFiles = Object.freeze([
+	'dist/desktop/**/*',
+	'resources/branding/tiempio-512.png',
+	'package.json'
+])
 const expectedExtraResources = Object.freeze([
 	Object.freeze({
 		from: 'build/native/${platform}-${arch}',
@@ -28,6 +32,11 @@ const expectedElectronFuses = Object.freeze({
 	enableNodeCliInspectArguments: false,
 	enableEmbeddedAsarIntegrityValidation: true,
 	onlyLoadAppFromAsar: true
+})
+const expectedPlatformIcons = Object.freeze({
+	win: 'resources/branding/tiempio.ico',
+	mac: 'resources/branding/tiempio.icns',
+	linux: 'resources/branding/linux'
 })
 
 function normalizePath(path) {
@@ -54,6 +63,11 @@ export function validateDesktopPackageConfiguration(packageDocument) {
 		JSON.stringify(expectedElectronFuses)
 	) {
 		errors.push('Desktop Electron fuses do not match the production security profile')
+	}
+	for (const [platform, icon] of Object.entries(expectedPlatformIcons)) {
+		if (packageDocument.build?.[platform]?.icon !== icon) {
+			errors.push(`Desktop ${platform} icon must be ${icon}`)
+		}
 	}
 	for (const pattern of files) {
 		if (typeof pattern !== 'string')
@@ -149,6 +163,11 @@ export function auditPackageContent({
 		readFileSync(resolve(repositoryRoot, 'package.json'), 'utf8')
 	)
 	const errors = validateDesktopPackageConfiguration(packageDocument)
+	for (const icon of Object.values(expectedPlatformIcons)) {
+		if (!existsSync(resolve(repositoryRoot, icon))) {
+			errors.push(`Desktop application icon is missing at ${icon}`)
+		}
+	}
 	const desktopRoot = resolve(repositoryRoot, 'dist/desktop')
 	if (requireBuild && !existsSync(desktopRoot)) {
 		errors.push('Desktop production output is required but missing')

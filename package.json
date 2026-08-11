@@ -97,8 +97,18 @@
 		"directories": {
 			"output": "artifacts/packages"
 		},
+		"win": {
+			"icon": "resources/branding/tiempio.ico"
+		},
+		"mac": {
+			"icon": "resources/branding/tiempio.icns"
+		},
+		"linux": {
+			"icon": "resources/branding/linux"
+		},
 		"files": [
 			"dist/desktop/**/*",
+			"resources/branding/tiempio-512.png",
 			"package.json"
 		],
 		"extraResources": [
