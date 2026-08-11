@@ -1,4 +1,4 @@
-import { ArrowLeft, Grid2X2, Volume2 } from 'lucide-react'
+import { ArrowLeft, Grid2X2, RefreshCw, Volume2 } from 'lucide-react'
 import { useSyncExternalStore, type JSX, type ReactNode } from 'react'
 import { useLocalization } from '../../../localization/src/index.js'
 import { ProjectHistoryControls } from '../commands/ProjectHistoryControls.js'
@@ -44,6 +44,21 @@ export function StudioTopBar({
 		: engineConnecting
 			? 'engine.connecting'
 			: 'engine.unavailable'
+	const audioStatus = (
+		<>
+			<span aria-hidden="true" className="status-dot" />
+			<strong>
+				{t(
+					!engineAvailable && !engineConnecting ? 'transport.audioRetry' : engineStatusKey
+				)}
+			</strong>
+			{!engineAvailable && !engineConnecting ? (
+				<RefreshCw aria-hidden="true" />
+			) : (
+				<Volume2 aria-hidden="true" />
+			)}
+		</>
+	)
 	return (
 		<header className="topbar">
 			<div className="top-left">
@@ -68,18 +83,26 @@ export function StudioTopBar({
 			{center}
 			<div className="top-right">
 				{actions ?? <ProjectHistoryControls />}
-				<div
-					aria-label={t(engineLabelKey)}
-					className="audio-chip"
-					data-availability={
-						engineAvailable ? 'available' : engineConnecting ? 'pending' : 'unavailable'
-					}
-					role="status"
-				>
-					<span aria-hidden="true" className="status-dot" />
-					<strong>{t(engineStatusKey)}</strong>
-					<Volume2 aria-hidden="true" />
-				</div>
+				{!engineAvailable && !engineConnecting ? (
+					<button
+						aria-label={t('engine.retry')}
+						className="audio-chip audio-chip--action"
+						data-availability="unavailable"
+						onClick={() => void controller.retryAudio()}
+						type="button"
+					>
+						{audioStatus}
+					</button>
+				) : (
+					<div
+						aria-label={t(engineLabelKey)}
+						className="audio-chip"
+						data-availability={engineAvailable ? 'available' : 'pending'}
+						role="status"
+					>
+						{audioStatus}
+					</div>
+				)}
 			</div>
 		</header>
 	)

@@ -33,6 +33,7 @@ export interface ApplicationController {
 	readonly getSnapshot: () => ApplicationControllerSnapshot
 	readonly subscribe: (listener: () => void) => () => void
 	bindProjectSession(session: ProjectSession): void
+	retryAudio(): Promise<void>
 	seek(tick: number): void
 	setLoop(loop: {
 		readonly enabled: boolean
@@ -73,6 +74,7 @@ export function createUnavailableApplicationController(
 		getSnapshot: () => unavailableSnapshot,
 		subscribe: () => () => undefined,
 		bindProjectSession: () => undefined,
+		retryAudio: async () => undefined,
 		seek: () => undefined,
 		setLoop: () => undefined,
 		setMetronomeEnabled: () => undefined,

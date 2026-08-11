@@ -14,6 +14,7 @@ import {
 	validateEngineCommandEnvelope,
 	type AnyEngineCommandEnvelope,
 	type AnyEngineEventEnvelope,
+	type AudioHealthSnapshot,
 	type EngineCommandType,
 	type EngineWireRenderPlan
 } from '../../../../packages/contracts/src/index.js'
@@ -246,7 +247,7 @@ async function waitFor(predicate: () => boolean, timeoutMs = 250): Promise<void>
 describe('EngineHostSupervisor', () => {
 	it('shares startup, validates bootstrap and coalesces renderer meter events', async () => {
 		const child = new FakeNativeHost(4101)
-		const supervisor = supervisorWith(spawning([child]))
+		const supervisor = supervisorWith(spawning([child]), { heartbeatFailureMs: 500 })
 		const first = supervisor.connect()
 		const second = supervisor.connect()
 		assert.equal(first, second)
@@ -256,7 +257,7 @@ describe('EngineHostSupervisor', () => {
 		const events: AnyEngineEventEnvelope[] = []
 		const remove = supervisor.onEvent((event) => events.push(event))
 		for (let index = 0; index < 100; index += 1) child.emitMeter(index / 100)
-		await delay(45)
+		await waitFor(() => events.length === 1, 500)
 		assert.equal(events.length, 1)
 		assert.equal(
 			(events[0] as unknown as { payload: { leftPeak: number } }).payload.leftPeak,
@@ -281,12 +282,20 @@ describe('EngineHostSupervisor', () => {
 		const missing = supervisorWith(() => {
 			throw new Error('missing')
 		})
+		const missingHealth: AudioHealthSnapshot['backendState'][] = []
+		missing.onHealth((health) => missingHealth.push(health.backendState))
 		assert.equal((await missing.connect()).ok, false)
+		assert.equal(missing.state, 'failed')
+		assert.deepEqual(missingHealth, ['starting', 'failed'])
+		const terminalHealth = missing.getHealth()
+		assert.equal(terminalHealth.ok, true)
+		if (terminalHealth.ok) assert.equal(terminalHealth.value.backendState, 'failed')
 
 		for (const mode of ['wrong-token', 'wrong-version', 'early-exit', 'hang'] as const) {
 			const child = new FakeNativeHost(4200 + mode.length, mode)
 			const supervisor = supervisorWith(spawning([child]))
 			assert.equal((await supervisor.connect()).ok, false)
+			assert.equal(supervisor.state, 'failed')
 			assert.equal(child.killCount, mode === 'early-exit' ? 0 : 1)
 			assert.equal(supervisor.resourceSnapshot.activeProcess, false)
 		}
@@ -316,19 +325,54 @@ describe('EngineHostSupervisor', () => {
 		assert.equal(hungSupervisor.resourceSnapshot.activeProcess, false)
 	})
 
-	it('restarts once, re-handshakes and acknowledges the latest plan before ready', async () => {
+	it('restarts once and replays the complete accepted audio intent before ready', async () => {
 		const first = new FakeNativeHost(4401)
 		const second = new FakeNativeHost(4402)
 		const supervisor = supervisorWith(spawning([first, second]))
 		assert.equal((await supervisor.connect()).ok, true)
 		assert.equal((await supervisor.send(handshake())).ok, true)
-		assert.equal((await supervisor.send(command(1, 'load-render-plan', { plan }))).ok, true)
-		first.crash()
-		await waitFor(() => supervisor.state === 'ready' && second.commands.length >= 2)
-		assert.deepEqual(
-			second.commands.slice(0, 2).map((entry) => entry.type),
-			['handshake', 'load-render-plan']
+		assert.equal(
+			(
+				await supervisor.send(
+					command(1, 'configure-audio', {
+						blockFrames: 512,
+						channels: 2,
+						sampleRate: 48_000
+					})
+				)
+			).ok,
+			true
 		)
+		assert.equal((await supervisor.send(command(2, 'load-render-plan', { plan }))).ok, true)
+		assert.equal(
+			(await supervisor.send(command(3, 'set-metronome-enabled', { enabled: true }))).ok,
+			true
+		)
+		assert.equal(
+			(await supervisor.send(command(4, 'set-metronome-volume', { volume: 0.42 }))).ok,
+			true
+		)
+		assert.equal((await supervisor.send(command(5, 'start-audio', {}))).ok, true)
+		first.crash()
+		await waitFor(() => supervisor.state === 'ready' && second.commands.length >= 6)
+		assert.deepEqual(
+			second.commands.slice(0, 6).map((entry) => entry.type),
+			[
+				'handshake',
+				'configure-audio',
+				'load-render-plan',
+				'set-metronome-enabled',
+				'set-metronome-volume',
+				'start-audio'
+			]
+		)
+		assert.deepEqual(second.commands[1]?.payload, {
+			blockFrames: 512,
+			channels: 2,
+			sampleRate: 48_000
+		})
+		assert.deepEqual(second.commands[3]?.payload, { enabled: true })
+		assert.deepEqual(second.commands[4]?.payload, { volume: 0.42 })
 		assert.equal((await supervisor.disconnect()).ok, true)
 	})
 
@@ -343,7 +387,17 @@ describe('EngineHostSupervisor', () => {
 		assert.equal(owned.killCount, 1)
 		assert.equal(foreign.killCount, 0)
 
-		const unkillable = new FakeNativeHost(4502)
+		const unkillableFailure = new FakeNativeHost(4502)
+		unkillableFailure.killSucceeds = false
+		unkillableFailure.respondToHeartbeat = false
+		const retained = supervisorWith(spawning([unkillableFailure]))
+		assert.equal((await retained.connect()).ok, true)
+		assert.equal((await retained.send(handshake())).ok, true)
+		await waitFor(() => retained.state === 'failed')
+		assert.equal(retained.identity?.pid, unkillableFailure.pid)
+		assert.equal(retained.resourceSnapshot.activeProcess, true)
+
+		const unkillable = new FakeNativeHost(4503)
 		unkillable.killSucceeds = false
 		unkillable.closeOnShutdown = false
 		const blocked = supervisorWith(spawning([unkillable]))

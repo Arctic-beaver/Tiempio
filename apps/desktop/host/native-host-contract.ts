@@ -7,7 +7,7 @@ export const nativeHostTokenBytes = 32 as const
 export const nativeHostOperationalLimits = Object.freeze({
 	startupTimeoutMs: 10_000,
 	heartbeatIntervalMs: 1_000,
-	heartbeatFailureMs: 5_000,
+	heartbeatFailureMs: 15_000,
 	gracefulShutdownMs: 3_000,
 	forcedCleanupConfirmationMs: 3_000,
 	recoveryCloseBarrierMs: 10_000,
