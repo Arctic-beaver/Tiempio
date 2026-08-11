@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, session } from 'electron'
+import tiempioApplicationIcon from '../../../resources/branding/tiempio-512.png?asset'
 import { EngineHostSupervisor } from './engine/engine-host-supervisor.js'
 import { registerEngineHandlers, type EngineIpcController } from './engine/engine-ipc.js'
 import { resolveNativeHostBinary } from './engine/native-host-resolver.js'
@@ -44,6 +45,7 @@ function createWindow(): BrowserWindow {
 	if (persistenceServices === null) throw new Error('Desktop persistence is not initialized.')
 	const window = new BrowserWindow({
 		...windowChromeOptions(process.platform),
+		icon: tiempioApplicationIcon,
 		width: 1280,
 		height: 800,
 		minWidth: 360,
@@ -101,6 +103,8 @@ if (!ownsSingleInstance) {
 } else {
 	app.on('second-instance', focusPrimaryWindow)
 	void app.whenReady().then(async () => {
+		if (process.platform === 'darwin') app.dock?.setIcon(tiempioApplicationIcon)
+		if (process.platform === 'win32') app.setAppUserModelId('app.tiempio.studio')
 		session.defaultSession.setPermissionRequestHandler((_webContents, _permission, respond) => {
 			respond(false)
 		})
