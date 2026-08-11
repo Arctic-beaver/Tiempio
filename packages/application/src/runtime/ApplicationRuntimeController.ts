@@ -21,6 +21,7 @@ import {
 	type ApplicationController,
 	type ApplicationControllerSnapshot
 } from './ApplicationController.js'
+import { PerformanceInputSession } from '../performance/performance-input-session.js'
 
 const applicationEngineCapabilities = Object.freeze<readonly EngineCapabilityCode[]>([
 	'protocol.typed-json',
@@ -34,20 +35,6 @@ const applicationEngineCapabilities = Object.freeze<readonly EngineCapabilityCod
 	'audio.native.shared',
 	'audio.devices'
 ])
-
-const auditionKeys = Object.freeze(
-	new Map<string, number>([
-		['KeyA', 45],
-		['KeyS', 47],
-		['KeyD', 48],
-		['KeyF', 50],
-		['KeyG', 52],
-		['KeyH', 53],
-		['KeyJ', 55],
-		['KeyK', 57],
-		['KeyL', 59]
-	])
-)
 
 export interface ProjectDocumentCodec {
 	encode(project: ProjectDocument): Uint8Array
@@ -68,22 +55,12 @@ function playablePlan(plan: ProjectRenderPlan): ProjectRenderPlan {
 	})
 }
 
-function editableTarget(target: EventTarget | null): boolean {
-	return (
-		target instanceof HTMLInputElement ||
-		target instanceof HTMLTextAreaElement ||
-		target instanceof HTMLSelectElement ||
-		(target instanceof HTMLElement && target.isContentEditable)
-	)
-}
-
 export class ApplicationRuntimeController implements ApplicationController {
 	readonly #client: EngineClient | null
 	readonly #listeners = new Set<() => void>()
 	readonly #options: ApplicationRuntimeControllerOptions
 	readonly #runtime: ApplicationRuntime
-	readonly #heldAuditions = new Map<string, string>()
-	#auditionEnabled = false
+	public readonly performanceInput: PerformanceInputSession
 	#currentHandle: ProjectHandle | null = null
 	#disposed = false
 	#engineRestarting = false
@@ -117,6 +94,16 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.#runtime = runtime
 		this.#options = options
 		this.#projectSession = initialSession
+		this.performanceInput = new PerformanceInputSession({
+			noteOn: (auditionId, pitch, velocity) => {
+				if (this.#snapshot.available) {
+					void this.#send('note-on', { auditionId, pitch, velocity })
+				}
+			},
+			noteOff: (auditionId) => {
+				if (this.#snapshot.available) void this.#send('note-off', { auditionId })
+			}
+		})
 		this.#client =
 			runtime.engine.availability === 'available'
 				? new EngineClient(runtime.engine.api, {
@@ -139,6 +126,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	public readonly getSnapshot = (): ApplicationControllerSnapshot => this.#snapshot
 
 	public bindProjectSession(session: ProjectSession): void {
+		this.performanceInput.releaseAll()
 		this.#projectUnsubscribe?.()
 		this.#projectGeneration += 1
 		this.#projectSession = session
@@ -162,12 +150,6 @@ export class ApplicationRuntimeController implements ApplicationController {
 			await this.#runtime.lifecycle.api.ready()
 		}
 		await this.#startEngine()
-	}
-
-	public setAuditionEnabled(enabled: boolean): void {
-		if (this.#auditionEnabled === enabled) return
-		this.#auditionEnabled = enabled
-		if (!enabled) this.#releaseAuditions()
 	}
 
 	public togglePlayback(): void {
@@ -194,15 +176,14 @@ export class ApplicationRuntimeController implements ApplicationController {
 
 	public prepareToClose(): void {
 		if (this.#disposed) return
-		this.#releaseAuditions()
+		this.performanceInput.releaseAll()
 		this.#scheduleRecovery(true)
 		void this.dispose()
 	}
 
 	public async dispose(): Promise<void> {
 		if (this.#disposed) return
-		this.#auditionEnabled = false
-		this.#releaseAuditions()
+		this.performanceInput.releaseAll()
 		this.#disposed = true
 		this.#detachWindowListeners()
 		this.#projectUnsubscribe?.()
@@ -225,7 +206,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 			this.#acceptEngineEvent(event)
 		)
 		this.#unsubscribeEngineFailures = this.#client.onFailure((error) => {
-			this.#releaseAuditions()
+			this.performanceInput.releaseAll()
 			this.#setDiagnostic(error)
 		})
 		this.#runtimeHealthUnsubscribe = this.#runtime.engine.api.onHealth((health) =>
@@ -274,6 +255,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	#projectChanged(): void {
 		const snapshot = this.#projectSession.getSnapshot()
 		if (snapshot.revision !== this.#observedProjectRevision) {
+			this.performanceInput.releaseAll()
 			this.#observedProjectRevision = snapshot.revision
 			this.#latestRequestedPlanRevision = snapshot.revision
 			this.#latestPlanGeneration = this.#projectGeneration
@@ -435,16 +417,16 @@ export class ApplicationRuntimeController implements ApplicationController {
 					details: { diagnostic: event.payload.code }
 				})
 			)
-			if (event.type === 'fatal-error') this.#releaseAuditions()
+			if (event.type === 'fatal-error') this.performanceInput.releaseAll()
 		}
 	}
 
 	#acceptHealth(health: AudioHealthSnapshot): void {
 		if (health.backendState === 'restarting') {
 			this.#engineRestarting = true
-			this.#releaseAuditions()
 		}
 		const available = health.backendState === 'ready' && health.deviceState === 'available'
+		if (!available) this.performanceInput.releaseAll()
 		this.#publish({
 			...this.#snapshot,
 			available,
@@ -468,64 +450,28 @@ export class ApplicationRuntimeController implements ApplicationController {
 		return result.ok
 	}
 
-	#keyDown = (event: KeyboardEvent): void => {
-		if (
-			!this.#auditionEnabled ||
-			event.repeat ||
-			event.isComposing ||
-			event.ctrlKey ||
-			event.metaKey ||
-			event.altKey ||
-			editableTarget(event.target)
-		) {
-			return
-		}
-		const code = event.code
-		const pitch = auditionKeys.get(code)
-		if (pitch === undefined || this.#heldAuditions.has(code)) return
-		const auditionId = `keyboard-${code}-${String(Date.now())}`
-		this.#heldAuditions.set(code, auditionId)
-		void this.#send('note-on', { auditionId, pitch, velocity: 102 })
-	}
-
-	#keyUp = (event: KeyboardEvent): void => {
-		const code = event.code
-		const auditionId = this.#heldAuditions.get(code)
-		if (auditionId === undefined) return
-		this.#heldAuditions.delete(code)
-		void this.#send('note-off', { auditionId })
-	}
-
 	#visibilityChanged = (): void => {
-		if (document.visibilityState !== 'visible') this.#releaseAuditions()
-	}
-
-	#releaseAuditions(): void {
-		for (const auditionId of this.#heldAuditions.values()) {
-			void this.#send('note-off', { auditionId })
-		}
-		this.#heldAuditions.clear()
+		if (document.visibilityState !== 'visible') this.performanceInput.releaseAll()
 	}
 
 	#attachWindowListeners(): void {
-		window.addEventListener('keydown', this.#keyDown)
-		window.addEventListener('keyup', this.#keyUp)
-		window.addEventListener('blur', this.#releaseAuditionsBound)
-		window.addEventListener('pagehide', this.#releaseAuditionsBound)
+		window.addEventListener('blur', this.#releasePerformanceInputBound)
+		window.addEventListener('pagehide', this.#releasePerformanceInputBound)
 		document.addEventListener('visibilitychange', this.#visibilityChanged)
 	}
 
 	#detachWindowListeners(): void {
-		window.removeEventListener('keydown', this.#keyDown)
-		window.removeEventListener('keyup', this.#keyUp)
-		window.removeEventListener('blur', this.#releaseAuditionsBound)
-		window.removeEventListener('pagehide', this.#releaseAuditionsBound)
+		window.removeEventListener('blur', this.#releasePerformanceInputBound)
+		window.removeEventListener('pagehide', this.#releasePerformanceInputBound)
 		document.removeEventListener('visibilitychange', this.#visibilityChanged)
 	}
 
-	#releaseAuditionsBound = (): void => this.#releaseAuditions()
+	#releasePerformanceInputBound = (): void => {
+		this.performanceInput.releaseAll()
+	}
 
 	#setDiagnostic(error: ApplicationError): void {
+		this.performanceInput.releaseAll()
 		this.#publish({ ...this.#snapshot, available: false, diagnostic: error, playing: false })
 	}
 

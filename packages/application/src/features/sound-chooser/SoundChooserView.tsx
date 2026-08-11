@@ -1,6 +1,12 @@
 import { AudioLines, CircleDot, Music2, Waves } from 'lucide-react'
 import type { CSSProperties, JSX, ReactNode } from 'react'
 import { useLocalization, type LocalizationKey } from '../../../../localization/src/index.js'
+import {
+	performanceMapping,
+	type PerformanceKeyMapping
+} from '../../../../music-theory/src/index.js'
+import { PerformanceKeyControl } from '../../performance/PerformanceKeyControl.js'
+import { usePerformanceInputSurface } from '../../performance/usePerformanceInputSurface.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
 import { TransportBar } from '../../shell/TransportBar.js'
 import { soundChooserViewModel, type SoundChooserViewModel } from './view-model.js'
@@ -37,19 +43,27 @@ const axes = Object.freeze([
 ])
 
 export interface SoundChooserViewProperties {
+	readonly keyMapping?: readonly PerformanceKeyMapping[]
 	readonly model?: SoundChooserViewModel
 	readonly onBack: () => void
 	readonly onChoose: () => void
 }
 
 export function SoundChooserView({
+	keyMapping = performanceMapping(
+		{ tonic: 9, mode: 'minor' },
+		{ layout: 'compact', rotation: 0, tonicMidi: 45 }
+	),
 	model = soundChooserViewModel,
 	onBack,
 	onChoose
 }: SoundChooserViewProperties): JSX.Element {
 	const { t } = useLocalization()
+	const performanceOwnerId = 'sound-chooser'
+	const performanceSurface = usePerformanceInputSurface(performanceOwnerId, keyMapping)
 	return (
 		<section
+			{...performanceSurface}
 			className="studio-view sound-chooser-view"
 			data-sound-count={model.sounds.length}
 			data-testid="view-sound-chooser"
@@ -123,19 +137,13 @@ export function SoundChooserView({
 						))}
 					</div>
 					<div aria-label={t('soundChooser.keyboardPreview')} className="keys-preview">
-						{Array.from({ length: 14 }, (_, index) => {
-							const labels = ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L']
-							return (
-								<span
-									className={`key-white${index === 1 || index === 4 ? ' active' : ''}`}
-									key={index}
-								>
-									{labels[index] === undefined ? null : (
-										<span>{labels[index]}</span>
-									)}
-								</span>
-							)
-						})}
+						{keyMapping.map((key) => (
+							<PerformanceKeyControl
+								key={key.code}
+								keyMapping={key}
+								ownerId={performanceOwnerId}
+							/>
+						))}
 					</div>
 				</div>
 				<aside className="semantic-panel">

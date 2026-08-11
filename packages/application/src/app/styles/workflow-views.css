@@ -541,10 +541,11 @@ kbd {
 .keys-preview {
 	display: grid;
 	height: 4.75rem;
-	grid-template-columns: repeat(14, 1fr);
+	grid-template-columns: repeat(7, minmax(3rem, 1fr));
 	align-items: stretch;
 	gap: 0.125rem;
 	margin-top: auto;
+	touch-action: none;
 }
 
 .key-white {
@@ -552,14 +553,34 @@ kbd {
 	border: var(--ti-hairline) solid var(--ti-border);
 	border-radius: 0 0 0.375rem 0.375rem;
 	background: var(--ti-surface-1);
+	color: var(--ti-text);
 }
 
-.key-white.active {
+.key-white[aria-pressed='true'] {
 	border-color: color-mix(in srgb, var(--ti-accent), transparent 60%);
 	background: var(--ti-accent-soft);
+	box-shadow: inset 0 -0.1875rem 0 color-mix(in srgb, var(--ti-accent), transparent 45%);
+	transform: translateY(0.125rem);
 }
 
-.key-white span {
+.key-white.tonic::before {
+	position: absolute;
+	top: 0.375rem;
+	left: 50%;
+	width: 0.3125rem;
+	height: 0.3125rem;
+	border-radius: 50%;
+	background: var(--ti-accent);
+	content: '';
+	transform: translateX(-50%);
+}
+
+.performance-key__pitch {
+	display: block;
+	font-size: 0.75rem;
+}
+
+.performance-key__code {
 	position: absolute;
 	bottom: 0.5rem;
 	left: 50%;

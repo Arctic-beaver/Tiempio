@@ -17,8 +17,10 @@ import {
 	type ProjectSnapshotEnvelope,
 	type RecoveryHandle
 } from '../../../contracts/src/index.js'
+import { performanceMapping } from '../../../music-theory/src/index.js'
 import { ProjectSession } from '../../../project-core/src/index.js'
 import { createSeedProject } from '../project/seed-project.js'
+import { performanceSourceId } from '../performance/performance-input-session.js'
 import { ApplicationRuntimeController } from './ApplicationRuntimeController.js'
 
 const capabilities = Object.freeze<readonly EngineCapabilityCode[]>([
@@ -295,108 +297,68 @@ describe('ApplicationRuntimeController', () => {
 			await flush()
 			assert.equal(commands.at(-1)?.type, 'stop')
 
-			controller.setAuditionEnabled(true)
-			browser.windowSurface.dispatch('keydown', {
-				code: 'KeyA',
-				key: 'a',
-				isComposing: false,
-				repeat: false,
-				ctrlKey: false,
-				metaKey: false,
-				altKey: false,
-				target: null
-			} as unknown as KeyboardEvent)
-			await flush()
-			const latinNote = commands.at(-1)
-			assert.equal(latinNote?.type, 'note-on')
-			assert.equal(latinNote?.type === 'note-on' ? latinNote.payload.pitch : null, 45)
-			browser.windowSurface.dispatch('keyup', {
-				code: 'KeyA',
-				key: 'ф'
-			} as unknown as KeyboardEvent)
-			await flush()
-			assert.equal(commands.at(-1)?.type, 'note-off')
-
-			browser.windowSurface.dispatch('keydown', {
-				code: 'KeyA',
-				key: 'ф',
-				isComposing: false,
-				repeat: false,
-				ctrlKey: false,
-				metaKey: false,
-				altKey: false,
-				target: null
-			} as unknown as KeyboardEvent)
-			await flush()
-			const cyrillicNote = commands.at(-1)
-			assert.equal(cyrillicNote?.type, 'note-on')
-			assert.equal(cyrillicNote?.type === 'note-on' ? cyrillicNote.payload.pitch : null, 45)
-			browser.windowSurface.dispatch('keyup', {
-				code: 'KeyA',
-				key: 'a'
-			} as unknown as KeyboardEvent)
-			await flush()
-			assert.equal(commands.at(-1)?.type, 'note-off')
-
-			const commandCount = commands.length
-			for (const blocked of [
-				{ repeat: true, ctrlKey: false, altKey: false, isComposing: false },
-				{ repeat: false, ctrlKey: true, altKey: false, isComposing: false },
-				{ repeat: false, ctrlKey: true, altKey: true, isComposing: false },
-				{ repeat: false, ctrlKey: false, altKey: false, isComposing: true }
-			]) {
-				browser.windowSurface.dispatch('keydown', {
-					code: 'KeyD',
-					key: 'δ',
-					metaKey: false,
-					target: null,
-					...blocked
-				} as unknown as KeyboardEvent)
-			}
-			await flush()
-			assert.equal(commands.length, commandCount)
-
-			for (const [code, key, pitch] of [
-				['KeyD', 'в', 48],
-				['KeyF', 'а', 50],
-				['KeyG', 'п', 52],
-				['KeyH', 'р', 53],
-				['KeyJ', 'ο', 55],
-				['KeyK', 'κ', 57],
-				['KeyL', 'ل', 59]
+			controller.performanceInput.activate(
+				'sound-chooser',
+				performanceMapping(
+					{ tonic: 9, mode: 'minor' },
+					{ layout: 'compact', rotation: 0, tonicMidi: 45 }
+				)
+			)
+			for (const [code, pitch] of [
+				['KeyA', 45],
+				['KeyS', 47],
+				['KeyD', 48],
+				['KeyF', 50],
+				['KeyG', 52],
+				['KeyH', 53],
+				['KeyJ', 55]
 			] as const) {
-				browser.windowSurface.dispatch('keydown', {
-					code,
-					key,
-					isComposing: false,
-					repeat: false,
-					ctrlKey: false,
-					metaKey: false,
-					altKey: false,
-					target: null
-				} as unknown as KeyboardEvent)
+				const source = performanceSourceId('keyboard', code)
+				assert.equal(
+					controller.performanceInput.pressCode('sound-chooser', source, code),
+					true
+				)
 				await flush()
 				const note = commands.at(-1)
 				assert.equal(note?.type, 'note-on')
 				assert.equal(note?.type === 'note-on' ? note.payload.pitch : null, pitch)
-				browser.windowSurface.dispatch('keyup', {
-					code,
-					key: 'layout-changed'
-				} as unknown as KeyboardEvent)
+				assert.equal(controller.performanceInput.releaseSource(source), true)
 				await flush()
 				assert.equal(commands.at(-1)?.type, 'note-off')
 			}
 
-			browser.windowSurface.dispatch('keydown', {
-				code: 'KeyS',
-				key: 's',
-				isComposing: false,
-				repeat: false,
-				ctrlKey: false,
-				metaKey: false,
-				altKey: false,
-				target: null
-			} as unknown as KeyboardEvent)
+			controller.performanceInput.pressCode(
+				'sound-chooser',
+				performanceSourceId('keyboard', 'KeyS'),
+				'KeyS'
+			)
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'note-on')
+			browser.windowSurface.dispatch('blur', {} as Event)
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'note-off')
+			assert.deepEqual(controller.performanceInput.getSnapshot().heldKeys, [])
+
+			controller.performanceInput.pressCode(
+				'sound-chooser',
+				performanceSourceId('keyboard', 'KeyD'),
+				'KeyD'
+			)
+			await flush()
+			for (const listener of healthListeners) {
+				listener({ ...readyHealth, deviceState: 'lost' })
+			}
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'note-off')
+			assert.equal(controller.getSnapshot().available, false)
+			assert.deepEqual(controller.performanceInput.getSnapshot().heldKeys, [])
+			for (const listener of healthListeners) listener(readyHealth)
+
+			controller.performanceInput.pressCode(
+				'sound-chooser',
+				performanceSourceId('keyboard', 'KeyF'),
+				'KeyF'
+			)
 			await flush()
 			assert.equal(commands.at(-1)?.type, 'note-on')
 			for (const listener of closeListeners) listener()

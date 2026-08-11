@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useSyncExternalStore, type JSX } from 'react'
+import { useMemo, useSyncExternalStore, type JSX } from 'react'
 import { CommandProvider } from '../commands/CommandProvider.js'
 import type { CommandHandlerMap } from '../commands/command-availability.js'
 import { useApplicationRuntime } from '../providers/RuntimeContext.js'
@@ -20,10 +20,6 @@ export function StudioApplication(): JSX.Element {
 	const projectSession = useProjectSession()
 	const navigation = useStudioNavigation()
 	const transportCommandHandlers = useTransportCommandHandlers()
-	useEffect(() => {
-		controller.setAuditionEnabled(navigation.state.activeView === 'sound-chooser')
-		return () => controller.setAuditionEnabled(false)
-	}, [controller, navigation.state.activeView])
 	const handlers = useMemo<CommandHandlerMap>(
 		() => ({
 			...navigation.commandHandlers,

@@ -1,0 +1,168 @@
+import assert from 'node:assert/strict'
+import { describe, it } from 'node:test'
+import { performanceMapping } from '../../../music-theory/src/index.js'
+import {
+	keyboardPerformanceSource,
+	performanceKeyDown,
+	performanceKeyUp,
+	performancePointerCaptureLost,
+	performancePointerDown,
+	performancePointerEnd,
+	type PerformanceKeyboardEvent,
+	type PerformancePointerEvent,
+	type PerformancePointerCaptureTarget
+} from './performance-input-events.js'
+import {
+	performanceSourceId,
+	PerformanceInputSession,
+	type PerformanceVoiceSink
+} from './performance-input-session.js'
+
+interface SinkEvent {
+	readonly auditionId: string
+	readonly pitch?: number
+	readonly type: 'off' | 'on'
+}
+
+function testSession(): {
+	readonly events: SinkEvent[]
+	readonly session: PerformanceInputSession
+} {
+	const events: SinkEvent[] = []
+	const sink: PerformanceVoiceSink = {
+		noteOn: (auditionId, pitch) => events.push({ type: 'on', auditionId, pitch }),
+		noteOff: (auditionId) => events.push({ type: 'off', auditionId })
+	}
+	return { events, session: new PerformanceInputSession(sink) }
+}
+
+const aMinor = performanceMapping(
+	{ tonic: 9, mode: 'minor' },
+	{ layout: 'compact', rotation: 0, tonicMidi: 45 }
+)
+
+describe('performance input session', () => {
+	it('source-counts physical and pointer holds without an early note-off', () => {
+		const { events, session } = testSession()
+		session.activate('sound-chooser', aMinor)
+		const keyboard = performanceSourceId('keyboard', 'KeyA')
+		const pointer = performanceSourceId('pointer', 17)
+		assert.equal(session.pressCode('sound-chooser', keyboard, 'KeyA'), true)
+		assert.equal(session.pressCode('sound-chooser', pointer, 'KeyA'), true)
+		assert.deepEqual(session.getSnapshot().heldKeys, [
+			{ code: 'KeyA', pitch: 45, sourceCount: 2 }
+		])
+		assert.equal(session.releaseSource(pointer), true)
+		assert.deepEqual(session.getSnapshot().heldKeys, [
+			{ code: 'KeyA', pitch: 45, sourceCount: 1 }
+		])
+		assert.equal(events.filter(({ type }) => type === 'off').length, 1)
+		assert.equal(session.releaseSource(keyboard), true)
+		assert.deepEqual(session.getSnapshot().heldKeys, [])
+		assert.equal(events.filter(({ type }) => type === 'off').length, 2)
+	})
+
+	it('releases every source before remap, deactivation and owner transfer', () => {
+		const { events, session } = testSession()
+		session.activate('palette', aMinor)
+		session.pressCode('palette', performanceSourceId('keyboard', 'KeyA'), 'KeyA')
+		const rotated = performanceMapping(
+			{ tonic: 9, mode: 'minor' },
+			{ layout: 'compact', rotation: 2, tonicMidi: 45 }
+		)
+		assert.equal(session.remap('palette', rotated), true)
+		assert.deepEqual(session.getSnapshot().heldKeys, [])
+		assert.equal(events.at(-1)?.type, 'off')
+		session.pressCode('palette', performanceSourceId('keyboard', 'KeyD'), 'KeyD')
+		session.activate('play-drawer', aMinor)
+		assert.equal(session.getSnapshot().ownerId, 'play-drawer')
+		assert.deepEqual(session.getSnapshot().heldKeys, [])
+		assert.equal(session.deactivate('palette'), false)
+		assert.equal(session.deactivate('play-drawer'), true)
+	})
+
+	it('keeps an automatic preview source bounded and outside mapped key ownership', () => {
+		const { session } = testSession()
+		session.activate('palette', aMinor)
+		const preview = performanceSourceId('preview', 'palette-step-1')
+		assert.equal(session.pressPitch('palette', preview, 81, null, 90), true)
+		assert.equal(session.pressPitch('palette', preview, 83), false)
+		assert.deepEqual(session.getSnapshot().heldKeys, [
+			{ code: null, pitch: 81, sourceCount: 1 }
+		])
+		assert.equal(session.releaseAll(), true)
+		assert.equal(session.releaseAll(), false)
+	})
+})
+
+describe('performance input events', () => {
+	it('uses physical codes across labels and ignores repeats, modifiers and editing fields', () => {
+		const { events, session } = testSession()
+		session.activate('surface', aMinor)
+		let prevented = 0
+		const key = (overrides: Record<string, unknown> = {}): PerformanceKeyboardEvent =>
+			({
+				code: 'KeyA',
+				altKey: false,
+				ctrlKey: false,
+				metaKey: false,
+				shiftKey: false,
+				repeat: false,
+				isComposing: false,
+				target: null,
+				preventDefault: () => (prevented += 1),
+				...overrides
+			}) as PerformanceKeyboardEvent
+		assert.equal(performanceKeyDown(session, 'surface', key({ key: 'ф' })), true)
+		assert.equal(events.at(-1)?.pitch, 45)
+		assert.equal(performanceKeyUp(session, key({ key: 'a' })), true)
+		for (const blocked of [
+			key({ repeat: true }),
+			key({ ctrlKey: true }),
+			key({ altKey: true }),
+			key({ metaKey: true }),
+			key({ shiftKey: true }),
+			key({ isComposing: true }),
+			key({ target: { tagName: 'INPUT' } })
+		]) {
+			assert.equal(performanceKeyDown(session, 'surface', blocked), false)
+		}
+		assert.equal(prevented, 2)
+		assert.equal(session.releaseSource(keyboardPerformanceSource('KeyA')), false)
+	})
+
+	it('captures independent touches, rejects secondary mouse and releases cancel paths', () => {
+		const { session } = testSession()
+		session.activate('surface', aMinor)
+		const captures = new Set<number>()
+		const target: PerformancePointerCaptureTarget = {
+			hasPointerCapture: (pointerId) => captures.has(pointerId),
+			setPointerCapture: (pointerId) => captures.add(pointerId),
+			releasePointerCapture: (pointerId) => captures.delete(pointerId)
+		}
+		const pointer = (
+			pointerId: number,
+			pointerType: string,
+			button = 0
+		): PerformancePointerEvent => ({
+			pointerId,
+			pointerType,
+			button,
+			isPrimary: pointerId === 1,
+			currentTarget: target,
+			preventDefault: () => undefined
+		})
+		assert.equal(performancePointerDown(session, 'surface', 'KeyA', pointer(1, 'touch')), true)
+		assert.equal(performancePointerDown(session, 'surface', 'KeyS', pointer(1, 'touch')), false)
+		assert.equal(session.getSnapshot().heldKeys[0]?.code, 'KeyA')
+		assert.equal(performancePointerDown(session, 'surface', 'KeyD', pointer(2, 'touch')), true)
+		assert.equal(session.getSnapshot().heldKeys.length, 2)
+		assert.equal(
+			performancePointerDown(session, 'surface', 'KeyF', pointer(3, 'mouse', 1)),
+			false
+		)
+		assert.equal(performancePointerEnd(session, pointer(1, 'touch')), true)
+		assert.equal(performancePointerCaptureLost(session, 2), true)
+		assert.deepEqual(session.getSnapshot().heldKeys, [])
+	})
+})
