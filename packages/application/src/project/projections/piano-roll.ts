@@ -1,3 +1,4 @@
+import { songPalette } from '../../../../music-theory/src/index.js'
 import type { StudioProjectionContext } from './projection-context.js'
 import { noteName, pianoPitches } from './shared.js'
 import type { PianoRollProjection } from './types.js'
@@ -26,6 +27,7 @@ export function projectPianoRoll({
 		gridTicks: ticksPerQuarter / 4,
 		meterDenominator: meter.denominator,
 		meterNumerator: meter.numerator,
+		palette: songPalette(project.transport.key),
 		ticksPerBar,
 		ticksPerBeat,
 		ticksPerQuarter,

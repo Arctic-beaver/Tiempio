@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { createProject } from '../../project-core/src/index.js'
+import { createProject, ProjectSession } from '../../project-core/src/index.js'
 import {
 	createLogicalProjectArchive,
 	decodeRecoveryEnvelope,
@@ -34,6 +34,20 @@ describe('project format', () => {
 		const second = encodeProjectManifest(loaded.project)
 		assert.deepEqual(second, first)
 		assert.match(decodeUtf8(first), /Формат/u)
+	})
+
+	it('round-trips an applied song palette as canonical project intent', () => {
+		const session = new ProjectSession(project)
+		session.dispatch({
+			type: 'transport.key.set',
+			baseRevision: 0,
+			key: { tonic: 1, mode: 'major' }
+		})
+		const loaded = parseProjectManifest(encodeProjectManifest(session.getSnapshot().project))
+		assert.equal(loaded.status, 'loaded')
+		if (loaded.status === 'loaded') {
+			assert.deepEqual(loaded.project.transport.key, { tonic: 1, mode: 'major' })
+		}
 	})
 
 	it('preserves exact future-version bytes and blocks current save', () => {

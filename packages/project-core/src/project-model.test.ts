@@ -15,6 +15,7 @@ describe('project model factories', () => {
 		const project = createProject({ projectId: 'project.demo', title: 'Demo' })
 		assert.equal(project.transport.ticksPerQuarter, 960)
 		assert.equal(project.transport.tempoMap[0]?.bpm, 108)
+		assert.deepEqual(project.transport.key, { tonic: 9, mode: 'minor' })
 		assert.equal(Object.isFrozen(project), true)
 		assert.equal(Object.isFrozen(project.transport.loop), true)
 		assert.equal(Object.isFrozen(project.layers), true)

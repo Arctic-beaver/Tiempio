@@ -1,3 +1,5 @@
+import { songPalette, type SongPalette } from '../../../../music-theory/src/index.js'
+
 export interface PianoNoteViewModel {
 	readonly durationTicks: number
 	readonly id: string
@@ -20,6 +22,7 @@ export interface PianoRollViewModel {
 	readonly meterDenominator: number
 	readonly meterNumerator: number
 	readonly notes: readonly PianoNoteViewModel[]
+	readonly palette: SongPalette
 	readonly pitches: readonly PianoPitchViewModel[]
 	readonly ticksPerBar: number
 	readonly ticksPerBeat: number
@@ -36,6 +39,7 @@ export const pianoRollViewModel: PianoRollViewModel = Object.freeze({
 	ticksPerBar: 3840,
 	ticksPerQuarter: 960,
 	totalTicks: 15_360,
+	palette: songPalette({ tonic: 9, mode: 'minor' }),
 	pitches: Object.freeze(
 		Array.from({ length: 25 }, (_, row) => {
 			const pitch = 72 - row
