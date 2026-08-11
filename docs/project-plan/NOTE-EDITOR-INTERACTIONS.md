@@ -55,18 +55,21 @@ work.
 
 - One click selects a note. Clicking empty grid space clears the selection.
 - Selection must not use the rejected heavy black-and-white double frame or large capsule handles.
-- A selected note uses at most a one-pixel tonal edge plus a low-opacity accent halo. The note's
-  original fill, thickness and readable shape remain dominant.
-- Resize affordances are short, quiet tick marks: vertical ticks at the left and right ends for
-  duration, and short horizontal ticks centered above and below for strength.
-- The visible ticks remain subtle while the selected note is idle and become slightly clearer only
-  when the corresponding hit area is hovered, dragged or keyboard-focused.
+- A selected note has no enclosing selection border, outline, box or connecting frame. Its original
+  fill, thickness, natural edge and readable shape remain unchanged.
+- Selection and resizing are indicated by exactly four separate softly glowing points centered on
+  the note's top, bottom, left and right edges. No line connects the points.
+- The left and right points operate duration; the top and bottom points operate strength. Each point
+  becomes slightly brighter only when its hit area is hovered, dragged or keyboard-focused.
+- The four points exist only while the note owns active editor focus. Moving focus to the grid,
+  another note or another control clears that visual selection immediately, with no residual marks
+  or glow.
 - Visible handles can be small, but their transparent pointer hit areas must be forgiving. The body
   retains a separate central move hit area, so moving, duration resizing and strength resizing do
   not compete for the same pointer gesture.
 - Pointer cursors communicate the active operation: move over the body, east-west resize at the
   ends and north-south resize over the strength affordances.
-- Keyboard focus remains clearly perceivable without restoring the heavy selection frame.
+- Keyboard focus uses the same four points; it does not add a separate focus frame around the note.
 
 ### Add, remove and select
 
@@ -306,7 +309,8 @@ After every commit, run `npm run lifecycle:audit` before any next check, commit,
 
 - Every visible editable note is canonical project content and corresponds to the audible plan.
 - Add/remove/move/duration/strength interactions are bounded, deterministic and accessible.
-- The selected-note visual is restrained: no heavy double frame or oversized capsule handles.
+- The selected-note visual uses only four unconnected glowing edge points, with no selection frame,
+  enclosing outline or oversized capsule handles.
 - Bars, beats, grid and one project-wide meter render and snap consistently.
 - Keyboard editing works across layouts, respects scope and does not collide with audition.
 - Undo/Redo works for every project mutation with one human gesture per history entry.
