@@ -36,6 +36,13 @@ export interface NoteGeometry {
 	readonly widthPercent: number
 }
 
+export interface NoteHandleRect {
+	readonly height: number
+	readonly left: number
+	readonly top: number
+	readonly width: number
+}
+
 function clamp(value: number, minimum: number, maximum: number): number {
 	return Math.min(maximum, Math.max(minimum, value))
 }
@@ -60,6 +67,28 @@ export function geometryForNote(
 export function noteHeightForVelocity(velocity: number): number {
 	const normalized = (clamp(velocity, 1, 127) - 1) / 126
 	return Math.round(minimumNoteHeight + normalized * (maximumNoteHeight - minimumNoteHeight))
+}
+
+export function resolveOverlappingHandleMode(
+	requestedMode: NoteEditMode,
+	clientX: number,
+	clientY: number,
+	rect: NoteHandleRect,
+	visualHeight: number
+): NoteEditMode {
+	if (requestedMode === 'move') return requestedMode
+	const visualTop = rect.top + (rect.height - visualHeight) / 2
+	const visualBottom = visualTop + visualHeight
+	const distances: Readonly<Record<Exclude<NoteEditMode, 'move'>, number>> = {
+		'resize-start': Math.abs(clientX - rect.left),
+		'resize-end': Math.abs(clientX - (rect.left + rect.width)),
+		'resize-strength-top': Math.abs(clientY - visualTop),
+		'resize-strength-bottom': Math.abs(clientY - visualBottom)
+	}
+	return (Object.entries(distances) as [Exclude<NoteEditMode, 'move'>, number][]).reduce(
+		(closest, candidate) => (candidate[1] < closest[1] ? candidate : closest),
+		[requestedMode, distances[requestedMode]]
+	)[0]
 }
 
 export function noteAtGridPoint(

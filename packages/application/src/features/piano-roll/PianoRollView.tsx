@@ -23,6 +23,7 @@ import {
 	noteAtGridPoint,
 	pianoRowHeight,
 	pitchModelsToValues,
+	resolveOverlappingHandleMode,
 	type EditableNoteValues,
 	type NoteEditGesture,
 	type NoteEditMode,
@@ -176,13 +177,21 @@ export function PianoRollView({
 		event.stopPropagation()
 		const button = event.currentTarget.closest('button')
 		if (!(button instanceof HTMLButtonElement)) return
+		const rect = button.getBoundingClientRect()
+		const resolvedMode = resolveOverlappingHandleMode(
+			mode,
+			event.clientX,
+			event.clientY,
+			rect,
+			geometryForNote(note, model.totalTicks).height
+		)
 		button.focus()
 		button.setPointerCapture(event.pointerId)
 		const active: ActiveNoteGesture = {
 			noteId: note.id,
 			pointerId: event.pointerId,
 			revision: model.revision,
-			mode,
+			mode: resolvedMode,
 			note: editableValues(note),
 			originClientX: event.clientX,
 			originClientY: event.clientY

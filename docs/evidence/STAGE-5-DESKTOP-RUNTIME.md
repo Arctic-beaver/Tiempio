@@ -115,11 +115,12 @@ The 2026-08-11 user session established these physical observations on the pre-r
 - unplugging wired headphones left audio unavailable instead of falling back to speakers;
 - Cyrillic input did not trigger the same physical audition keys;
 - Play did not expose a Pause state and the editor playhead did not move;
-- note/ghost interactions were confusing, and the user explicitly deferred that entire UX.
+- note/ghost interactions were confusing, and the user first deferred that UX before approving the
+  separate note-editor interaction plan.
 
-The first three observations are accepted evidence. The latter four are the defects/boundary that
-created the remediation plan. The rebuilt package now requires a focused manual rerun; controlled
-tests and package inspection cannot honestly establish these remaining hardware/interactive results:
+The first three observations are accepted evidence. The latter observations created the remediation
+and note-editor plans. The rebuilt package now requires a focused manual rerun; controlled tests and
+package inspection cannot honestly establish these remaining hardware/interactive results:
 
 - the same physical A–L positions in Russian, Spanish or another non-Latin layout;
 - audio through laptop speakers when Tiempio starts without headphones;
@@ -130,7 +131,8 @@ tests and package inspection cannot honestly establish these remaining hardware/
 
 The implementation and automated contracts for those paths are present, but remediation is accepted
 only at the automated boundary until a user-observed Windows hardware and packaged-GUI session
-records these gates. Note interaction and Scenario 6 are not active acceptance gates for this run.
+records these gates. Note interaction was subsequently activated and implemented under
+`NOTE-EDITOR-INTERACTIONS.md`; its retained evidence is recorded separately.
 
 ## Residual risks and deferred scope
 
@@ -144,9 +146,9 @@ records these gates. Note interaction and Scenario 6 are not active acceptance g
 - Tiempio follows the Windows default output automatically. A manual application-owned output picker
   is deferred product UX; an input picker is intentionally absent until a recording/input workflow
   exists.
-- Note creation, placement, selection, deletion, transposition, ghost suggestions, decorative notes
-  and their relationship to audible content are explicitly deferred for a separate user-friendly UX
-  design pass. Scenario 6 remains `BLOCKED / NOT ACTIVE` with that scope.
+- Canonical note creation, placement, selection, deletion, movement, duration and strength editing
+  are implemented under `NOTE-EDITOR-INTERACTIONS.md`. Generative ghost suggestions, multi-note
+  selection and recording live A-L audition into timed notes remain deferred product scope.
 - Full beginner-facing persistence presentation remains Stage 7; Stage 5 exposes the secure runtime
   and native dialogs without inventing a new application-owned surface.
 

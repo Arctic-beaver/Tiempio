@@ -1,9 +1,10 @@
 import { FolderOpen, Home, Plus, Settings, Waves } from 'lucide-react'
-import { useState, type JSX } from 'react'
+import { lazy, Suspense, useState, type JSX } from 'react'
 import { useLocalization } from '../../../localization/src/index.js'
 import type { StudioViewId } from '../app/studio-state.js'
 import { CommandIconButton } from '../commands/CommandIconButton.js'
-import { SettingsDialog } from '../features/settings/SettingsDialog.js'
+
+const SettingsDialog = lazy(() => import('../features/settings/SettingsDialog.js'))
 
 export interface ActivityRailProperties {
 	readonly activeView: StudioViewId
@@ -61,7 +62,11 @@ export function ActivityRail({ activeView }: ActivityRailProperties): JSX.Elemen
 					</button>
 				</div>
 			</nav>
-			<SettingsDialog onClose={() => setSettingsOpen(false)} open={settingsOpen} />
+			<Suspense fallback={null}>
+				{settingsOpen ? (
+					<SettingsDialog onClose={() => setSettingsOpen(false)} open />
+				) : null}
+			</Suspense>
 		</>
 	)
 }

@@ -29,13 +29,17 @@ note manipulation`). The Piano Roll now renders only canonical project notes, ex
   note keyboard editing`). It added symmetric velocity editing, meter-derived bar/beat/grid
   presentation, physical-key note commands and held-key history coalescing. Validation passed 117
   contract tests and 86 repository-policy tests.
-- Stage D is implementation-complete on `feature/keyboard-shortcut-settings`, pending its atomic
-  commit and merge. It adds a themed settings dialog, grouped keycap bindings, physical-key capture,
-  multiple bindings, explicit conflict replacement, reserved-combination rejection, per-command and
-  global reset, legacy settings migration and persisted overrides. Validation passed 123 contract
-  tests, 86 repository-policy tests, Web typecheck and lint.
-- Stage E has not started. Final integrated checks, packaging and manual acceptance remain mandatory
-  before this plan can be called complete.
+- Stage D is complete and merged into the task integration history at `1cad5af` (`Add customizable
+  keyboard shortcuts`). It adds a themed settings dialog, grouped keycap bindings, physical-key
+  capture, multiple bindings, explicit conflict replacement, reserved-combination rejection,
+  per-command and global reset, legacy settings migration and persisted overrides. Validation
+  passed 123 contract tests, 86 repository-policy tests, Web typecheck and lint.
+- Stage E is active on `feature/note-editor-acceptance`. Integrated interaction smoke has covered
+  canonical-note truth, exact double-click add/remove, body movement, short-note duration resizing,
+  strength editing, focus cleanup, Undo/Redo and shortcut conflict/reserved-key presentation. The
+  complete `check:quick` workflow passes with 124 contract tests and 86 repository-policy tests.
+  Final packaging and packaged manual acceptance remain mandatory before this plan can be called
+  complete.
 - Live A-L audition remains existing functionality. Recording a played performance into timed Piano
   Roll notes remains explicitly deferred for a separate product and interaction plan.
 

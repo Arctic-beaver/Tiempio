@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { IconButton, Select, TextButton } from '../../../../design-system/src/index.js'
 import { useLocalization, type SupportedLocale } from '../../../../localization/src/index.js'
+import '../../app/styles/settings.css'
 import {
 	commandDefinition,
 	commandDefinitions,
@@ -433,3 +434,5 @@ export function SettingsDialog({ onClose, open }: SettingsDialogProperties): JSX
 		)
 	}
 }
+
+export default SettingsDialog

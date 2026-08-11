@@ -4,6 +4,7 @@ import {
 	editNoteFromPointer,
 	geometryForNote,
 	noteAtGridPoint,
+	resolveOverlappingHandleMode,
 	type PianoGridMetrics
 } from './note-editor-geometry.js'
 
@@ -17,6 +18,17 @@ const metrics: PianoGridMetrics = {
 }
 
 describe('piano-roll note geometry', () => {
+	it('routes overlapping short-note hit zones to the nearest visual edge', () => {
+		const rect = { left: 100, top: 50, width: 20, height: 24 }
+		assert.equal(
+			resolveOverlappingHandleMode('resize-strength-bottom', 120, 62, rect, 18),
+			'resize-end'
+		)
+		assert.equal(
+			resolveOverlappingHandleMode('resize-end', 110, 53, rect, 18),
+			'resize-strength-top'
+		)
+	})
 	it('projects canonical note timing and row without preview coordinates', () => {
 		assert.deepEqual(
 			geometryForNote(
