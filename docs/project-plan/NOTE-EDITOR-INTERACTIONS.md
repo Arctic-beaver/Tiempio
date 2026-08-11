@@ -59,14 +59,18 @@ work.
   fill, thickness, natural edge and readable shape remain unchanged.
 - Selection and resizing are indicated by exactly four separate softly glowing points centered on
   the note's top, bottom, left and right edges. No line connects the points.
+- The points use a predominantly white, softly diffused glow with only a slight warm accent tint;
+  they must remain visible in both Light and Dark themes without becoming hard white boxes.
 - The left and right points operate duration; the top and bottom points operate strength. Each point
   becomes slightly brighter only when its hit area is hovered, dragged or keyboard-focused.
 - The four points exist only while the note owns active editor focus. Moving focus to the grid,
   another note or another control clears that visual selection immediately, with no residual marks
   or glow.
-- Visible handles can be small, but their transparent pointer hit areas must be forgiving. The body
-  retains a separate central move hit area, so moving, duration resizing and strength resizing do
-  not compete for the same pointer gesture.
+- Visible points can stay small, but every transparent pointer hit area is at least 24 by 24 pixels,
+  centered on its point and extending at least 12 pixels outside the visible note contour. The side
+  zones may span the note's full visual height; the top and bottom zones may be wider than their
+  point. The body retains a separate central move hit area, and resize zones take pointer priority,
+  so moving, duration resizing and strength resizing do not compete for the same gesture.
 - Pointer cursors communicate the active operation: move over the body, east-west resize at the
   ends and north-south resize over the strength affordances.
 - Keyboard focus uses the same four points; it does not add a separate focus frame around the note.
