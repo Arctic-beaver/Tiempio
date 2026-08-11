@@ -25,11 +25,17 @@ note manipulation`). The Piano Roll now renders only canonical project notes, ex
   range rather than hiding valid notes, has a truthful empty state, and supports exact double-click
   add/remove, center movement, duration resizing and focus-only four-point affordances. Validation
   passed 112 contract tests and 86 repository-policy tests.
-- Stage C is in progress on `feature/note-editor-expression-and-keys`. Its remaining acceptance
-  boundary is symmetric velocity editing, hierarchical meter/bar/beat/grid presentation, complete
-  physical-key editing and held-key history verification.
-- Stages D and E have not started. Shortcut settings/persistence and final integrated package/manual
-  acceptance remain mandatory before this plan can be called complete.
+- Stage C is complete and merged into the task integration history at `4cb3fd0` (`Add expressive
+  note keyboard editing`). It added symmetric velocity editing, meter-derived bar/beat/grid
+  presentation, physical-key note commands and held-key history coalescing. Validation passed 117
+  contract tests and 86 repository-policy tests.
+- Stage D is implementation-complete on `feature/keyboard-shortcut-settings`, pending its atomic
+  commit and merge. It adds a themed settings dialog, grouped keycap bindings, physical-key capture,
+  multiple bindings, explicit conflict replacement, reserved-combination rejection, per-command and
+  global reset, legacy settings migration and persisted overrides. Validation passed 123 contract
+  tests, 86 repository-policy tests, Web typecheck and lint.
+- Stage E has not started. Final integrated checks, packaging and manual acceptance remain mandatory
+  before this plan can be called complete.
 - Live A-L audition remains existing functionality. Recording a played performance into timed Piano
   Roll notes remains explicitly deferred for a separate product and interaction plan.
 

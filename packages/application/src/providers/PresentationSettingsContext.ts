@@ -1,6 +1,11 @@
 import { createContext, useContext } from 'react'
 import type { ColorSchemePreference } from '../../../design-system/src/index.js'
 import type { SupportedLocale } from '../../../localization/src/index.js'
+import type {
+	CommandId,
+	CommandShortcut,
+	CommandShortcutOverrides
+} from '../commands/command-registry.js'
 
 export type SettingsPersistenceState = 'session-only' | 'loading' | 'saved' | 'failed'
 
@@ -8,8 +13,15 @@ export interface PresentationSettingsContextValue {
 	readonly colorScheme: ColorSchemePreference
 	readonly locale: SupportedLocale
 	readonly persistenceState: SettingsPersistenceState
+	readonly resetAllShortcuts: () => void
+	readonly resetShortcutBindings: (commandId: CommandId) => void
 	readonly setColorScheme: (colorScheme: ColorSchemePreference) => void
 	readonly setLocale: (locale: SupportedLocale) => void
+	readonly setShortcutBindings: (
+		commandId: CommandId,
+		bindings: readonly CommandShortcut[]
+	) => void
+	readonly shortcutOverrides: CommandShortcutOverrides
 }
 
 export const PresentationSettingsContext = createContext<PresentationSettingsContextValue | null>(

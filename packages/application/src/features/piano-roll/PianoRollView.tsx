@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
 import { ProjectHistoryControls } from '../../commands/ProjectHistoryControls.js'
+import { usePresentationSettings } from '../../providers/PresentationSettingsContext.js'
 import type { LayersProjection, ProjectedLayerItem } from '../../project/projections/types.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
 import { TransportBar } from '../../shell/TransportBar.js'
@@ -24,7 +25,8 @@ import {
 	pitchModelsToValues,
 	type EditableNoteValues,
 	type NoteEditGesture,
-	type NoteEditMode
+	type NoteEditMode,
+	type PianoGridMetrics
 } from './note-editor-geometry.js'
 import { editNoteFromKeyboard } from './note-editor-keyboard.js'
 import type { PianoNoteUpdateOptions } from './usePianoRollActions.js'
@@ -114,6 +116,7 @@ export function PianoRollView({
 	onUpdateNote
 }: PianoRollViewProperties): JSX.Element {
 	const { t } = useLocalization()
+	const { shortcutOverrides } = usePresentationSettings()
 	const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
 	const [preview, setPreview] = useState<NotePreview | null>(null)
 	const previewRef = useRef<NotePreview | null>(null)
@@ -141,13 +144,10 @@ export function PianoRollView({
 		element.focus()
 	}, [model.notes])
 
-	useEffect(() => {
-		if (selectedNoteId !== null && !model.notes.some(({ id }) => id === selectedNoteId)) {
-			setSelectedNoteId(null)
-		}
-	}, [model.notes, selectedNoteId])
-
-	const gridMetrics = () => {
+	const gridMetrics = (): {
+		readonly metrics: PianoGridMetrics
+		readonly rect: DOMRect | undefined
+	} => {
 		const rect = gridRef.current?.getBoundingClientRect()
 		return {
 			rect,
@@ -216,12 +216,17 @@ export function PianoRollView({
 		const active = keyboardGestureRef.current
 		if (active !== null && active.group !== group) endKeyboardGesture()
 		const sourceValues = active?.group === group ? active.values : editableValues(note)
-		const edit = editNoteFromKeyboard(sourceValues, event, {
-			gridTicks: model.gridTicks,
-			ticksPerBar: model.ticksPerBar,
-			ticksPerBeat: model.ticksPerBeat,
-			totalTicks: model.totalTicks
-		})
+		const edit = editNoteFromKeyboard(
+			sourceValues,
+			event,
+			{
+				gridTicks: model.gridTicks,
+				ticksPerBar: model.ticksPerBar,
+				ticksPerBeat: model.ticksPerBeat,
+				totalTicks: model.totalTicks
+			},
+			shortcutOverrides
+		)
 		if (edit === null) return
 		event.preventDefault()
 		event.stopPropagation()

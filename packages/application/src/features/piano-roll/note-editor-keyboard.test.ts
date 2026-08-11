@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import type { EditableNoteValues } from './note-editor-geometry.js'
 import { editNoteFromKeyboard, type NoteKeyboardEvent } from './note-editor-keyboard.js'
 
 const note = { startTick: 960, durationTicks: 960, pitch: 60, velocity: 80 }
@@ -13,7 +14,7 @@ const key = (code: string, overrides: Partial<NoteKeyboardEvent> = {}): NoteKeyb
 	...overrides
 })
 
-function updatedValues(event: NoteKeyboardEvent, source = note) {
+function updatedValues(event: NoteKeyboardEvent, source = note): EditableNoteValues {
 	const edit = editNoteFromKeyboard(source, event, metrics)
 	assert.equal(edit?.kind, 'update')
 	if (edit?.kind !== 'update') throw new Error('Expected an update edit.')

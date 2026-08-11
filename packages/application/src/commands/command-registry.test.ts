@@ -107,3 +107,29 @@ test('custom physical bindings stay scoped and report conflicts explicitly', () 
 		'project.undo'
 	)
 })
+
+test('note editing commands are scoped, remappable and leave audition letters unclaimed', () => {
+	assert.equal(
+		commandForShortcut(shortcut('ArrowLeft'), 'other', ['piano-roll']),
+		'note.move-left'
+	)
+	assert.equal(
+		commandForShortcut(shortcut('ArrowLeft', { altKey: true }), 'other', ['piano-roll']),
+		'note.move-fine-left'
+	)
+	assert.equal(
+		commandForShortcut(shortcut('ArrowUp', { shiftKey: true }), 'other', ['piano-roll']),
+		'note.move-octave-up'
+	)
+	assert.equal(commandForShortcut(shortcut('KeyA'), 'other', ['piano-roll']), null)
+	assert.equal(commandForShortcut(shortcut('KeyL'), 'other'), null)
+	assert.equal(
+		commandForShortcut(shortcut('KeyL', { ctrlKey: true }), 'other'),
+		'transport.toggle-loop'
+	)
+	const overrides = { 'note.move-left': [{ code: 'KeyH', alt: true }] } as const
+	assert.equal(
+		commandForShortcut(shortcut('KeyH', { altKey: true }), 'other', ['piano-roll'], overrides),
+		'note.move-left'
+	)
+})

@@ -31,6 +31,7 @@ describe('command availability', () => {
 			labelKey: 'transport.play',
 			placements: ['transport'],
 			scope: 'global',
+			settingsGroup: 'transport',
 			shortcuts: [{ code: 'Space' }]
 		})
 		assert.equal(commandDefinition('transport.toggle-loop').effectOwner, 'project')

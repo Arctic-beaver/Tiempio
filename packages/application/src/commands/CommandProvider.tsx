@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, type JSX, type ReactNode } from 'react'
 import { useApplicationRuntime } from '../providers/RuntimeContext.js'
+import { usePresentationSettings } from '../providers/PresentationSettingsContext.js'
 import {
 	executeResolvedCommand,
 	resolveCommandStates,
@@ -31,6 +32,7 @@ export function CommandProvider({
 	looping
 }: CommandProviderProperties): JSX.Element {
 	const runtime = useApplicationRuntime()
+	const { shortcutOverrides } = usePresentationSettings()
 	const commands = useMemo(
 		() => resolveCommandStates(availability, handlers),
 		[availability, handlers]
@@ -45,13 +47,15 @@ export function CommandProvider({
 			if (event.defaultPrevented || acceptsTextInput(event.target)) return
 			const commandId = commandForShortcut(
 				event,
-				navigator.platform.toLowerCase().includes('mac') ? 'macos' : 'other'
+				navigator.platform.toLowerCase().includes('mac') ? 'macos' : 'other',
+				['global'],
+				shortcutOverrides
 			)
 			if (commandId !== null && execute(commandId)) event.preventDefault()
 		}
 		document.addEventListener('keydown', handleShortcut)
 		return () => document.removeEventListener('keydown', handleShortcut)
-	}, [execute])
+	}, [execute, shortcutOverrides])
 
 	useEffect(() => {
 		if (runtime.commands.availability !== 'available') return

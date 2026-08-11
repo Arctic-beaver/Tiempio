@@ -234,16 +234,90 @@ export function validateRecoveryCandidates(
 
 export function validateSettingsSnapshot(input: unknown): ApplicationResult<SettingsSnapshot> {
 	if (
+		record(input) &&
+		exactKeys(input, ['version', 'colorScheme']) &&
+		input.version === 1 &&
+		['system', 'light', 'dark'].includes(String(input.colorScheme))
+	) {
+		return Object.freeze({
+			ok: true as const,
+			value: Object.freeze({
+				version: 2 as const,
+				colorScheme: input.colorScheme as SettingsSnapshot['colorScheme'],
+				shortcutOverrides: Object.freeze([])
+			})
+		})
+	}
+	if (
 		!record(input) ||
-		!exactKeys(input, ['version', 'colorScheme']) ||
-		input.version !== 1 ||
+		!exactKeys(input, ['version', 'colorScheme', 'shortcutOverrides']) ||
+		input.version !== 2 ||
 		!['system', 'light', 'dark'].includes(String(input.colorScheme)) ||
+		!Array.isArray(input.shortcutOverrides) ||
+		input.shortcutOverrides.length > 64 ||
 		new TextEncoder().encode(JSON.stringify(input)).byteLength >
 			desktopRuntimeLimits.maxSettingsBytes
 	) {
 		return invalidRequest('Settings snapshot is invalid or exceeds its limit.')
 	}
-	return Object.freeze({ ok: true as const, value: input as unknown as SettingsSnapshot })
+	const shortcutOverrides: Array<SettingsSnapshot['shortcutOverrides'][number]> = []
+	const commandIds = new Set<string>()
+	for (const override of input.shortcutOverrides as readonly unknown[]) {
+		if (
+			!record(override) ||
+			!exactKeys(override, ['bindings', 'commandId']) ||
+			!boundedUtf8(override.commandId, 96) ||
+			override.commandId.length === 0 ||
+			commandIds.has(override.commandId) ||
+			!Array.isArray(override.bindings) ||
+			override.bindings.length > 8
+		) {
+			return invalidRequest('Settings shortcut override is invalid.')
+		}
+		commandIds.add(override.commandId)
+		const bindings: Array<SettingsSnapshot['shortcutOverrides'][number]['bindings'][number]> =
+			[]
+		const signatures = new Set<string>()
+		for (const binding of override.bindings as readonly unknown[]) {
+			if (
+				!record(binding) ||
+				!exactKeys(binding, ['alt', 'code', 'platform', 'primary', 'shift']) ||
+				typeof binding.alt !== 'boolean' ||
+				!boundedUtf8(binding.code, 48) ||
+				binding.code.length === 0 ||
+				!['all', 'macos', 'other'].includes(String(binding.platform)) ||
+				typeof binding.primary !== 'boolean' ||
+				typeof binding.shift !== 'boolean'
+			) {
+				return invalidRequest('Settings shortcut binding is invalid.')
+			}
+			const signature = `${String(binding.platform)}:${binding.primary ? '1' : '0'}:${binding.shift ? '1' : '0'}:${binding.alt ? '1' : '0'}:${binding.code}`
+			if (signatures.has(signature)) {
+				return invalidRequest('Settings shortcut binding is duplicated.')
+			}
+			signatures.add(signature)
+			bindings.push(
+				Object.freeze({
+					alt: binding.alt,
+					code: binding.code,
+					platform: binding.platform as 'all' | 'macos' | 'other',
+					primary: binding.primary,
+					shift: binding.shift
+				})
+			)
+		}
+		shortcutOverrides.push(
+			Object.freeze({ commandId: override.commandId, bindings: Object.freeze(bindings) })
+		)
+	}
+	return Object.freeze({
+		ok: true as const,
+		value: Object.freeze({
+			version: 2 as const,
+			colorScheme: input.colorScheme as SettingsSnapshot['colorScheme'],
+			shortcutOverrides: Object.freeze(shortcutOverrides)
+		})
+	})
 }
 
 export function validateAudioHealthSnapshot(

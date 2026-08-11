@@ -388,23 +388,84 @@ describe('Desktop native persistence', () => {
 			const settings = new SettingsStore(join(root, 'settings'))
 			assert.deepEqual(await settings.get(), {
 				ok: true,
-				value: { version: 1, colorScheme: 'system' }
+				value: { version: 2, colorScheme: 'system', shortcutOverrides: [] }
 			})
-			assert.deepEqual(await settings.set({ version: 1, colorScheme: 'dark' }), {
-				ok: true,
-				value: { version: 1, colorScheme: 'dark' }
-			})
+			assert.deepEqual(
+				await settings.set({
+					version: 2,
+					colorScheme: 'dark',
+					shortcutOverrides: [
+						{
+							commandId: 'note.move-left',
+							bindings: [
+								{
+									alt: false,
+									code: 'ArrowLeft',
+									platform: 'all',
+									primary: false,
+									shift: false
+								}
+							]
+						}
+					]
+				}),
+				{
+					ok: true,
+					value: {
+						version: 2,
+						colorScheme: 'dark',
+						shortcutOverrides: [
+							{
+								commandId: 'note.move-left',
+								bindings: [
+									{
+										alt: false,
+										code: 'ArrowLeft',
+										platform: 'all',
+										primary: false,
+										shift: false
+									}
+								]
+							}
+						]
+					}
+				}
+			)
 			assert.deepEqual(await settings.get(), {
 				ok: true,
-				value: { version: 1, colorScheme: 'dark' }
+				value: {
+					version: 2,
+					colorScheme: 'dark',
+					shortcutOverrides: [
+						{
+							commandId: 'note.move-left',
+							bindings: [
+								{
+									alt: false,
+									code: 'ArrowLeft',
+									platform: 'all',
+									primary: false,
+									shift: false
+								}
+							]
+						}
+					]
+				}
 			})
-			assert.deepEqual(await settings.set({ version: 1, colorScheme: 'light' }), {
-				ok: true,
-				value: { version: 1, colorScheme: 'light' }
-			})
+			assert.deepEqual(
+				await settings.set({
+					version: 2,
+					colorScheme: 'light',
+					shortcutOverrides: []
+				}),
+				{
+					ok: true,
+					value: { version: 2, colorScheme: 'light', shortcutOverrides: [] }
+				}
+			)
 			assert.deepEqual(await settings.get(), {
 				ok: true,
-				value: { version: 1, colorScheme: 'light' }
+				value: { version: 2, colorScheme: 'light', shortcutOverrides: [] }
 			})
 		} finally {
 			await rm(root, { recursive: true, force: true })

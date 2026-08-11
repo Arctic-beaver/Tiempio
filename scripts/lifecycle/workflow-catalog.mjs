@@ -91,6 +91,7 @@ const compiledTestFiles = Object.freeze([
 	resolve('.test-out/packages/application/src/shell/layout-model.test.js'),
 	resolve('.test-out/packages/application/src/commands/command-availability.test.js'),
 	resolve('.test-out/packages/application/src/commands/command-registry.test.js'),
+	resolve('.test-out/packages/application/src/commands/shortcut-settings.test.js'),
 	resolve('.test-out/packages/application/src/features/piano-roll/note-editor-geometry.test.js'),
 	resolve('.test-out/packages/application/src/features/piano-roll/note-editor-keyboard.test.js'),
 	resolve('.test-out/packages/application/src/project/projectors.test.js'),

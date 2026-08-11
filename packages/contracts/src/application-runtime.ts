@@ -200,9 +200,23 @@ export interface EngineRuntime {
 	onHealth(listener: (health: AudioHealthSnapshot) => void): () => void
 }
 
+export interface ShortcutBindingSnapshot {
+	readonly alt: boolean
+	readonly code: string
+	readonly platform: 'all' | 'macos' | 'other'
+	readonly primary: boolean
+	readonly shift: boolean
+}
+
+export interface ShortcutOverrideSnapshot {
+	readonly bindings: readonly ShortcutBindingSnapshot[]
+	readonly commandId: string
+}
+
 export interface SettingsSnapshot {
-	readonly version: 1
+	readonly version: 2
 	readonly colorScheme: 'system' | 'light' | 'dark'
+	readonly shortcutOverrides: readonly ShortcutOverrideSnapshot[]
 }
 
 export interface SettingsRuntime {

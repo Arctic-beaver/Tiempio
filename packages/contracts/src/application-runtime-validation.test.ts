@@ -11,10 +11,47 @@ import {
 	validateProjectHandle,
 	validateProjectLoadEnvelope,
 	validateRecoveryCandidates,
-	validateProjectSnapshotEnvelope
+	validateProjectSnapshotEnvelope,
+	validateSettingsSnapshot
 } from './index.js'
 
 describe('Desktop runtime payload validation', () => {
+	it('migrates legacy settings and validates bounded physical shortcuts', () => {
+		assert.deepEqual(validateSettingsSnapshot({ version: 1, colorScheme: 'dark' }), {
+			ok: true,
+			value: { version: 2, colorScheme: 'dark', shortcutOverrides: [] }
+		})
+		const current = validateSettingsSnapshot({
+			version: 2,
+			colorScheme: 'system',
+			shortcutOverrides: [
+				{
+					commandId: 'note.move-left',
+					bindings: [
+						{
+							alt: true,
+							code: 'ArrowLeft',
+							platform: 'all',
+							primary: false,
+							shift: false
+						}
+					]
+				}
+			]
+		})
+		assert.equal(current.ok, true)
+		assert.equal(
+			validateSettingsSnapshot({
+				version: 2,
+				colorScheme: 'system',
+				shortcutOverrides: [
+					{ commandId: 'note.delete', bindings: [] },
+					{ commandId: 'note.delete', bindings: [] }
+				]
+			}).ok,
+			false
+		)
+	})
 	it('owns bounded project bytes at the process boundary', () => {
 		const source = new Uint8Array([1, 2, 3])
 		const result = validateProjectSnapshotEnvelope({ revision: 4, bytes: source })

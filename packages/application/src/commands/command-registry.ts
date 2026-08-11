@@ -14,6 +14,25 @@ export const commandIds = Object.freeze([
 	'transport.toggle-playback',
 	'transport.toggle-loop',
 	'transport.stop',
+	'note.move-left',
+	'note.move-right',
+	'note.move-up',
+	'note.move-down',
+	'note.move-fine-left',
+	'note.move-fine-right',
+	'note.move-beat-left',
+	'note.move-beat-right',
+	'note.move-bar-left',
+	'note.move-bar-right',
+	'note.move-octave-up',
+	'note.move-octave-down',
+	'note.duration-shorter',
+	'note.duration-longer',
+	'note.duration-fine-shorter',
+	'note.duration-fine-longer',
+	'note.strength-decrease',
+	'note.strength-increase',
+	'note.delete',
 	'layout.open-navigation',
 	'layout.open-context',
 	'layout.close-drawer'
@@ -26,6 +45,7 @@ export type CommandAvailabilityRequirement =
 	'always' | 'drawer-open' | 'engine' | 'history-redo' | 'history-undo' | 'project'
 export type CommandScope = 'global' | 'piano-roll'
 export type ShortcutPlatform = 'all' | 'macos' | 'other'
+export type CommandSettingsGroup = 'general' | 'transport' | 'note-editing'
 
 export interface CommandShortcut {
 	readonly alt?: boolean
@@ -47,6 +67,7 @@ export interface CommandDefinition {
 	readonly labelKey: LocalizationKey
 	readonly placements: readonly CommandPlacement[]
 	readonly scope: CommandScope
+	readonly settingsGroup?: CommandSettingsGroup
 	readonly shortcuts?: readonly CommandShortcut[]
 	readonly view?: StudioViewId
 }
@@ -64,6 +85,7 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		labelKey: 'nav.home',
 		placements: ['activity'],
 		scope: 'global',
+		settingsGroup: 'general',
 		shortcuts: [{ code: 'Digit1', primary: true }],
 		view: 'home'
 	}),
@@ -95,6 +117,7 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		labelKey: 'nav.piano',
 		placements: ['activity', 'layer'],
 		scope: 'global',
+		settingsGroup: 'general',
 		shortcuts: [{ code: 'Digit2', primary: true }],
 		view: 'piano-roll'
 	}),
@@ -106,6 +129,7 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		labelKey: 'nav.drums',
 		placements: ['activity', 'layer'],
 		scope: 'global',
+		settingsGroup: 'general',
 		shortcuts: [{ code: 'Digit3', primary: true }],
 		view: 'drums'
 	}),
@@ -117,6 +141,7 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		labelKey: 'nav.arrangement',
 		placements: ['activity'],
 		scope: 'global',
+		settingsGroup: 'general',
 		shortcuts: [{ code: 'Digit4', primary: true }],
 		view: 'arrangement'
 	}),
@@ -128,6 +153,7 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		labelKey: 'nav.soundSculpt',
 		placements: ['activity'],
 		scope: 'global',
+		settingsGroup: 'general',
 		shortcuts: [{ code: 'Digit5', primary: true }],
 		view: 'sound-sculpt'
 	}),
@@ -139,6 +165,7 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		labelKey: 'arrangement.undo',
 		placements: ['window'],
 		scope: 'global',
+		settingsGroup: 'general',
 		shortcuts: [{ code: 'KeyZ', primary: true }]
 	}),
 	defineCommand({
@@ -149,6 +176,7 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		labelKey: 'arrangement.redo',
 		placements: ['window'],
 		scope: 'global',
+		settingsGroup: 'general',
 		shortcuts: [
 			{ code: 'KeyZ', primary: true, shift: true },
 			{ code: 'KeyY', platform: 'other', primary: true }
@@ -162,6 +190,7 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		labelKey: 'transport.play',
 		placements: ['transport'],
 		scope: 'global',
+		settingsGroup: 'transport',
 		shortcuts: [{ code: 'Space' }]
 	}),
 	defineCommand({
@@ -172,7 +201,8 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		labelKey: 'transport.loop',
 		placements: ['transport'],
 		scope: 'global',
-		shortcuts: [{ code: 'KeyL' }]
+		settingsGroup: 'transport',
+		shortcuts: [{ code: 'KeyL', primary: true }]
 	}),
 	defineCommand({
 		availability: 'engine',
@@ -182,8 +212,92 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		labelKey: 'transport.stop',
 		placements: ['transport'],
 		scope: 'global',
+		settingsGroup: 'transport',
 		shortcuts: [{ code: 'Escape', shift: true }]
 	}),
+	...(
+		[
+			['note.move-left', 'command.note.moveLeft', [{ code: 'ArrowLeft' }]],
+			['note.move-right', 'command.note.moveRight', [{ code: 'ArrowRight' }]],
+			['note.move-up', 'command.note.moveUp', [{ code: 'ArrowUp' }]],
+			['note.move-down', 'command.note.moveDown', [{ code: 'ArrowDown' }]],
+			[
+				'note.move-fine-left',
+				'command.note.moveFineLeft',
+				[{ alt: true, code: 'ArrowLeft' }]
+			],
+			[
+				'note.move-fine-right',
+				'command.note.moveFineRight',
+				[{ alt: true, code: 'ArrowRight' }]
+			],
+			[
+				'note.move-beat-left',
+				'command.note.moveBeatLeft',
+				[{ code: 'ArrowLeft', shift: true }]
+			],
+			[
+				'note.move-beat-right',
+				'command.note.moveBeatRight',
+				[{ code: 'ArrowRight', shift: true }]
+			],
+			[
+				'note.move-bar-left',
+				'command.note.moveBarLeft',
+				[{ code: 'ArrowLeft', primary: true }]
+			],
+			[
+				'note.move-bar-right',
+				'command.note.moveBarRight',
+				[{ code: 'ArrowRight', primary: true }]
+			],
+			[
+				'note.move-octave-up',
+				'command.note.moveOctaveUp',
+				[{ code: 'ArrowUp', shift: true }]
+			],
+			[
+				'note.move-octave-down',
+				'command.note.moveOctaveDown',
+				[{ code: 'ArrowDown', shift: true }]
+			],
+			['note.duration-shorter', 'command.note.durationShorter', [{ code: 'BracketLeft' }]],
+			['note.duration-longer', 'command.note.durationLonger', [{ code: 'BracketRight' }]],
+			[
+				'note.duration-fine-shorter',
+				'command.note.durationFineShorter',
+				[{ alt: true, code: 'BracketLeft' }]
+			],
+			[
+				'note.duration-fine-longer',
+				'command.note.durationFineLonger',
+				[{ alt: true, code: 'BracketRight' }]
+			],
+			[
+				'note.strength-decrease',
+				'command.note.strengthDecrease',
+				[{ code: 'Minus' }, { code: 'NumpadSubtract' }]
+			],
+			[
+				'note.strength-increase',
+				'command.note.strengthIncrease',
+				[{ code: 'Equal' }, { code: 'NumpadAdd' }]
+			],
+			['note.delete', 'command.note.delete', [{ code: 'Delete' }, { code: 'Backspace' }]]
+		] as const
+	).map(([id, labelKey, shortcuts]) =>
+		defineCommand({
+			availability: 'project',
+			disabledReasonKey: 'command.disabled.projectUnavailable',
+			effectOwner: 'project',
+			id,
+			labelKey,
+			placements: ['workflow'],
+			scope: 'piano-roll',
+			settingsGroup: 'note-editing',
+			shortcuts
+		})
+	),
 	defineCommand({
 		availability: 'always',
 		disabledReasonKey: 'command.disabled.unavailable',
@@ -286,6 +400,20 @@ export function shortcutSignature(shortcut: CommandShortcut): string {
 	].join(':')
 }
 
+export function shortcutsOverlap(first: CommandShortcut, second: CommandShortcut): boolean {
+	return (
+		first.code === second.code &&
+		(first.primary ?? false) === (second.primary ?? false) &&
+		(first.shift ?? false) === (second.shift ?? false) &&
+		(first.alt ?? false) === (second.alt ?? false) &&
+		(first.platform === undefined ||
+			first.platform === 'all' ||
+			second.platform === undefined ||
+			second.platform === 'all' ||
+			first.platform === second.platform)
+	)
+}
+
 export function shortcutConflict(
 	commandId: CommandId,
 	shortcut: CommandShortcut,
@@ -296,17 +424,8 @@ export function shortcutConflict(
 		(definition) =>
 			definition.id !== commandId &&
 			(definition.scope === 'global' || scope === 'global' || definition.scope === scope) &&
-			shortcutsForCommand(definition.id, overrides).some(
-				(candidate) =>
-					candidate.code === shortcut.code &&
-					(candidate.primary ?? false) === (shortcut.primary ?? false) &&
-					(candidate.shift ?? false) === (shortcut.shift ?? false) &&
-					(candidate.alt ?? false) === (shortcut.alt ?? false) &&
-					(candidate.platform === undefined ||
-						candidate.platform === 'all' ||
-						shortcut.platform === undefined ||
-						shortcut.platform === 'all' ||
-						candidate.platform === shortcut.platform)
+			shortcutsForCommand(definition.id, overrides).some((candidate) =>
+				shortcutsOverlap(candidate, shortcut)
 			)
 	)
 	return conflict?.id ?? null

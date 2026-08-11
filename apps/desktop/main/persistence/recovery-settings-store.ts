@@ -30,7 +30,11 @@ import { PersistenceBoundaryError, persistenceApplicationError } from './persist
 
 const recoveryFilePattern = /^([A-F0-9]{64})\.recovery$/u
 const settingsFileName = 'settings-v1.json'
-const defaultSettings = Object.freeze({ version: 1 as const, colorScheme: 'system' as const })
+const defaultSettings = Object.freeze({
+	version: 2 as const,
+	colorScheme: 'system' as const,
+	shortcutOverrides: Object.freeze([])
+})
 
 async function currentFingerprint(path: string, maximumBytes: number): Promise<string | null> {
 	try {
