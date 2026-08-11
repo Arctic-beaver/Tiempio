@@ -75,6 +75,13 @@ export function validateUiFoundation({
 			}
 		}
 	}
+	const shellLayout = cssFiles.find(
+		(file) => file.path === 'packages/application/src/app/styles/shell-layout.css'
+	)
+	if (shellLayout === undefined) errors.push('application shell layout stylesheet is missing')
+	else if (!/#root\s*\{\s*display:\s*flow-root;/su.test(shellLayout.source)) {
+		errors.push('application root must contain Web shell margins inside the viewport')
+	}
 	for (const file of cssFiles) {
 		if (
 			file.path !== 'packages/design-system/src/foundation.css' &&

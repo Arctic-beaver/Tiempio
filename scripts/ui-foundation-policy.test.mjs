@@ -32,6 +32,10 @@ function validFixture() {
 			{
 				path: 'packages/design-system/src/foundation.css',
 				source: `:root[data-theme="light"]{} :root[data-theme="dark"]{} ${tokens} @media (prefers-reduced-motion: reduce){} @media (max-width: 44.999rem){.ti-tooltip[data-placement] .ti-tooltip__content{position: fixed;inset: auto var(--ti-space-3) var(--ti-space-3);}}`
+			},
+			{
+				path: 'packages/application/src/app/styles/shell-layout.css',
+				source: '#root { display: flow-root; }'
 			}
 		],
 		applicationSource,
@@ -65,6 +69,12 @@ test('requires compact tooltips to stay inside the viewport', () => {
 		''
 	)
 	assert.match(validateUiFoundation(fixture).join('\n'), /compact tooltip containment/u)
+})
+
+test('contains Web shell margins inside the application root', () => {
+	const fixture = validFixture()
+	fixture.cssFiles[1].source = '#root {}'
+	assert.match(validateUiFoundation(fixture).join('\n'), /contain Web shell margins/u)
 })
 
 test('rejects component-local canonical project mutation', () => {

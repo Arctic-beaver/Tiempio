@@ -7,6 +7,10 @@ body,
 	min-height: 24rem;
 }
 
+#root {
+	display: flow-root;
+}
+
 body {
 	overflow: hidden;
 	background: var(--ti-page);

@@ -220,7 +220,7 @@ No worktree, push, pull request, merge to `main` or `.github/workflows` change i
 
 ## Stage H - transport, beat and ruler presentation
 
-**Branch:** `feature/metronome-transport-ui`.
+**Branch:** `feature/transport-beat-ruler`.
 
 ### Work
 
@@ -242,7 +242,7 @@ No worktree, push, pull request, merge to `main` or `.github/workflows` change i
 
 ## Stage I - integrated acceptance
 
-**Branch:** `feature/pre-phase-6-acceptance`.
+**Branch:** `fix/pre-phase-6-acceptance`.
 
 ### Automated gates
 
@@ -252,6 +252,12 @@ No worktree, push, pull request, merge to `main` or `.github/workflows` change i
 - complete lifecycle-owned quick check after integration;
 - Desktop package, native-host self-test, bundle and packaged-content checks;
 - lifecycle audit immediately after every commit and before every next check, branch or merge.
+
+The approved D-001 through D-005 implementation grows the complete production renderer output
+beyond the previous note-editor ceilings. Module-attribution reports must be reviewed before changing
+the ceilings. If the growth maps to the approved features rather than an accidental dependency, set
+the smallest practical full-output limits with measurable headroom and record both measurements and
+the decision in acceptance evidence.
 
 ### Manual gates
 

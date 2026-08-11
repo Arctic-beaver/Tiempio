@@ -4,12 +4,12 @@ import { emptyShellBundleBudgets, evaluateBundleClass } from './bundle-budget.mj
 
 describe('empty-shell bundle budgets', () => {
 	it('defines independent initial classes for both targets', () => {
-		assert.deepEqual(Object.keys(emptyShellBundleBudgets), [
-			'desktop-main',
-			'desktop-preload',
-			'desktop-renderer',
-			'web'
-		])
+		assert.deepEqual(emptyShellBundleBudgets, {
+			'desktop-main': { root: 'dist/desktop/main', maxBytes: 196_608 },
+			'desktop-preload': { root: 'dist/desktop/preload', maxBytes: 57_344 },
+			'desktop-renderer': { root: 'dist/desktop/renderer', maxBytes: 573_440 },
+			web: { root: 'dist/web', maxBytes: 540_672 }
+		})
 	})
 
 	it('reports remaining attribution budget', () => {
