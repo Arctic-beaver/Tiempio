@@ -13,6 +13,7 @@ import {
 	ProjectSession,
 	type LayerId,
 	type ProjectCommand,
+	type ProjectDispatchOptions,
 	type ProjectSessionSnapshot
 } from '../../../project-core/src/index.js'
 import { createSeedProject } from './seed-project.js'
@@ -43,7 +44,20 @@ export function ProjectSessionProvider({
 		session.getSnapshot
 	)
 	const dispatch = useCallback(
-		(command: ProjectCommand): ProjectSessionSnapshot => session.dispatch(command),
+		(command: ProjectCommand, options?: ProjectDispatchOptions): ProjectSessionSnapshot =>
+			session.dispatch(command, options),
+		[session]
+	)
+	const endHistoryGroup = useCallback(
+		(historyGroup: string): void => session.endHistoryGroup(historyGroup),
+		[session]
+	)
+	const undo = useCallback(
+		(): ProjectSessionSnapshot => session.undo(session.getSnapshot().revision),
+		[session]
+	)
+	const redo = useCallback(
+		(): ProjectSessionSnapshot => session.redo(session.getSnapshot().revision),
 		[session]
 	)
 	const createNewProject = useCallback(
@@ -75,6 +89,9 @@ export function ProjectSessionProvider({
 			selectedLayerId,
 			projections,
 			dispatch,
+			endHistoryGroup,
+			undo,
+			redo,
 			getSnapshot: session.getSnapshot,
 			selectLayer: setSelectedLayerId,
 			createNewProject,
@@ -83,11 +100,14 @@ export function ProjectSessionProvider({
 		[
 			createNewProject,
 			dispatch,
+			endHistoryGroup,
 			nextId,
 			projections,
+			redo,
 			selectedLayerId,
 			session.getSnapshot,
-			snapshot
+			snapshot,
+			undo
 		]
 	)
 

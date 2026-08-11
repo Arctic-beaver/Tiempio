@@ -1,6 +1,7 @@
 import { Copy, Repeat2, Scissors } from 'lucide-react'
 import type { CSSProperties, JSX } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
+import { ProjectHistoryControls } from '../../commands/ProjectHistoryControls.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
 import { TransportBar } from '../../shell/TransportBar.js'
 import { TransportPlayhead } from '../../shell/TransportPlayhead.js'
@@ -77,6 +78,7 @@ export function PianoRollView({
 			<StudioTopBar
 				actions={
 					<>
+						<ProjectHistoryControls />
 						<button
 							aria-label={t('pianoRoll.octaveDown')}
 							className="icon-button octave-action"

@@ -1,6 +1,7 @@
-import { ArrowLeft, Grid2X2, Undo2, Volume2 } from 'lucide-react'
+import { ArrowLeft, Grid2X2, Volume2 } from 'lucide-react'
 import { useSyncExternalStore, type JSX, type ReactNode } from 'react'
 import { useLocalization } from '../../../localization/src/index.js'
+import { ProjectHistoryControls } from '../commands/ProjectHistoryControls.js'
 import { useProjectSession } from '../project/ProjectSessionContext.js'
 import { useApplicationRuntimeController } from '../runtime/ApplicationRuntimeControllerContext.js'
 
@@ -66,16 +67,7 @@ export function StudioTopBar({
 			</div>
 			{center}
 			<div className="top-right">
-				{actions ?? (
-					<button
-						aria-label={t('common.notAvailable')}
-						className="icon-button topbar__undo"
-						disabled
-						type="button"
-					>
-						<Undo2 aria-hidden="true" />
-					</button>
-				)}
+				{actions ?? <ProjectHistoryControls />}
 				<div
 					aria-label={t(engineLabelKey)}
 					className="audio-chip"

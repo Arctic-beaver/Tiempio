@@ -253,6 +253,84 @@ describe('ProjectSession', () => {
 		assert.deepEqual(deletedClip?.kind === 'midi' ? deletedClip.notes : null, [])
 	})
 
+	it('creates a missing MIDI clip with its first note in one revision', () => {
+		const session = createBassSession()
+		const note = createMidiNote({
+			id: 'note.first',
+			pitch: 36,
+			startTick: 240,
+			durationTicks: 480,
+			velocity: 80
+		})
+		const created = session.dispatch({
+			type: 'note.add',
+			baseRevision: 1,
+			layerId: layerId('layer.bass'),
+			clipId: clipId('clip.first'),
+			clipWhenMissing: createMidiClip({
+				id: 'clip.first',
+				startTick: 0,
+				lengthTicks: 3840
+			}),
+			note
+		})
+		assert.equal(created.revision, 2)
+		const clip = created.project.layers[0]?.clips[0]
+		assert.equal(clip?.kind, 'midi')
+		assert.deepEqual(clip?.kind === 'midi' ? clip.notes : null, [note])
+		assert.deepEqual(session.undo(2).project.layers[0]?.clips, [])
+	})
+
+	it('updates note timing, pitch, duration and velocity in one history entry', () => {
+		const session = createBassSession()
+		session.dispatch({
+			type: 'clip.place',
+			baseRevision: 1,
+			layerId: layerId('layer.bass'),
+			clip: createMidiClip({
+				id: 'clip.edit',
+				startTick: 0,
+				lengthTicks: 3840,
+				notes: [
+					createMidiNote({
+						id: 'note.edit',
+						pitch: 36,
+						startTick: 0,
+						durationTicks: 480,
+						velocity: 80
+					})
+				]
+			})
+		})
+		const updated = session.dispatch({
+			type: 'note.update',
+			baseRevision: 2,
+			layerId: layerId('layer.bass'),
+			clipId: clipId('clip.edit'),
+			noteId: noteId('note.edit'),
+			pitch: 48,
+			startTick: 240,
+			durationTicks: 960,
+			velocity: 127
+		})
+		const clip = updated.project.layers[0]?.clips[0]
+		assert.deepEqual(clip?.kind === 'midi' ? clip.notes[0] : null, {
+			id: 'note.edit',
+			pitch: 48,
+			startTick: 240,
+			durationTicks: 960,
+			velocity: 127
+		})
+		const undone = session.undo(3).project.layers[0]?.clips[0]
+		assert.deepEqual(undone?.kind === 'midi' ? undone.notes[0] : null, {
+			id: 'note.edit',
+			pitch: 36,
+			startTick: 0,
+			durationTicks: 480,
+			velocity: 80
+		})
+	})
+
 	it('uses monotonic bounded undo/redo and clears redo after a new command', () => {
 		const session = createBassSession(2)
 		session.dispatch({
@@ -285,6 +363,26 @@ describe('ProjectSession', () => {
 			muted: true
 		})
 		assert.equal(session.getSnapshot().canRedo, false)
+	})
+
+	it('coalesces repeated edits in one explicit history group', () => {
+		const session = createBassSession()
+		for (const gain of [0.8, 0.6, 0.4]) {
+			session.dispatch(
+				{
+					type: 'layer.gain.set',
+					baseRevision: session.getSnapshot().revision,
+					layerId: layerId('layer.bass'),
+					gain
+				},
+				{ historyGroup: 'held-key:gain-down' }
+			)
+		}
+		session.endHistoryGroup('held-key:gain-down')
+
+		assert.equal(session.getSnapshot().project.layers[0]?.gain, 0.4)
+		assert.equal(session.undo(session.getSnapshot().revision).project.layers[0]?.gain, 1)
+		assert.equal(session.redo(session.getSnapshot().revision).project.layers[0]?.gain, 0.4)
 	})
 
 	it('keeps revision N+1 dirty after saving N and tracks recovery independently', () => {

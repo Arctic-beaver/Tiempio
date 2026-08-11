@@ -25,16 +25,34 @@ export function StudioApplication(): JSX.Element {
 		return () => controller.setAuditionEnabled(false)
 	}, [controller, navigation.state.activeView])
 	const handlers = useMemo<CommandHandlerMap>(
-		() => ({ ...navigation.commandHandlers, ...transportCommandHandlers }),
-		[navigation.commandHandlers, transportCommandHandlers]
+		() => ({
+			...navigation.commandHandlers,
+			...transportCommandHandlers,
+			'project.undo': projectSession.undo,
+			'project.redo': projectSession.redo
+		}),
+		[
+			navigation.commandHandlers,
+			projectSession.redo,
+			projectSession.undo,
+			transportCommandHandlers
+		]
 	)
 	const commandAvailability = useMemo(
 		() => ({
 			activeDrawer: navigation.state.activeDrawer,
+			canRedo: projectSession.snapshot.canRedo,
+			canUndo: projectSession.snapshot.canUndo,
 			engineAvailable: engine.available,
 			projectRevision: projectSession.snapshot.revision
 		}),
-		[navigation.state.activeDrawer, projectSession.snapshot.revision, engine.available]
+		[
+			navigation.state.activeDrawer,
+			projectSession.snapshot.canRedo,
+			projectSession.snapshot.canUndo,
+			projectSession.snapshot.revision,
+			engine.available
+		]
 	)
 
 	return (

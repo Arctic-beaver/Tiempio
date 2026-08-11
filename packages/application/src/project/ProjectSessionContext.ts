@@ -2,19 +2,26 @@ import { createContext, useContext } from 'react'
 import type {
 	LayerId,
 	ProjectCommand,
+	ProjectDispatchOptions,
 	ProjectSessionSnapshot
 } from '../../../project-core/src/index.js'
 import type { StudioProjectProjections } from './projectors.js'
 
 export interface ProjectSessionContextValue {
 	readonly createNewProject: (title: string) => void
-	readonly dispatch: (command: ProjectCommand) => ProjectSessionSnapshot
+	readonly dispatch: (
+		command: ProjectCommand,
+		options?: ProjectDispatchOptions
+	) => ProjectSessionSnapshot
+	readonly endHistoryGroup: (historyGroup: string) => void
 	readonly getSnapshot: () => ProjectSessionSnapshot
 	readonly nextId: (scope: string) => string
 	readonly projections: StudioProjectProjections
+	readonly redo: () => ProjectSessionSnapshot
 	readonly selectLayer: (layerId: LayerId | null) => void
 	readonly selectedLayerId: LayerId | null
 	readonly snapshot: ProjectSessionSnapshot
+	readonly undo: () => ProjectSessionSnapshot
 }
 
 export const ProjectSessionContext = createContext<ProjectSessionContextValue | null>(null)

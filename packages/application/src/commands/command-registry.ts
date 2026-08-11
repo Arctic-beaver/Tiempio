@@ -9,6 +9,8 @@ export const commandIds = Object.freeze([
 	'studio.drums',
 	'studio.arrangement',
 	'studio.sound-sculpt',
+	'project.undo',
+	'project.redo',
 	'transport.toggle-playback',
 	'transport.toggle-loop',
 	'transport.stop',
@@ -20,13 +22,22 @@ export const commandIds = Object.freeze([
 export type CommandId = (typeof commandIds)[number]
 export type CommandPlacement = 'activity' | 'layer' | 'transport' | 'window' | 'workflow'
 export type CommandEffectOwner = 'engine' | 'presentation' | 'project'
-export type CommandAvailabilityRequirement = 'always' | 'drawer-open' | 'engine' | 'project'
+export type CommandAvailabilityRequirement =
+	'always' | 'drawer-open' | 'engine' | 'history-redo' | 'history-undo' | 'project'
+export type CommandScope = 'global' | 'piano-roll'
+export type ShortcutPlatform = 'all' | 'macos' | 'other'
 
 export interface CommandShortcut {
-	readonly key: string
+	readonly alt?: boolean
+	readonly code: string
+	readonly platform?: ShortcutPlatform
 	readonly primary?: boolean
 	readonly shift?: boolean
 }
+
+export type CommandShortcutOverrides = Readonly<
+	Partial<Record<CommandId, readonly CommandShortcut[]>>
+>
 
 export interface CommandDefinition {
 	readonly availability: CommandAvailabilityRequirement
@@ -35,7 +46,8 @@ export interface CommandDefinition {
 	readonly id: CommandId
 	readonly labelKey: LocalizationKey
 	readonly placements: readonly CommandPlacement[]
-	readonly shortcut?: CommandShortcut
+	readonly scope: CommandScope
+	readonly shortcuts?: readonly CommandShortcut[]
 	readonly view?: StudioViewId
 }
 
@@ -51,7 +63,8 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		id: 'studio.home',
 		labelKey: 'nav.home',
 		placements: ['activity'],
-		shortcut: { key: '1', primary: true },
+		scope: 'global',
+		shortcuts: [{ code: 'Digit1', primary: true }],
 		view: 'home'
 	}),
 	defineCommand({
@@ -61,6 +74,7 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		id: 'studio.first-layer',
 		labelKey: 'layers.add',
 		placements: ['workflow'],
+		scope: 'global',
 		view: 'first-layer'
 	}),
 	defineCommand({
@@ -70,6 +84,7 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		id: 'studio.sound-chooser',
 		labelKey: 'soundChooser.title',
 		placements: ['workflow'],
+		scope: 'global',
 		view: 'sound-chooser'
 	}),
 	defineCommand({
@@ -79,7 +94,8 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		id: 'studio.piano-roll',
 		labelKey: 'nav.piano',
 		placements: ['activity', 'layer'],
-		shortcut: { key: '2', primary: true },
+		scope: 'global',
+		shortcuts: [{ code: 'Digit2', primary: true }],
 		view: 'piano-roll'
 	}),
 	defineCommand({
@@ -89,7 +105,8 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		id: 'studio.drums',
 		labelKey: 'nav.drums',
 		placements: ['activity', 'layer'],
-		shortcut: { key: '3', primary: true },
+		scope: 'global',
+		shortcuts: [{ code: 'Digit3', primary: true }],
 		view: 'drums'
 	}),
 	defineCommand({
@@ -99,7 +116,8 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		id: 'studio.arrangement',
 		labelKey: 'nav.arrangement',
 		placements: ['activity'],
-		shortcut: { key: '4', primary: true },
+		scope: 'global',
+		shortcuts: [{ code: 'Digit4', primary: true }],
 		view: 'arrangement'
 	}),
 	defineCommand({
@@ -109,8 +127,32 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		id: 'studio.sound-sculpt',
 		labelKey: 'nav.soundSculpt',
 		placements: ['activity'],
-		shortcut: { key: '5', primary: true },
+		scope: 'global',
+		shortcuts: [{ code: 'Digit5', primary: true }],
 		view: 'sound-sculpt'
+	}),
+	defineCommand({
+		availability: 'history-undo',
+		disabledReasonKey: 'command.disabled.unavailable',
+		effectOwner: 'project',
+		id: 'project.undo',
+		labelKey: 'arrangement.undo',
+		placements: ['window'],
+		scope: 'global',
+		shortcuts: [{ code: 'KeyZ', primary: true }]
+	}),
+	defineCommand({
+		availability: 'history-redo',
+		disabledReasonKey: 'command.disabled.unavailable',
+		effectOwner: 'project',
+		id: 'project.redo',
+		labelKey: 'arrangement.redo',
+		placements: ['window'],
+		scope: 'global',
+		shortcuts: [
+			{ code: 'KeyZ', primary: true, shift: true },
+			{ code: 'KeyY', platform: 'other', primary: true }
+		]
 	}),
 	defineCommand({
 		availability: 'engine',
@@ -119,7 +161,8 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		id: 'transport.toggle-playback',
 		labelKey: 'transport.play',
 		placements: ['transport'],
-		shortcut: { key: ' ' }
+		scope: 'global',
+		shortcuts: [{ code: 'Space' }]
 	}),
 	defineCommand({
 		availability: 'project',
@@ -128,7 +171,8 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		id: 'transport.toggle-loop',
 		labelKey: 'transport.loop',
 		placements: ['transport'],
-		shortcut: { key: 'l' }
+		scope: 'global',
+		shortcuts: [{ code: 'KeyL' }]
 	}),
 	defineCommand({
 		availability: 'engine',
@@ -137,7 +181,8 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		id: 'transport.stop',
 		labelKey: 'transport.stop',
 		placements: ['transport'],
-		shortcut: { key: 'Escape', shift: true }
+		scope: 'global',
+		shortcuts: [{ code: 'Escape', shift: true }]
 	}),
 	defineCommand({
 		availability: 'always',
@@ -145,7 +190,8 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		effectOwner: 'presentation',
 		id: 'layout.open-navigation',
 		labelKey: 'layout.openNavigation',
-		placements: ['window']
+		placements: ['window'],
+		scope: 'global'
 	}),
 	defineCommand({
 		availability: 'always',
@@ -153,7 +199,8 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		effectOwner: 'presentation',
 		id: 'layout.open-context',
 		labelKey: 'layout.openContext',
-		placements: ['window']
+		placements: ['window'],
+		scope: 'global'
 	}),
 	defineCommand({
 		availability: 'drawer-open',
@@ -162,7 +209,8 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		id: 'layout.close-drawer',
 		labelKey: 'layout.closeDrawer',
 		placements: ['window'],
-		shortcut: { key: 'Escape' }
+		scope: 'global',
+		shortcuts: [{ code: 'Escape' }]
 	})
 ] as const)
 
@@ -193,24 +241,90 @@ export function commandForView(view: StudioViewId): CommandId {
 
 export interface ShortcutEvent {
 	readonly altKey: boolean
+	readonly code: string
 	readonly ctrlKey: boolean
-	readonly key: string
 	readonly metaKey: boolean
 	readonly shiftKey: boolean
 }
 
+function platformMatches(shortcut: CommandShortcut, platform: 'macos' | 'other'): boolean {
+	return (
+		shortcut.platform === undefined ||
+		shortcut.platform === 'all' ||
+		shortcut.platform === platform
+	)
+}
+
+function shortcutMatches(
+	event: ShortcutEvent,
+	shortcut: CommandShortcut,
+	platform: 'macos' | 'other'
+): boolean {
+	if (!platformMatches(shortcut, platform)) return false
+	const primary = platform === 'macos' ? event.metaKey : event.ctrlKey
+	const secondaryPrimary = platform === 'macos' ? event.ctrlKey : event.metaKey
+	if ((shortcut.primary ?? false) !== primary || secondaryPrimary) return false
+	if ((shortcut.shift ?? false) !== event.shiftKey) return false
+	if ((shortcut.alt ?? false) !== event.altKey) return false
+	return shortcut.code === event.code
+}
+
+export function shortcutsForCommand(
+	commandId: CommandId,
+	overrides: CommandShortcutOverrides = {}
+): readonly CommandShortcut[] {
+	return overrides[commandId] ?? commandDefinition(commandId).shortcuts ?? []
+}
+
+export function shortcutSignature(shortcut: CommandShortcut): string {
+	return [
+		shortcut.platform ?? 'all',
+		shortcut.primary === true ? 'primary' : '-',
+		shortcut.shift === true ? 'shift' : '-',
+		shortcut.alt === true ? 'alt' : '-',
+		shortcut.code
+	].join(':')
+}
+
+export function shortcutConflict(
+	commandId: CommandId,
+	shortcut: CommandShortcut,
+	scope: CommandScope,
+	overrides: CommandShortcutOverrides = {}
+): CommandId | null {
+	const conflict = commandDefinitions.find(
+		(definition) =>
+			definition.id !== commandId &&
+			(definition.scope === 'global' || scope === 'global' || definition.scope === scope) &&
+			shortcutsForCommand(definition.id, overrides).some(
+				(candidate) =>
+					candidate.code === shortcut.code &&
+					(candidate.primary ?? false) === (shortcut.primary ?? false) &&
+					(candidate.shift ?? false) === (shortcut.shift ?? false) &&
+					(candidate.alt ?? false) === (shortcut.alt ?? false) &&
+					(candidate.platform === undefined ||
+						candidate.platform === 'all' ||
+						shortcut.platform === undefined ||
+						shortcut.platform === 'all' ||
+						candidate.platform === shortcut.platform)
+			)
+	)
+	return conflict?.id ?? null
+}
+
 export function commandForShortcut(
 	event: ShortcutEvent,
-	platform: 'macos' | 'other'
+	platform: 'macos' | 'other',
+	activeScopes: readonly CommandScope[] = ['global'],
+	overrides: CommandShortcutOverrides = {}
 ): CommandId | null {
-	const primary = platform === 'macos' ? event.metaKey : event.ctrlKey
-	const definition = commandDefinitions.find(({ shortcut }) => {
-		if (shortcut === undefined) return false
-		if ((shortcut.primary ?? false) !== primary) return false
-		if (shortcut.primary !== true && (event.ctrlKey || event.metaKey)) return false
-		if ((shortcut.shift ?? false) !== event.shiftKey) return false
-		if (event.altKey) return false
-		return shortcut.key.toLowerCase() === event.key.toLowerCase()
-	})
+	const scopes = new Set<CommandScope>(['global', ...activeScopes])
+	const definition = commandDefinitions.find(
+		(candidate) =>
+			scopes.has(candidate.scope) &&
+			shortcutsForCommand(candidate.id, overrides).some((shortcut) =>
+				shortcutMatches(event, shortcut, platform)
+			)
+	)
 	return definition?.id ?? null
 }

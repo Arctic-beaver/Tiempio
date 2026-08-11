@@ -52,6 +52,10 @@ export interface ProjectSessionSnapshot {
 	}
 }
 
+export interface ProjectDispatchOptions {
+	readonly historyGroup?: string
+}
+
 function freezeOperation(operation: RevisionOperation | null): RevisionOperation | null {
 	return operation === null ? null : Object.freeze({ ...operation })
 }
@@ -94,6 +98,7 @@ export class ProjectSession {
 	readonly #listeners = new Set<() => void>()
 	readonly #undoHistory: ProjectDocument[] = []
 	readonly #redoHistory: ProjectDocument[] = []
+	#activeHistoryGroup: string | null = null
 	#snapshot: ProjectSessionSnapshot
 
 	public constructor(
@@ -131,7 +136,10 @@ export class ProjectSession {
 
 	public readonly getSnapshot = (): ProjectSessionSnapshot => this.#snapshot
 
-	public dispatch(command: ProjectCommand): ProjectSessionSnapshot {
+	public dispatch(
+		command: ProjectCommand,
+		options: ProjectDispatchOptions = {}
+	): ProjectSessionSnapshot {
 		const result = reduceProjectCommand(
 			this.#snapshot.project,
 			this.#snapshot.revision,
@@ -140,13 +148,22 @@ export class ProjectSession {
 		if (result.status === 'rejected') this.#throwFailure(result.failure)
 		if (result.status === 'noop') return this.#snapshot
 		this.#requireRevisionCapacity()
-		this.#pushBounded(this.#undoHistory, this.#snapshot.project)
-		this.#redoHistory.length = 0
+		const historyGroup = options.historyGroup ?? null
+		if (historyGroup === null || historyGroup !== this.#activeHistoryGroup) {
+			this.#pushBounded(this.#undoHistory, this.#snapshot.project)
+			this.#redoHistory.length = 0
+		}
+		this.#activeHistoryGroup = historyGroup
 		this.#publishContent(result.project)
 		return this.#snapshot
 	}
 
+	public endHistoryGroup(historyGroup: string): void {
+		if (this.#activeHistoryGroup === historyGroup) this.#activeHistoryGroup = null
+	}
+
 	public undo(baseRevision: number): ProjectSessionSnapshot {
+		this.#activeHistoryGroup = null
 		this.#requireCurrentRevision(baseRevision)
 		this.#requireRevisionCapacity()
 		const project = this.#undoHistory.pop()
@@ -158,6 +175,7 @@ export class ProjectSession {
 	}
 
 	public redo(baseRevision: number): ProjectSessionSnapshot {
+		this.#activeHistoryGroup = null
 		this.#requireCurrentRevision(baseRevision)
 		this.#requireRevisionCapacity()
 		const project = this.#redoHistory.pop()

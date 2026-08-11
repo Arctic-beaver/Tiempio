@@ -11,6 +11,8 @@ import { commandDefinition, commandIds } from './command-registry.js'
 
 const baseContext: CommandAvailabilityContext = Object.freeze({
 	activeDrawer: null,
+	canRedo: false,
+	canUndo: false,
 	engineAvailable: false,
 	projectRevision: 0
 })
@@ -28,7 +30,8 @@ describe('command availability', () => {
 			id: 'transport.toggle-playback',
 			labelKey: 'transport.play',
 			placements: ['transport'],
-			shortcut: { key: ' ' }
+			scope: 'global',
+			shortcuts: [{ code: 'Space' }]
 		})
 		assert.equal(commandDefinition('transport.toggle-loop').effectOwner, 'project')
 		assert.equal(commandDefinition('studio.home').effectOwner, 'presentation')
@@ -43,13 +46,23 @@ describe('command availability', () => {
 		})
 		assert.equal(unavailable['transport.toggle-loop'].available, true)
 		assert.equal(unavailable['layout.close-drawer'].available, false)
+		assert.equal(unavailable['project.undo'].available, false)
+		assert.equal(unavailable['project.redo'].available, false)
 
 		const ready = resolveCommandStates(
-			{ activeDrawer: 'context', engineAvailable: true, projectRevision: 7 },
+			{
+				activeDrawer: 'context',
+				canRedo: true,
+				canUndo: true,
+				engineAvailable: true,
+				projectRevision: 7
+			},
 			allHandlers
 		)
 		assert.equal(ready['transport.toggle-playback'].available, true)
 		assert.equal(ready['layout.close-drawer'].available, true)
+		assert.equal(ready['project.undo'].available, true)
+		assert.equal(ready['project.redo'].available, true)
 		assert.equal(
 			resolveCommandState(
 				'transport.toggle-loop',

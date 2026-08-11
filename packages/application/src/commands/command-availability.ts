@@ -9,6 +9,8 @@ import {
 
 export interface CommandAvailabilityContext {
 	readonly activeDrawer: StudioDrawer
+	readonly canRedo: boolean
+	readonly canUndo: boolean
 	readonly engineAvailable: boolean
 	readonly projectRevision: number | null
 }
@@ -35,6 +37,12 @@ function availabilityFailure(
 		return definition.disabledReasonKey
 	}
 	if (definition.availability === 'drawer-open' && context.activeDrawer === null) {
+		return definition.disabledReasonKey
+	}
+	if (definition.availability === 'history-undo' && !context.canUndo) {
+		return definition.disabledReasonKey
+	}
+	if (definition.availability === 'history-redo' && !context.canRedo) {
 		return definition.disabledReasonKey
 	}
 	return null

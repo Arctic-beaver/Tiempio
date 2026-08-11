@@ -25,7 +25,8 @@ export {
 	type SetLoopCommand,
 	type SetTempoCommand,
 	type ToggleDrumEventCommand,
-	type TransposeOctaveCommand
+	type TransposeOctaveCommand,
+	type UpdateNoteCommand
 } from './commands.js'
 export {
 	createAssetReference,
@@ -130,6 +131,7 @@ export {
 	maximumProjectHistoryCapacity,
 	ProjectSession,
 	ProjectSessionError,
+	type ProjectDispatchOptions,
 	type ProjectSessionErrorCode,
 	type ProjectSessionSnapshot,
 	type RevisionOperation

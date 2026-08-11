@@ -1,17 +1,7 @@
-import {
-	ArrowUpRight,
-	AudioLines,
-	CircleDot,
-	Copy,
-	Drum,
-	Pause,
-	Plus,
-	Redo2,
-	Undo2,
-	Waves
-} from 'lucide-react'
+import { ArrowUpRight, AudioLines, CircleDot, Copy, Drum, Pause, Plus, Waves } from 'lucide-react'
 import type { CSSProperties, JSX, ReactNode } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
+import { ProjectHistoryControls } from '../../commands/ProjectHistoryControls.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
 import { TransportBar } from '../../shell/TransportBar.js'
 import { TransportPlayhead } from '../../shell/TransportPlayhead.js'
@@ -115,26 +105,7 @@ export function ArrangementView({
 			data-testid="view-arrangement"
 		>
 			<StudioTopBar
-				actions={
-					<>
-						<button
-							aria-label={t('arrangement.undo')}
-							className="icon-button"
-							disabled
-							type="button"
-						>
-							<Undo2 aria-hidden="true" />
-						</button>
-						<button
-							aria-label={t('arrangement.redo')}
-							className="icon-button"
-							disabled
-							type="button"
-						>
-							<Redo2 aria-hidden="true" />
-						</button>
-					</>
-				}
+				actions={<ProjectHistoryControls />}
 				center={<TransportBar />}
 				subtitle={t('arrangement.changedNow')}
 				title={projectTitle}

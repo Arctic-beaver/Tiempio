@@ -66,9 +66,21 @@ export interface CommitMacroCommand extends RevisionedProjectCommand {
 
 export interface AddNoteCommand extends RevisionedProjectCommand {
 	readonly clipId: ClipId
+	readonly clipWhenMissing?: Extract<ProjectClip, { readonly kind: 'midi' }>
 	readonly layerId: LayerId
 	readonly note: MidiNote
 	readonly type: 'note.add'
+}
+
+export interface UpdateNoteCommand extends RevisionedProjectCommand {
+	readonly clipId: ClipId
+	readonly durationTicks: number
+	readonly layerId: LayerId
+	readonly noteId: NoteId
+	readonly pitch: number
+	readonly startTick: number
+	readonly type: 'note.update'
+	readonly velocity: number
 }
 
 export interface MoveNoteCommand extends RevisionedProjectCommand {
@@ -166,6 +178,7 @@ export type ProjectCommand =
 	| SelectCharacterCommand
 	| CommitMacroCommand
 	| AddNoteCommand
+	| UpdateNoteCommand
 	| MoveNoteCommand
 	| ResizeNoteCommand
 	| DeleteNoteCommand
@@ -341,7 +354,33 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 					}
 				}
 			})
-		case 'note.add':
+		case 'note.add': {
+			const layer = project.layers.find((candidate) => candidate.id === command.layerId)
+			if (layer === undefined) fail('NOT_FOUND', `Layer ${command.layerId} was not found.`)
+			const targetClip = layer.clips.find((clip) => clip.id === command.clipId)
+			if (targetClip === undefined) {
+				const clip = command.clipWhenMissing
+				if (clip === undefined || clip.id !== command.clipId) {
+					fail(
+						'NOT_FOUND',
+						`Clip ${command.clipId} was not found in layer ${command.layerId}.`
+					)
+				}
+				if (
+					project.layers.some((candidate) =>
+						candidate.clips.some((candidateClip) => candidateClip.id === clip.id)
+					)
+				) {
+					fail('DUPLICATE_ID', `Clip ${clip.id} already exists.`)
+				}
+				if (clip.notes.some((note) => note.id === command.note.id)) {
+					fail('DUPLICATE_ID', `Note ${command.note.id} already exists.`)
+				}
+				return updateLayer(project, command.layerId, (candidate) => ({
+					...candidate,
+					clips: [...candidate.clips, { ...clip, notes: [...clip.notes, command.note] }]
+				}))
+			}
 			return updateClip(project, command.layerId, command.clipId, (clip) => {
 				if (clip.kind !== 'midi')
 					fail('INCOMPATIBLE_TARGET', 'Notes can only be added to MIDI clips.')
@@ -350,6 +389,27 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 				}
 				return { ...clip, notes: [...clip.notes, command.note] }
 			})
+		}
+		case 'note.update':
+			return updateMidiNote(
+				project,
+				command.layerId,
+				command.clipId,
+				command.noteId,
+				(note) =>
+					note.startTick === command.startTick &&
+					note.pitch === command.pitch &&
+					note.durationTicks === command.durationTicks &&
+					note.velocity === command.velocity
+						? note
+						: {
+								...note,
+								startTick: projectTick(command.startTick),
+								pitch: midiPitch(command.pitch),
+								durationTicks: projectTick(command.durationTicks),
+								velocity: command.velocity
+							}
+			)
 		case 'note.move':
 			return updateMidiNote(
 				project,
