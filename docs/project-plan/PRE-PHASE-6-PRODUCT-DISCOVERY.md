@@ -19,8 +19,9 @@ Status vocabulary:
 
 ## D-001 - Scale-aware performance keyboard and song palette
 
-Status: `Partially approved`. One song-wide palette is approved; the remaining interaction details
-below are still being discussed.
+Status: `Approved for implementation planning`. The song-wide ownership and UI direction below are
+accepted pre-Phase-6 scope. Real-time recording into the Piano Roll remains a separate open product
+decision and is not implied by this approval.
 
 ### Approved decisions
 
@@ -31,19 +32,18 @@ below are still being discussed.
   decision and must not appear accidentally in its UI.
 - This approved item must be planned, implemented and accepted before Phase 6.
 
-### User intent retained for discussion
+### Approved product intent
 
 - Physical `A-L` keys must remain playable notes.
-- The playable octave must move up and down. Arrow controls should be discoverable, while Ableton-
-  familiar `Z`/`X` shortcuts may coexist.
+- The playable octave must move up and down through visible controls and scoped Up/Down arrows.
 - A beginner should be able to choose a palette such as B major or A minor and receive a keyboard
   mapping whose notes belong to that scale, rather than memorizing compatible pitches.
-- The wider `A-Z` physical keyboard may become a scale-aware performance surface.
+- A discoverable expanded `A-Z` physical keyboard becomes a scale-aware performance surface.
 - The interface should distinguish foundational notes from notes that form pleasant chords.
 - Choosing a scale should play a concise preview through the currently chosen instrument so the
   label is understood as a playable configuration and musical character.
 
-### Recommended UI candidate
+### Approved UI direction
 
 Use one consistent `Song palette` control rather than separate theory controls scattered across
 instruments.
@@ -80,8 +80,8 @@ The default first view should show the guaranteed home-row instrument
 `A S D F G H J K L`, with the resulting pitch printed on every key. This is the smallest mapping a
 beginner can understand immediately and preserves the already learned Tiempio gesture.
 
-The wider A-Z idea should use an explicit `Full keyboard` expansion rather than silently adding
-invisible keys. Recommended spatial model if approved:
+The wider A-Z keyboard uses an explicit `Full keyboard` expansion rather than silently adding
+invisible keys. Its approved spatial model is:
 
 - home row A-L: the central melodic range;
 - upper letter row: the same song scale in a higher register;
@@ -93,12 +93,13 @@ not the printed letter, represents ascending pitch. The surface must redraw loca
 when reliable layout labels are available, while events continue to use physical codes.
 
 There is one unavoidable conflict: plain `Z` and `X` cannot simultaneously be playable notes and
-unmodified Ableton-style octave commands. Recommended default is:
+unmodified Ableton-style octave commands. The approved default is:
 
 - every displayed letter, including Z/X in `Full keyboard`, remains a note;
 - visible Up/Down controls and physical Arrow Up/Down shift the entire keyboard octave;
-- an optional remappable `Ableton-style layout` may reserve Z/X for octave switching, but then the UI
-  must visibly remove their note assignment. Never make one key secretly perform both actions.
+- a possible future remappable `Ableton-style layout` may reserve Z/X for octave switching, but then
+  the UI must visibly remove their note assignment. It is not required by this approved delivery.
+  Never make one key secretly perform both actions.
 
 #### Harmonic guidance
 
@@ -174,8 +175,8 @@ The UI should not equate `scale`, `key`, `harmony` and `mood` as if they were id
 - harmony is the sequence of chords/relationships used over time;
 - mood also depends on tempo, rhythm, register, articulation and timbre.
 
-`Recommended`: lead with a friendly label such as `Musical palette` or `Mood palette`, show an
-evocative description, and keep the exact theory label visible but secondary, for example
+Lead with the approved `Song palette` label, show an evocative description, and keep the exact
+theory label visible but secondary, for example
 `Open and luminous - B major`. The copy should promise a useful palette, not guarantee one universal
 emotion. A short optional explanation can reveal `B is the home note; the keyboard now stays inside
 this scale`.
@@ -190,13 +191,13 @@ English, Russian, Spanish and other layouts. Visible keycaps should explain phys
 where the platform exposes a reliable layout map, may additionally show the user's local printed
 character.
 
-`Recommended` core mapping:
+Approved core mapping:
 
 - keep the home-row `A S D F G H J K L` as consecutive degrees of the chosen scale;
 - continue into the next octave after the seventh degree, so the mapping always has a tonal center
   and never requires the user to know sharps or flats;
-- optionally use the upper and lower letter rows for an extended scale-aware range, but preserve a
-  visually coherent spatial order instead of assigning pitches in alphabetical A-Z order;
+- use the upper letter row for a higher scale-aware register and the lower letter row for a lower
+  register when `Full keyboard` is expanded;
 - activate unmodified letter notes only while an explicit performance surface owns focus, so text
   fields, dialogs and global shortcuts remain usable;
 - release every held audition note before changing octave, scale, instrument, focus or audio device.
@@ -206,20 +207,18 @@ Example home-row mapping:
 - A minor: `A=A`, `S=B`, `D=C`, `F=D`, `G=E`, `H=F`, `J=G`, `K=A`, `L=B`;
 - B major: `A=B`, `S=C#`, `D=D#`, `F=E`, `G=F#`, `H=G#`, `J=A#`, `K=B`, `L=C#`.
 
-The full A-Z proposal needs a dedicated keyboard-layout diagram before approval. It must settle
-whether the three physical rows represent one continuous pitch line, parallel octave ranges or
-chord-friendly groupings. It must also reserve enough non-letter or modified commands for transport,
-recording and editing.
+The full A-Z mapping requires an exact physical-key diagram before implementation. The product
+choice is already approved: the rows are parallel lower, central and higher scale-aware registers,
+not alphabetical pitch assignment or hidden chord triggers. The diagram must still prove every
+physical code, repeated tonic alignment and remaining transport/recording shortcut space.
 
 ### Octave controls
 
-`Recommended`: expose visible `octave down` and `octave up` buttons on the performance surface and
-support both interaction families:
+Expose visible `octave down` and `octave up` buttons on the performance surface and support:
 
-- Up/Down arrows as the discoverable primary keyboard controls while the performance surface owns
-  focus;
-- `Z`/`X` as optional Ableton-familiar secondary bindings, displayed in shortcut settings and
-  remappable.
+- Up/Down arrows as the keyboard controls while the performance surface owns focus;
+- application shortcut settings for remapping the octave commands without taking Z/X away from the
+  approved note surface by default.
 
 Do not bind octave arrows globally. In the Piano Roll, arrows already move a selected note; the
 active focus scope must make the meaning unambiguous. The UI should show the resulting register,
@@ -227,8 +226,8 @@ such as `Octave 3` or `A2-A4`, and announce changes accessibly.
 
 ### Scale and chord colors
 
-Color must describe a hierarchy rather than claiming that every same-colored combination is always
-pleasant. `Recommended` three-level language:
+Color describes a hierarchy rather than claiming that every same-colored combination is always
+pleasant. The approved three-level language is:
 
 1. tonic/home note: strongest project accent and a distinct non-color marker;
 2. tones in the currently suggested chord: a lighter related glow plus a shared shape/marker;
@@ -238,17 +237,17 @@ If chromatic input is enabled later, out-of-scale notes remain visible with a su
 rather than disappearing. Color alone is insufficient: labels, point/halo shape, contrast and
 screen-reader text must carry the same meaning in Light, Dark and forced-color modes.
 
-Chord highlighting must follow an explicit current chord or selected chord suggestion. Scale
-membership alone cannot truthfully say which notes form the pleasant chord at every moment. A later
-beginner-facing chord palette can use plain-language roles such as `Home`, `Lift`, `Tension` and
-`Reflective`, with the technical chord name available on demand.
+Chord highlighting follows an explicit current chord or selected chord suggestion. Scale membership
+alone cannot truthfully say which notes form the pleasant chord at every moment. The beginner-facing
+chord suggestions use plain-language roles such as `Home`, `Lift`, `Tension` and `Reflective`, with
+the technical chord name visible as secondary information.
 
 ### Scale preview
 
-`Recommended`: after a deliberate palette selection, preview it once through the currently selected
-instrument. Do not autoplay repeatedly on hover or keyboard navigation.
+After a deliberate palette selection, preview it once through the currently selected instrument. Do
+not autoplay repeatedly on hover or keyboard navigation.
 
-The first candidate timing is approximately 2.5-3.5 seconds:
+The approved initial timing target is approximately 2.5-3.5 seconds:
 
 - briefly establish the tonic or tonic chord;
 - play one ascending octave at an even, readable pace;
@@ -266,11 +265,11 @@ user listening acceptance with several contrasting palettes and instruments.
 
 ### Placement in the creation flow
 
-`Recommended`: do not block project creation with a theory exam. Give new projects a clearly stated
-default palette and make the selector available during the first-sound flow and later in the project
-top bar. Choosing the sound first allows palette previews to use the instrument the user cares about.
-The control should explain that the choice affects every pitched performance keyboard and can be
-changed later.
+Do not block project creation with a theory exam. Give new projects a clearly stated default palette
+and make the selector available during the first-sound flow and later in the project top bar.
+Choosing the sound first allows palette previews to use the instrument the user cares about. The
+control explains that the choice affects every pitched performance keyboard and can be changed
+later.
 
 Changing the song palette must define two separate actions:
 
@@ -294,20 +293,12 @@ Never silently move existing project notes when the palette changes.
 - Color-only harmonic guidance fails accessibility and can become visually noisy in dense editors.
 - Imported or intentionally chromatic projects must remain valid even when beginner input is locked.
 
-### Open decisions
+### Separate open decision
 
 1. Is the first delivery a live audition keyboard only, or must it also record a timed performance
    into the Piano Roll before Phase 6?
-2. Should all three physical letter rows extend one continuous scale, provide octave copies, or
-   reserve one row for chord triggers?
-3. Should octave arrows be Up/Down, Left/Right or visible buttons plus both remappable alternatives?
-4. Which beginner-facing label is clearest: `Mood`, `Musical palette`, `Key and scale` or a layered
-   combination?
-5. Should palette preview use only an ascending scale, a tonic chord plus scale, or a short cadence?
-6. Which chord roles and non-color markers communicate tonic, current chord tones and other scale
-   tones without overwhelming the Piano Roll?
 
-### Acceptance outline after approval
+### Acceptance outline
 
 - identical physical mappings under English, Russian, Spanish and a non-Latin/IME layout;
 - no stuck notes across octave, palette, instrument, focus and audio-device changes;
