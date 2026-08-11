@@ -28,7 +28,9 @@ The task delivers:
 Note creation, placement, selection, deletion, transposition, editing, ghost-note suggestions,
 decorative preview-note replacement and the relationship between visible and audible project notes
 are excluded. The user requested a separate product/UX design pass before any implementation in
-that area.
+that area. That design pass is now recorded in
+`docs/project-plan/NOTE-EDITOR-INTERACTIONS.md`; its implementation remains outside this completed
+remediation branch.
 
 The implementation must not change note data, note commands, note hit targets, preview-note
 fixtures, the selected-note panel or ghost-note behavior. The only permitted Piano Roll change is
