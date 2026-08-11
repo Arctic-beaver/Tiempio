@@ -27,7 +27,12 @@
 						"pulseWidth": 0.5
 					},
 					"filter": { "cutoffHz": 342.72, "envelopeAmount": 0.426, "resonance": 0.3396 },
-					"amplifier": { "attackMs": 25.08, "decayMs": 307, "releaseMs": 363.5, "sustain": 0.716 },
+					"amplifier": {
+						"attackMs": 25.08,
+						"decayMs": 307,
+						"releaseMs": 363.5,
+						"sustain": 0.716
+					},
 					"movement": { "rateHz": 0.2, "depth": 0.1 },
 					"drive": 0.0864,
 					"stereoWidth": 0.028,
@@ -35,8 +40,20 @@
 				}
 			},
 			"events": [
-				{ "id": "note.one", "startTick": 0, "durationTicks": 960, "pitch": 36, "velocity": 100 },
-				{ "id": "note.two", "startTick": 1920, "durationTicks": 960, "pitch": 40, "velocity": 96 }
+				{
+					"id": "note.one",
+					"startTick": 0,
+					"durationTicks": 960,
+					"pitch": 36,
+					"velocity": 100
+				},
+				{
+					"id": "note.two",
+					"startTick": 1920,
+					"durationTicks": 960,
+					"pitch": 40,
+					"velocity": 96
+				}
 			]
 		}
 	]
