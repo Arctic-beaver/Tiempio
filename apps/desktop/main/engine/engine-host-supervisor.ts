@@ -106,6 +106,21 @@ interface ActiveHost {
 	protocolReady: boolean
 }
 
+type ConfigureAudioPayload = Extract<
+	AnyEngineCommandEnvelope,
+	{ readonly type: 'configure-audio' }
+>['payload']
+
+type MetronomeEnabledPayload = Extract<
+	AnyEngineCommandEnvelope,
+	{ readonly type: 'set-metronome-enabled' }
+>['payload']
+
+type MetronomeVolumePayload = Extract<
+	AnyEngineCommandEnvelope,
+	{ readonly type: 'set-metronome-volume' }
+>['payload']
+
 function deferred<Value>(): Deferred<Value> {
 	let resolve: (value: Value) => void = () => undefined
 	let reject: (reason: Error) => void = () => undefined
@@ -181,6 +196,10 @@ export class EngineHostSupervisor {
 	#coalescedEvents = new Map<AnyEngineEventEnvelope['type'], AnyEngineEventEnvelope>()
 	#coalesceTimer: ReturnType<typeof setInterval> | null = null
 	#connectPromise: Promise<ApplicationResult<EngineConnection>> | null = null
+	#desiredAudioConfiguration: ConfigureAudioPayload | null = null
+	#desiredAudioRunning = false
+	#desiredMetronomeEnabled: MetronomeEnabledPayload | null = null
+	#desiredMetronomeVolume: MetronomeVolumePayload | null = null
 	#disconnectPromise: Promise<ApplicationResult<null>> | null = null
 	#epoch = 0
 	#handshake: EngineHandshake | null = null
@@ -269,7 +288,11 @@ export class EngineHostSupervisor {
 					})
 				)
 			)
-			.catch(() => engineFailure('The native audio engine could not start.'))
+			.catch(() => {
+				this.#state = 'failed'
+				this.#publishHealth(initialHealth('failed'))
+				return engineFailure('The native audio engine could not start.')
+			})
 			.finally(() => {
 				this.#connectPromise = null
 			})
@@ -288,6 +311,7 @@ export class EngineHostSupervisor {
 		if (this.#active === null) {
 			this.#state = 'disconnected'
 			this.#publishHealth(initialHealth('disconnected'))
+			this.#resetRendererSession()
 			return success(null)
 		}
 		this.#state = 'stopping'
@@ -311,6 +335,7 @@ export class EngineHostSupervisor {
 		this.#releaseActive(active)
 		this.#state = 'disconnected'
 		this.#publishHealth(initialHealth('disconnected'))
+		this.#resetRendererSession()
 		return success(null)
 	}
 
@@ -345,7 +370,6 @@ export class EngineHostSupervisor {
 			handshakeWaiter = deferred<void>()
 			this.#handshakeWaiter = handshakeWaiter
 		}
-		if (validated.value.type === 'load-render-plan') this.#latestPlan = validated.value
 		try {
 			await this.#writeCommand(active, validated.value.type, validated.value.payload)
 			if (validated.value.type === 'handshake' && handshakeWaiter !== null) {
@@ -358,6 +382,7 @@ export class EngineHostSupervisor {
 				this.#startHeartbeat()
 				this.#startCoalescing()
 			}
+			this.#rememberAcceptedIntent(validated.value)
 			return success(Object.freeze({ accepted: true as const }))
 		} catch {
 			void this.#handleFailure(active)
@@ -480,8 +505,8 @@ export class EngineHostSupervisor {
 			)
 		} catch (error) {
 			active.expectedExit = true
-			await this.#forceStopExact(active)
-			this.#releaseActive(active)
+			const cleaned = await this.#forceStopExact(active)
+			if (cleaned) this.#releaseActive(active)
 			throw error
 		}
 	}
@@ -629,6 +654,7 @@ export class EngineHostSupervisor {
 
 	async #handleFailure(active: ActiveHost): Promise<void> {
 		if (this.#active !== active || active.expectedExit || this.#state === 'stopping') return
+		const establishedSession = this.#state === 'ready'
 		active.expectedExit = true
 		this.#stopHeartbeat()
 		this.#stopCoalescing()
@@ -638,9 +664,15 @@ export class EngineHostSupervisor {
 			new Error('Native host failed during plan activation.')
 		)
 		this.#planAcknowledgement = null
-		await this.#forceStopExact(active)
+		const cleaned = await this.#forceStopExact(active)
+		if (!cleaned) {
+			this.#state = 'failed'
+			this.#publishHealth(initialHealth('failed'))
+			return
+		}
 		this.#releaseActive(active)
 		const mayRestart =
+			establishedSession &&
 			this.#handshake !== null &&
 			this.#restartsUsed < this.#limits.maxAutomaticRestartsPerEpisode
 		if (!mayRestart) {
@@ -663,20 +695,7 @@ export class EngineHostSupervisor {
 				this.#limits.startupTimeoutMs,
 				'Restart handshake timed out.'
 			)
-			if (this.#latestPlan?.type === 'load-render-plan') {
-				const planWaiter = deferred<void>()
-				this.#planAcknowledgement = {
-					revision: this.#latestPlan.payload.plan.projectRevision,
-					waiter: planWaiter
-				}
-				await this.#writeCommand(restarted, 'load-render-plan', this.#latestPlan.payload)
-				await this.#withTimeout(
-					planWaiter.promise,
-					this.#limits.startupTimeoutMs,
-					'Restarted native host did not activate the latest plan.'
-				)
-				this.#planAcknowledgement = null
-			}
+			await this.#replayAcceptedIntent(restarted)
 			this.#state = 'ready'
 			this.#startHeartbeat()
 			this.#startCoalescing()
@@ -684,8 +703,8 @@ export class EngineHostSupervisor {
 			const restarted = this.#active
 			if (restarted !== null) {
 				restarted.expectedExit = true
-				await this.#forceStopExact(restarted)
-				this.#releaseActive(restarted)
+				const cleaned = await this.#forceStopExact(restarted)
+				if (cleaned) this.#releaseActive(restarted)
 			}
 			this.#state = 'failed'
 			this.#publishHealth(initialHealth('failed'))
@@ -739,11 +758,75 @@ export class EngineHostSupervisor {
 		)
 	}
 
+	#rememberAcceptedIntent(command: AnyEngineCommandEnvelope): void {
+		switch (command.type) {
+			case 'configure-audio':
+				this.#desiredAudioConfiguration = Object.freeze({ ...command.payload })
+				break
+			case 'load-render-plan':
+				this.#latestPlan = command
+				break
+			case 'set-metronome-enabled':
+				this.#desiredMetronomeEnabled = Object.freeze({ ...command.payload })
+				break
+			case 'set-metronome-volume':
+				this.#desiredMetronomeVolume = Object.freeze({ ...command.payload })
+				break
+			case 'start-audio':
+				this.#desiredAudioRunning = true
+				break
+			case 'stop-audio':
+			case 'shutdown':
+				this.#desiredAudioRunning = false
+				break
+			default:
+				break
+		}
+	}
+
+	async #replayAcceptedIntent(active: ActiveHost): Promise<void> {
+		if (this.#desiredAudioConfiguration !== null) {
+			await this.#writeCommand(active, 'configure-audio', this.#desiredAudioConfiguration)
+		}
+		if (this.#latestPlan?.type === 'load-render-plan') {
+			const planWaiter = deferred<void>()
+			this.#planAcknowledgement = {
+				revision: this.#latestPlan.payload.plan.projectRevision,
+				waiter: planWaiter
+			}
+			try {
+				await this.#writeCommand(active, 'load-render-plan', this.#latestPlan.payload)
+				await this.#withTimeout(
+					planWaiter.promise,
+					this.#limits.startupTimeoutMs,
+					'Restarted native host did not activate the latest plan.'
+				)
+			} finally {
+				if (this.#planAcknowledgement?.waiter === planWaiter) {
+					this.#planAcknowledgement = null
+				}
+			}
+		}
+		if (this.#desiredMetronomeEnabled !== null) {
+			await this.#writeCommand(active, 'set-metronome-enabled', this.#desiredMetronomeEnabled)
+		}
+		if (this.#desiredMetronomeVolume !== null) {
+			await this.#writeCommand(active, 'set-metronome-volume', this.#desiredMetronomeVolume)
+		}
+		if (this.#desiredAudioRunning) {
+			await this.#writeCommand(active, 'start-audio', {})
+		}
+	}
+
 	#resetRendererSession(): void {
 		this.#handshake = null
 		this.#handshakeWaiter = null
 		this.#lastRendererSequence = -1
 		this.#latestPlan = null
+		this.#desiredAudioConfiguration = null
+		this.#desiredAudioRunning = false
+		this.#desiredMetronomeEnabled = null
+		this.#desiredMetronomeVolume = null
 		this.#nextHostSequence = 0
 		this.#nextRendererEventSequence = 0
 		this.#planAcknowledgement = null

@@ -463,6 +463,21 @@ body {
 	white-space: nowrap;
 }
 
+.audio-chip--action {
+	cursor: pointer;
+	font: inherit;
+}
+
+.audio-chip--action:hover {
+	border-color: var(--ti-accent);
+	color: var(--ti-accent);
+}
+
+.audio-chip--action:focus-visible {
+	box-shadow: var(--ti-focus-ring);
+	outline: 0;
+}
+
 .audio-chip .status-dot {
 	width: 0.375rem;
 	height: 0.375rem;

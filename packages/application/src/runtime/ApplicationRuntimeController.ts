@@ -68,7 +68,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	public readonly previewCoordinator: AuditionPreviewCoordinator
 	#currentHandle: ProjectHandle | null = null
 	#disposed = false
-	#engineRestarting = false
+	#audioRetry: Promise<void> | null = null
 	#latestPlanGeneration = 0
 	#latestRequestedPlanRevision = -1
 	#metronomeEnabled = false
@@ -173,6 +173,15 @@ export class ApplicationRuntimeController implements ApplicationController {
 		await this.#startEngine()
 	}
 
+	public retryAudio(): Promise<void> {
+		if (this.#audioRetry !== null) return this.#audioRetry
+		if (this.#client === null || this.#disposed) return Promise.resolve()
+		this.#audioRetry = this.#retryAudio().finally(() => {
+			this.#audioRetry = null
+		})
+		return this.#audioRetry
+	}
+
 	public togglePlayback(): void {
 		if (this.#snapshot.playing) void this.#send('stop', {})
 		else {
@@ -226,12 +235,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.#detachWindowListeners()
 		this.#projectUnsubscribe?.()
 		this.#projectUnsubscribe = null
-		this.#runtimeHealthUnsubscribe?.()
-		this.#runtimeHealthUnsubscribe = null
-		this.#unsubscribeEngineEvents?.()
-		this.#unsubscribeEngineEvents = null
-		this.#unsubscribeEngineFailures?.()
-		this.#unsubscribeEngineFailures = null
+		this.#detachEngineListeners()
 		this.#lifecycleUnsubscribe?.()
 		this.#lifecycleUnsubscribe = null
 		if (this.#client?.state === 'ready') await this.#client.disconnect()
@@ -240,6 +244,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 
 	async #startEngine(): Promise<void> {
 		if (this.#client === null || this.#runtime.engine.availability !== 'available') return
+		this.#detachEngineListeners()
 		this.#unsubscribeEngineEvents = this.#client.onEvent((event) =>
 			this.#acceptEngineEvent(event)
 		)
@@ -273,6 +278,35 @@ export class ApplicationRuntimeController implements ApplicationController {
 			return
 		}
 		await this.#initializeAudio()
+	}
+
+	async #retryAudio(): Promise<void> {
+		if (this.#client === null || this.#disposed) return
+		this.previewCoordinator.interrupt()
+		this.performanceInput.releaseAll()
+		this.#detachEngineListeners()
+		if (this.#client.state === 'ready') {
+			const disconnected = await this.#client.disconnect()
+			if (!disconnected.ok) this.#setDiagnostic(disconnected.error)
+		}
+		if (this.#client.state !== 'disconnected') {
+			this.#setDiagnostic(
+				applicationError('ENGINE_UNAVAILABLE', 'The audio engine cannot retry yet.', {
+					retryable: true
+				})
+			)
+			return
+		}
+		await this.#startEngine()
+	}
+
+	#detachEngineListeners(): void {
+		this.#runtimeHealthUnsubscribe?.()
+		this.#runtimeHealthUnsubscribe = null
+		this.#unsubscribeEngineEvents?.()
+		this.#unsubscribeEngineEvents = null
+		this.#unsubscribeEngineFailures?.()
+		this.#unsubscribeEngineFailures = null
 	}
 
 	async #initializeAudio(): Promise<void> {
@@ -492,9 +526,6 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	#acceptHealth(health: AudioHealthSnapshot): void {
-		if (health.backendState === 'restarting') {
-			this.#engineRestarting = true
-		}
 		const available = health.backendState === 'ready' && health.deviceState === 'available'
 		if (!available) {
 			this.previewCoordinator.reset()
@@ -508,10 +539,6 @@ export class ApplicationRuntimeController implements ApplicationController {
 			meter: available ? this.#snapshot.meter : silentApplicationMeter,
 			playing: available ? this.#snapshot.playing : false
 		})
-		if (this.#engineRestarting && health.backendState === 'stopped') {
-			this.#engineRestarting = false
-			void this.#initializeAudio()
-		}
 	}
 
 	async #send<Type extends EngineClientCommandType>(

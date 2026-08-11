@@ -131,13 +131,16 @@ describe('ApplicationRuntimeController', () => {
 		const healthListeners = new Set<(health: AudioHealthSnapshot) => void>()
 		const closeListeners = new Set<() => void>()
 		const unavailableError = applicationError('OPERATION_UNAVAILABLE', 'Unavailable in test.')
+		let connects = 0
 		let disconnects = 0
 		const engine: EngineRuntime = Object.freeze({
-			connect: async () =>
-				Object.freeze({
+			connect: async () => {
+				connects += 1
+				return Object.freeze({
 					ok: true as const,
 					value: Object.freeze({ protocolVersion: engineProtocolVersion, capabilities })
-				}),
+				})
+			},
 			disconnect: async () => {
 				disconnects += 1
 				return Object.freeze({ ok: true as const, value: null })
@@ -226,6 +229,7 @@ describe('ApplicationRuntimeController', () => {
 			await controller.start()
 			await flush()
 			assert.equal(controller.getSnapshot().available, true)
+			assert.equal(connects, 1)
 			assert.deepEqual(
 				commands.slice(0, 6).map((command) => command.type),
 				[
@@ -407,6 +411,31 @@ describe('ApplicationRuntimeController', () => {
 			assert.deepEqual(controller.performanceInput.getSnapshot().heldKeys, [])
 			for (const listener of healthListeners) listener(readyHealth)
 
+			const firstRetry = controller.retryAudio()
+			const coalescedRetry = controller.retryAudio()
+			assert.equal(firstRetry, coalescedRetry)
+			await firstRetry
+			assert.equal(connects, 2)
+			assert.equal(disconnects, 1)
+			assert.equal(eventListeners.size, 1)
+			assert.equal(healthListeners.size, 1)
+			assert.deepEqual(
+				commands.slice(-6).map((command) => command.type),
+				[
+					'handshake',
+					'configure-audio',
+					'load-render-plan',
+					'set-metronome-enabled',
+					'set-metronome-volume',
+					'start-audio'
+				]
+			)
+			const retriedPlan = commands.at(-4)
+			assert.equal(retriedPlan?.type, 'load-render-plan')
+			if (retriedPlan?.type === 'load-render-plan') {
+				assert.equal(retriedPlan.payload.plan.projectRevision, 1)
+			}
+
 			controller.performanceInput.pressCode(
 				'sound-chooser',
 				performanceSourceId('keyboard', 'KeyF'),
@@ -421,6 +450,6 @@ describe('ApplicationRuntimeController', () => {
 			await controller.dispose()
 			browser.restore()
 		}
-		assert.equal(disconnects, 1)
+		assert.equal(disconnects, 2)
 	})
 })
