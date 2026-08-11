@@ -103,6 +103,17 @@
 		grid-template-columns: minmax(0, 1fr);
 	}
 
+	.sound-scale-builder {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.footer-guidance > span:last-child,
+	.key-hint {
+		display: none;
+	}
+}
+
+@media (max-width: 34.999rem) {
 	.sound-mapping-dock {
 		width: 100%;
 		grid-template-columns: minmax(0, 1fr);
@@ -113,7 +124,6 @@
 		grid-template-columns: minmax(0, 1fr) auto;
 		grid-template-rows: auto;
 		align-items: stretch;
-		border: 0;
 	}
 
 	.sound-mapping-dock__tabs {
@@ -122,15 +132,6 @@
 
 	.sound-mapping-dock__use {
 		width: auto;
-	}
-
-	.sound-scale-builder {
-		grid-template-columns: minmax(0, 1fr);
-	}
-
-	.footer-guidance > span:last-child,
-	.key-hint {
-		display: none;
 	}
 }
 

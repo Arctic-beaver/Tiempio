@@ -588,7 +588,7 @@ kbd {
 	min-width: 0;
 	min-height: 6.75rem;
 	flex: 0 0 auto;
-	grid-template-columns: minmax(0, 35rem) clamp(12rem, 33%, 18rem);
+	grid-template-columns: minmax(0, 35rem) clamp(12rem, 27%, 16rem);
 	align-items: end;
 	justify-content: center;
 	gap: 0.875rem;
@@ -624,7 +624,7 @@ kbd {
 
 .sound-mapping-dock__tabs {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
+	grid-template-columns: minmax(0, 1fr);
 	gap: 0.5rem;
 }
 
