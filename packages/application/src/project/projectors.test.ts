@@ -99,8 +99,9 @@ describe('studio project projections', () => {
 		)
 	})
 
-	it('projects the canonical song palette without moving existing notes', () => {
+	it('projects each selected layer performance palette without moving existing notes', () => {
 		const session = new ProjectSession(createSeedProject())
+		const melodyId = layerId('layer.melody')
 		const before = session
 			.getSnapshot()
 			.project.layers.flatMap((layer) =>
@@ -109,9 +110,10 @@ describe('studio project projections', () => {
 				)
 			)
 		session.dispatch({
-			type: 'transport.key.set',
+			type: 'layer.performance.set',
 			baseRevision: 0,
-			key: { tonic: 11, mode: 'major' }
+			layerId: melodyId,
+			performance: { key: { tonic: 11, mode: 'major' }, octave: 4 }
 		})
 		const snapshot = session.getSnapshot()
 		const after = snapshot.project.layers.flatMap((layer) =>
@@ -119,9 +121,10 @@ describe('studio project projections', () => {
 				clip.kind === 'midi' ? clip.notes.map(({ pitch }) => pitch) : []
 			)
 		)
-		const projections = projectStudio(snapshot, layerId('layer.melody'))
+		const projections = projectStudio(snapshot, melodyId)
 		assert.deepEqual(after, before)
 		assert.equal(projections.transport.palette.name, 'B major')
+		assert.equal(projections.transport.octave, 4)
 		assert.deepEqual(projections.pianoRoll.palette.noteNames, [
 			'B',
 			'C#',
@@ -131,6 +134,9 @@ describe('studio project projections', () => {
 			'G#',
 			'A#'
 		])
+		const bass = projectStudio(snapshot, layerId('layer.bass'))
+		assert.equal(bass.transport.palette.name, 'A minor')
+		assert.equal(bass.transport.octave, 2)
 	})
 
 	it('projects arrangement removal from the typed clip command', () => {

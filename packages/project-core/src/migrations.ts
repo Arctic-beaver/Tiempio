@@ -4,6 +4,7 @@ import {
 	legacyProjectSchemaVersion,
 	macroMappingVersion,
 	patchModelVersion,
+	previousProjectSchemaVersion,
 	projectSchemaVersion,
 	projectTick,
 	type ProjectDocument
@@ -118,6 +119,67 @@ function loadCurrent(value: Record<string, unknown>): ProjectLoadResult {
 		: { status: 'invalid', issues: result.issues }
 }
 
+function migrateLayerPerformance(value: unknown, keyValue: unknown): readonly unknown[] {
+	if (!Array.isArray(value)) return []
+	const fallbackKey = plainRecord(keyValue)
+	return value.map((entry) => {
+		const layer = plainRecord(entry)
+		const source = layer === null ? null : plainRecord(layer.source)
+		if (
+			layer === null ||
+			source === null ||
+			source.type !== 'synth' ||
+			Object.prototype.hasOwnProperty.call(source, 'performance')
+		) {
+			return entry
+		}
+		return {
+			...layer,
+			source: {
+				...source,
+				performance: {
+					key: { tonic: fallbackKey?.tonic, mode: fallbackKey?.mode },
+					octave: 2
+				}
+			}
+		}
+	})
+}
+
+function migratePrevious(value: Record<string, unknown>): ProjectLoadResult {
+	const transport = plainRecord(value.transport)
+	const migrated = {
+		schemaVersion: projectSchemaVersion,
+		engineModelVersion: value.engineModelVersion,
+		projectId: value.projectId,
+		title: value.title,
+		transport: value.transport,
+		sections: value.sections,
+		layers: migrateLayerPerformance(value.layers, transport?.key),
+		assets: value.assets
+	}
+	const futureModels = highestFutureModelVersion(migrated)
+	if (
+		futureModels.engineVersion !== null ||
+		futureModels.macroVersion !== null ||
+		futureModels.patchVersion !== null
+	) {
+		return unsupported(
+			previousProjectSchemaVersion,
+			futureModels,
+			'The previous project contains a newer engine, patch or macro model.'
+		)
+	}
+	const result = validateProjectDocument(migrated)
+	return result.ok
+		? {
+				status: 'loaded',
+				project: result.project,
+				migratedFromSchemaVersion: previousProjectSchemaVersion
+			}
+		: { status: 'invalid', issues: result.issues }
+}
+
 function migrateLegacy(value: Record<string, unknown>): ProjectLoadResult {
 	const migrated = {
 		schemaVersion: projectSchemaVersion,
@@ -136,7 +198,7 @@ function migrateLegacy(value: Record<string, unknown>): ProjectLoadResult {
 			}
 		},
 		sections: [],
-		layers: value.layers ?? [],
+		layers: migrateLayerPerformance(value.layers ?? [], value.key),
 		assets: []
 	}
 	const futureModels = highestFutureModelVersion(migrated)
@@ -201,6 +263,7 @@ export function loadProjectDocument(value: unknown): ProjectLoadResult {
 			)
 		}
 		if (schemaVersion === projectSchemaVersion) return loadCurrent(candidate)
+		if (schemaVersion === previousProjectSchemaVersion) return migratePrevious(candidate)
 		if (schemaVersion === legacyProjectSchemaVersion) return migrateLegacy(candidate)
 		return unsupported(
 			schemaVersion,

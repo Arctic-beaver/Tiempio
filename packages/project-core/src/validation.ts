@@ -454,6 +454,11 @@ function validateSynthSource(value: unknown, context: ValidationContext, path: s
 	const source = record(value, context, path)
 	if (source === null) return
 	literal(source.type, 'synth', context, `${path}.type`)
+	const performance = record(source.performance, context, `${path}.performance`)
+	if (performance !== null) {
+		validateKey(performance.key, context, `${path}.performance.key`)
+		integer(performance.octave, context, `${path}.performance.octave`, 1, 6)
+	}
 	const instrument = record(source.instrument, context, `${path}.instrument`)
 	if (instrument === null) return
 	literal(instrument.family, 'bass', context, `${path}.instrument.family`)

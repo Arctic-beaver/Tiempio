@@ -108,7 +108,7 @@ describe('ProjectSession', () => {
 		}
 		const session = new ProjectSession({
 			...base,
-			layers: [{ ...layer, source: { type: 'synth', instrument: reordered } }]
+			layers: [{ ...layer, source: { ...layer.source, instrument: reordered } }]
 		})
 		const snapshot = session.dispatch({
 			type: 'layer.character.select',
@@ -117,6 +117,42 @@ describe('ProjectSession', () => {
 			presetId: 'bass.deep'
 		})
 		assert.equal(snapshot.revision, 0)
+	})
+
+	it('commits sound and performance mapping atomically through undo and redo', () => {
+		const session = createBassSession()
+		const configured = session.dispatch({
+			type: 'layer.sound.configure',
+			baseRevision: 1,
+			layerId: layerId('layer.bass'),
+			presetId: 'bass.deep',
+			performance: { key: { tonic: 1, mode: 'major' }, octave: 4 }
+		})
+		assert.equal(configured.revision, 2)
+		const layer = configured.project.layers[0]
+		assert.equal(layer?.source.type, 'synth')
+		if (layer?.source.type !== 'synth') return
+		assert.deepEqual(layer.source.performance, {
+			key: { tonic: 1, mode: 'major' },
+			octave: 4
+		})
+
+		const undone = session.undo(2)
+		const undoneLayer = undone.project.layers[0]
+		assert.equal(undoneLayer?.source.type, 'synth')
+		if (undoneLayer?.source.type === 'synth') {
+			assert.deepEqual(undoneLayer.source.performance, {
+				key: { tonic: 9, mode: 'minor' },
+				octave: 2
+			})
+		}
+
+		const redone = session.redo(3)
+		const redoneLayer = redone.project.layers[0]
+		assert.equal(redoneLayer?.source.type, 'synth')
+		if (redoneLayer?.source.type === 'synth') {
+			assert.deepEqual(redoneLayer.source.performance, layer.source.performance)
+		}
 	})
 
 	it('applies transport, section and drum-grid commands through one reducer', () => {

@@ -1,5 +1,6 @@
-export const projectCoreVersion = 1 as const
-export const projectSchemaVersion = 1 as const
+export const projectCoreVersion = 2 as const
+export const projectSchemaVersion = 2 as const
+export const previousProjectSchemaVersion = 1 as const
 export const legacyProjectSchemaVersion = 0 as const
 export const engineModelVersion = 1 as const
 export const patchModelVersion = 1 as const
@@ -184,8 +185,14 @@ export interface BassInstrumentStateV1 {
 	readonly resolvedPatch: ResolvedBassPatchV1
 }
 
+export interface LayerPerformanceMapping {
+	readonly key: ProjectKey
+	readonly octave: number
+}
+
 export interface SynthSource {
 	readonly instrument: BassInstrumentStateV1
+	readonly performance: LayerPerformanceMapping
 	readonly type: 'synth'
 }
 
@@ -270,7 +277,7 @@ export interface ProjectAssetReference {
 	readonly mediaType: string
 }
 
-export interface ProjectDocumentV1 {
+export interface ProjectDocumentV2 {
 	readonly assets: readonly ProjectAssetReference[]
 	readonly engineModelVersion: typeof engineModelVersion
 	readonly layers: readonly ProjectLayer[]
@@ -281,7 +288,16 @@ export interface ProjectDocumentV1 {
 	readonly transport: ProjectTransport
 }
 
-export type ProjectDocument = ProjectDocumentV1
+export type ProjectDocument = ProjectDocumentV2
+
+type SynthSourceV1 = Omit<SynthSource, 'performance'>
+type LayerSourceV1 = SynthSourceV1 | DrumSource | ReferenceSource
+type ProjectLayerV1 = Omit<ProjectLayer, 'source'> & { readonly source: LayerSourceV1 }
+
+export type ProjectDocumentV1 = Omit<ProjectDocumentV2, 'layers' | 'schemaVersion'> & {
+	readonly layers: readonly ProjectLayerV1[]
+	readonly schemaVersion: typeof previousProjectSchemaVersion
+}
 
 export interface LegacyProjectDocumentV0 {
 	readonly key: ProjectKey

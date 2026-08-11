@@ -52,7 +52,7 @@ export function SongPalettePanel({
 	)
 	const current = projectSession.projections.transport.palette
 	const [selected, setSelected] = useState<SongPalette>(current)
-	const [octave, setOctave] = useState(2)
+	const [octave, setOctave] = useState(projectSession.projections.transport.octave)
 	const [rotation, setRotation] = useState(0)
 	const [layout, setLayout] = useState<PerformanceLayout>('compact')
 	const [chord, setChord] = useState<BeginnerChordSuggestion | null>(selected.chords[0] ?? null)
@@ -89,10 +89,16 @@ export function SongPalettePanel({
 		controller.previewCoordinator.interrupt()
 		controller.performanceInput.releaseAll()
 		const snapshot = projectSession.getSnapshot()
+		const layerId = projectSession.projections.pianoRoll.layerId
+		if (layerId === null) return
 		projectSession.dispatch({
-			type: 'transport.key.set',
+			type: 'layer.performance.set',
 			baseRevision: snapshot.revision,
-			key: { tonic: selected.tonic, mode: selected.mode }
+			layerId,
+			performance: {
+				key: { tonic: selected.tonic, mode: selected.mode },
+				octave
+			}
 		})
 		onApplied?.()
 	}

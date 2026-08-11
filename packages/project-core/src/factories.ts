@@ -81,7 +81,11 @@ export function createLayer(input: CreateLayerInput): ProjectLayer {
 				} as const)
 			: input.role === 'reference'
 				? ({ type: 'reference', assetId: input.assetId as AssetId } as const)
-				: ({ type: 'synth', instrument: createDeepBassInstrument() } as const)
+				: ({
+						type: 'synth',
+						instrument: createDeepBassInstrument(),
+						performance: { key: { tonic: 9, mode: 'minor' }, octave: 2 }
+					} as const)
 	return cloneAndFreeze({
 		id,
 		role: input.role,

@@ -33,6 +33,17 @@ describe('project model factories', () => {
 		assert.equal(Object.isFrozen(first.resolvedPatch.filter), true)
 	})
 
+	it('creates each pitched layer with a stable default performance mapping', () => {
+		const layer = createLayer({ id: 'layer.performance', name: 'Bass', role: 'bass' })
+		assert.equal(layer.source.type, 'synth')
+		if (layer.source.type !== 'synth') return
+		assert.deepEqual(layer.source.performance, {
+			key: { tonic: 9, mode: 'minor' },
+			octave: 2
+		})
+		assert.equal(Object.isFrozen(layer.source.performance.key), true)
+	})
+
 	it('excludes reference material from export by construction', () => {
 		const reference = createLayer({
 			id: 'layer.reference',

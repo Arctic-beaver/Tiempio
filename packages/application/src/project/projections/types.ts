@@ -67,6 +67,7 @@ export interface SoundSculptProjection extends SoundSculptViewModel {
 export interface TransportProjection {
 	readonly bpm: number
 	readonly looping: boolean
+	readonly octave: number
 	readonly palette: SongPalette
 	readonly revision: number
 }
