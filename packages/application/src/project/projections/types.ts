@@ -50,6 +50,7 @@ export interface DrumsProjection extends DrumsViewModel {
 }
 
 export interface ArrangementProjection extends ArrangementViewModel {
+	readonly endTick: number
 	readonly revision: number
 	readonly sectionIds: readonly SectionId[]
 	readonly totalBars: number

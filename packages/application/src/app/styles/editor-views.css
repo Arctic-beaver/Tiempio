@@ -114,7 +114,7 @@
 	position: sticky;
 	z-index: 7;
 	top: 0;
-	height: 2.1875rem;
+	height: 3rem;
 	border-bottom: var(--ti-hairline) solid var(--ti-border-strong);
 	background: color-mix(in srgb, var(--ti-surface-1), var(--ti-canvas) 20%);
 }
@@ -201,16 +201,54 @@
 	z-index: 6;
 	top: 0;
 	display: grid;
-	height: 2.1875rem;
+	height: 3rem;
 	border-bottom: var(--ti-hairline) solid var(--ti-border-strong);
 	background: color-mix(in srgb, var(--ti-surface-1), var(--ti-canvas) 20%);
 }
 
-.roll-ruler span {
-	padding: 0.6875rem 0 0 0.4375rem;
+.transport-ruler {
+	display: grid;
+}
+
+.transport-ruler__marker {
+	position: relative;
+	min-width: 3rem;
+	height: 3rem;
+	padding: 0.75rem 0 0 0.4375rem;
+	border: 0;
 	border-left: var(--ti-hairline) solid var(--ti-border);
+	background: transparent;
 	color: var(--ti-text-muted);
 	font-size: 0.5rem;
+	text-align: left;
+}
+
+.transport-ruler__marker[data-downbeat='true'] {
+	border-left-color: var(--ti-border-strong);
+	color: var(--ti-text);
+	font-weight: 700;
+}
+
+.transport-ruler__marker:not(:disabled):hover,
+.transport-ruler__marker[aria-current='time'] {
+	background: var(--ti-accent-ghost);
+	color: var(--ti-accent-strong);
+}
+
+.transport-ruler__marker[aria-current='time']::after {
+	position: absolute;
+	bottom: 0.3125rem;
+	left: 0.4375rem;
+	width: 0.25rem;
+	height: 0.25rem;
+	border-radius: 50%;
+	background: currentcolor;
+	content: '';
+}
+
+.transport-ruler__marker:disabled {
+	cursor: default;
+	opacity: 1;
 }
 
 .piano-note {
@@ -319,15 +357,40 @@
 	top: 1.25rem;
 	left: 50%;
 	max-width: 18rem;
+	display: flex;
+	align-items: center;
+	gap: 0.375rem;
 	margin: 0;
-	padding: 0.5rem 0.75rem;
+	padding-left: 0.875rem;
 	border-radius: 999rem;
 	background: color-mix(in srgb, var(--ti-surface-1), transparent 10%);
 	color: var(--ti-text-muted);
 	font-size: 0.625rem;
 	text-align: center;
 	transform: translateX(-50%);
-	pointer-events: none;
+}
+
+.piano-empty-hint button {
+	display: grid;
+	width: 3rem;
+	min-width: 3rem;
+	height: 3rem;
+	place-items: center;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--ti-text-muted);
+}
+
+.piano-empty-hint button:hover {
+	background: var(--ti-surface-2);
+	color: var(--ti-text);
+}
+
+.piano-empty-hint button svg {
+	width: 0.875rem;
+	height: 0.875rem;
 }
 
 @media (forced-colors: active) {
@@ -343,6 +406,11 @@
 		background: Highlight;
 		box-shadow: 0 0 0 0.125rem CanvasText;
 		forced-color-adjust: none;
+	}
+
+	.transport-ruler__marker[aria-current='time'] {
+		outline: 0.125rem solid Highlight;
+		outline-offset: -0.125rem;
 	}
 }
 
@@ -542,7 +610,7 @@
 }
 
 .drum-voices {
-	padding-top: 2.875rem;
+	padding-top: 3rem;
 	border-right: var(--ti-hairline) solid var(--ti-border);
 	background: color-mix(in srgb, var(--ti-canvas), var(--ti-surface-1) 32%);
 }
@@ -595,7 +663,7 @@
 
 .drum-grid {
 	position: relative;
-	padding-top: 2.875rem;
+	padding-top: 3rem;
 	overflow: hidden;
 	background: var(--ti-surface-1);
 	background-image: linear-gradient(
@@ -612,17 +680,9 @@
 	right: 0;
 	left: 0;
 	display: grid;
-	height: 2.875rem;
-	grid-template-columns: repeat(16, 1fr);
+	height: 3rem;
 	align-items: end;
 	border-bottom: var(--ti-hairline) solid var(--ti-border-strong);
-}
-
-.drum-ruler span {
-	padding: 0 0 0.5625rem 0.3125rem;
-	border-left: var(--ti-hairline) solid var(--ti-border);
-	color: var(--ti-text-muted);
-	font-size: 0.4375rem;
 }
 
 .step-row {
@@ -736,7 +796,7 @@
 }
 
 .arrange-tracks {
-	padding-top: 2.75rem;
+	padding-top: 4.25rem;
 	border-right: var(--ti-hairline) solid var(--ti-border);
 	background: color-mix(in srgb, var(--ti-canvas), var(--ti-surface-1) 30%);
 }
@@ -816,9 +876,16 @@
 }
 
 .arrange-canvas {
+	min-width: 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+	background: var(--ti-surface-1);
+}
+
+.arrange-timeline {
 	position: relative;
-	padding-top: 2.75rem;
-	overflow: hidden;
+	min-height: 100%;
+	padding-top: 4.25rem;
 	background: var(--ti-surface-1);
 	background-image: linear-gradient(
 		to right,
@@ -834,16 +901,8 @@
 	right: 0;
 	left: 0;
 	display: grid;
-	height: 2.75rem;
-	grid-template-columns: repeat(16, 1fr);
+	height: 3rem;
 	border-bottom: var(--ti-hairline) solid var(--ti-border-strong);
-}
-
-.arrange-ruler span {
-	padding: 0.875rem 0 0 0.375rem;
-	border-left: var(--ti-hairline) solid var(--ti-border);
-	color: var(--ti-text-muted);
-	font-size: 0.5rem;
 }
 
 .arrange-row {
@@ -907,7 +966,7 @@
 .section-label {
 	position: absolute;
 	z-index: 3;
-	top: 0.5rem;
+	top: 3.4375rem;
 	color: var(--ti-text-muted);
 	font-size: 0.5rem;
 	letter-spacing: 0.1em;

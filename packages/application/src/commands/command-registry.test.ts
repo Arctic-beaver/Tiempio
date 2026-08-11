@@ -123,6 +123,11 @@ test('note editing commands are scoped, remappable and leave audition letters un
 		'note.move-octave-up'
 	)
 	assert.equal(commandForShortcut(shortcut('KeyA'), 'other', ['piano-roll']), null)
+	assert.equal(commandForShortcut(shortcut('KeyM'), 'other'), null)
+	assert.equal(
+		commandForShortcut(shortcut('KeyM', { ctrlKey: true, shiftKey: true }), 'other'),
+		'transport.toggle-metronome'
+	)
 	assert.equal(commandForShortcut(shortcut('KeyL'), 'other'), null)
 	assert.equal(
 		commandForShortcut(shortcut('KeyL', { ctrlKey: true }), 'other'),

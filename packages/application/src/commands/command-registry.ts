@@ -13,6 +13,7 @@ export const commandIds = Object.freeze([
 	'project.undo',
 	'project.redo',
 	'transport.toggle-playback',
+	'transport.toggle-metronome',
 	'transport.toggle-loop',
 	'transport.stop',
 	'note.move-left',
@@ -215,6 +216,17 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		scope: 'global',
 		settingsGroup: 'transport',
 		shortcuts: [{ code: 'KeyL', primary: true }]
+	}),
+	defineCommand({
+		availability: 'engine',
+		disabledReasonKey: 'command.disabled.engineUnavailable',
+		effectOwner: 'engine',
+		id: 'transport.toggle-metronome',
+		labelKey: 'transport.metronome',
+		placements: ['transport'],
+		scope: 'global',
+		settingsGroup: 'transport',
+		shortcuts: [{ code: 'KeyM', primary: true, shift: true }]
 	}),
 	defineCommand({
 		availability: 'engine',

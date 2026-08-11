@@ -24,8 +24,12 @@ describe('studio project projections', () => {
 		assert.equal(projections.home.recentPieces[0]?.name, 'Velvet Morning')
 		assert.equal(projections.layers.items.length, 4)
 		assert.equal(projections.pianoRoll.notes.length, 2)
+		assert.equal(projections.pianoRoll.startTick, 30_720)
 		assert.equal(projections.drums.rows[0]?.activeSteps.includes(0), true)
+		assert.equal(projections.drums.startTick, 0)
+		assert.equal(projections.drums.totalTicks, 3840)
 		assert.equal(projections.arrangement.sections.length, 4)
+		assert.equal(projections.arrangement.endTick, 153_600)
 		assert.equal(projections.sculpt.soundName, 'Deep')
 	})
 
@@ -89,6 +93,10 @@ describe('studio project projections', () => {
 		assert.equal(pianoRoll.meterDenominator, 8)
 		assert.equal(pianoRoll.ticksPerBeat, 480)
 		assert.equal(pianoRoll.ticksPerBar, 1440)
+		assert.equal(
+			projectStudio(session.getSnapshot(), layerId('layer.melody')).arrangement.totalBars,
+			153_600 / 1440
+		)
 	})
 
 	it('projects the canonical song palette without moving existing notes', () => {

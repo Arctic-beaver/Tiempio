@@ -5,6 +5,7 @@ import { ProjectHistoryControls } from '../../commands/ProjectHistoryControls.js
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
 import { TransportBar } from '../../shell/TransportBar.js'
 import { TransportPlayhead } from '../../shell/TransportPlayhead.js'
+import { TransportRuler } from '../../shell/TransportRuler.js'
 import type { LayersProjection, ProjectedLayerItem } from '../../project/projections/types.js'
 import { editorLayerName, editorLayerSound } from '../shared/editor-layer-presentation.js'
 import type { ArrangementLayerViewModel, ArrangementViewModel } from './view-model.js'
@@ -79,7 +80,7 @@ function modelLayer(
 
 export interface ArrangementViewProperties {
 	readonly layers: LayersProjection
-	readonly model: ArrangementViewModel
+	readonly model: ArrangementViewModel & { readonly endTick: number }
 	readonly onAddLayer: () => void
 	readonly onOpenSculpt: () => void
 	readonly onToggleCell: (layerId: string, sectionId: string, active: boolean) => void
@@ -97,6 +98,7 @@ export function ArrangementView({
 	const { t } = useLocalization()
 	const tracks = [...layers.items].sort((left, right) => orderOf(left) - orderOf(right))
 	const projectTitle = tracks.length >= 4 ? 'Night Drive' : layers.projectTitle
+	const timelineMinimumWidth = Math.max(768, Math.ceil(totalBars) * 48)
 
 	return (
 		<section
@@ -148,59 +150,68 @@ export function ArrangementView({
 					</button>
 				</aside>
 				<div aria-label={t('arrangement.title')} className="arrange-canvas" role="group">
-					<div aria-hidden="true" className="arrange-ruler">
-						{Array.from({ length: 16 }, (_, index) => (
-							<span key={index}>{index + 1}</span>
-						))}
-					</div>
-					<span className="section-label" style={{ left: '2%' }}>
-						Intro
-					</span>
-					<span className="section-label" style={{ left: '27%' }}>
-						Main
-					</span>
-					<span className="section-label" style={{ left: '76%' }}>
-						Break
-					</span>
-					{tracks.map((track) => {
-						const projection = modelLayer(model, track)
-						const specs = clipSpecs[track.labelKey] ?? []
-						return (
-							<div className="arrange-row" data-track={track.labelKey} key={track.id}>
-								{specs.map((clip, index) => {
-									const section = model.sections[clip.sectionIndex]
-									const active =
-										section !== undefined &&
-										projection?.sections.includes(section.id) === true
-									return (
-										<button
-											aria-label={`${editorLayerName(track)} · ${clip.label}`}
-											aria-pressed={active}
-											className={`clip${clip.rest === true ? ' rest' : ''}`}
-											disabled={section === undefined}
-											key={`${clip.label}:${String(index)}`}
-											onClick={() => {
-												if (section !== undefined) {
-													onToggleCell(track.id, section.id, active)
+					<div
+						className="arrange-timeline"
+						style={{ minWidth: `${String(timelineMinimumWidth)}px` }}
+					>
+						<TransportRuler
+							className="arrange-ruler"
+							endTick={model.endTick}
+							granularity="bar"
+						/>
+						<span className="section-label" style={{ left: '2%' }}>
+							Intro
+						</span>
+						<span className="section-label" style={{ left: '27%' }}>
+							Main
+						</span>
+						<span className="section-label" style={{ left: '76%' }}>
+							Break
+						</span>
+						{tracks.map((track) => {
+							const projection = modelLayer(model, track)
+							const specs = clipSpecs[track.labelKey] ?? []
+							return (
+								<div
+									className="arrange-row"
+									data-track={track.labelKey}
+									key={track.id}
+								>
+									{specs.map((clip, index) => {
+										const section = model.sections[clip.sectionIndex]
+										const active =
+											section !== undefined &&
+											projection?.sections.includes(section.id) === true
+										return (
+											<button
+												aria-label={`${editorLayerName(track)} · ${clip.label}`}
+												aria-pressed={active}
+												className={`clip${clip.rest === true ? ' rest' : ''}`}
+												disabled={section === undefined}
+												key={`${clip.label}:${String(index)}`}
+												onClick={() => {
+													if (section !== undefined) {
+														onToggleCell(track.id, section.id, active)
+													}
+												}}
+												style={
+													{
+														left: clip.left,
+														width: clip.width,
+														'--clip': trackColor(track)
+													} as CSSProperties
 												}
-											}}
-											style={
-												{
-													left: clip.left,
-													width: clip.width,
-													'--clip': trackColor(track)
-												} as CSSProperties
-											}
-											type="button"
-										>
-											<span>{clip.label}</span>
-										</button>
-									)
-								})}
-							</div>
-						)
-					})}
-					<TransportPlayhead />
+												type="button"
+											>
+												<span>{clip.label}</span>
+											</button>
+										)
+									})}
+								</div>
+							)
+						})}
+						<TransportPlayhead endTick={model.endTick} startTick={0} />
+					</div>
 				</div>
 				<aside className="arrange-inspector">
 					<h2>Main bass</h2>
