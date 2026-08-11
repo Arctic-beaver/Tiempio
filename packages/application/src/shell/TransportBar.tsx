@@ -1,7 +1,8 @@
-import { Pause, Play, SkipBack, SkipForward } from 'lucide-react'
+import { Keyboard, Pause, Play, SkipBack, SkipForward } from 'lucide-react'
 import { useSyncExternalStore, type JSX } from 'react'
 import { useLocalization } from '../../../localization/src/index.js'
 import { CommandIconButton } from '../commands/CommandIconButton.js'
+import { SongPalettePopover } from '../features/song-palette/SongPalettePopover.js'
 import { useProjectSession } from '../project/ProjectSessionContext.js'
 import { useApplicationRuntimeController } from '../runtime/ApplicationRuntimeControllerContext.js'
 
@@ -66,10 +67,22 @@ export function TransportBar({
 						<span>{t('transport.tempo')}</span>
 						<b>{projections.transport.bpm}</b>
 					</div>
-					<div className="key-control">
-						<span>{projectDetailLabel}</span>
-						<b>{projectDetailValue}</b>
-					</div>
+					{detailLabel === undefined && detailValue === undefined ? (
+						<div className="transport__palette">
+							<SongPalettePopover />
+						</div>
+					) : (
+						<div className="key-control">
+							<span>{projectDetailLabel}</span>
+							<b>{projectDetailValue}</b>
+						</div>
+					)}
+					<CommandIconButton
+						className="icon-button transport__keyboard"
+						commandId="layout.open-play"
+						icon={<Keyboard />}
+						label={t('songPalette.openPlay')}
+					/>
 					{meterValue === undefined ? null : (
 						<div
 							aria-label={`${t('transport.meter')}: ${meterValue}. ${meterDescription ?? ''}`}

@@ -5,6 +5,7 @@ export const commandIds = Object.freeze([
 	'studio.home',
 	'studio.first-layer',
 	'studio.sound-chooser',
+	'studio.song-palette',
 	'studio.piano-roll',
 	'studio.drums',
 	'studio.arrangement',
@@ -35,6 +36,7 @@ export const commandIds = Object.freeze([
 	'note.delete',
 	'layout.open-navigation',
 	'layout.open-context',
+	'layout.open-play',
 	'layout.close-drawer'
 ] as const)
 
@@ -108,6 +110,16 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		placements: ['workflow'],
 		scope: 'global',
 		view: 'sound-chooser'
+	}),
+	defineCommand({
+		availability: 'always',
+		disabledReasonKey: 'command.disabled.unavailable',
+		effectOwner: 'presentation',
+		id: 'studio.song-palette',
+		labelKey: 'songPalette.title',
+		placements: ['workflow'],
+		scope: 'global',
+		view: 'song-palette'
 	}),
 	defineCommand({
 		availability: 'always',
@@ -313,6 +325,15 @@ export const commandDefinitions: readonly CommandDefinition[] = Object.freeze([
 		effectOwner: 'presentation',
 		id: 'layout.open-context',
 		labelKey: 'layout.openContext',
+		placements: ['window'],
+		scope: 'global'
+	}),
+	defineCommand({
+		availability: 'engine',
+		disabledReasonKey: 'command.disabled.engineUnavailable',
+		effectOwner: 'presentation',
+		id: 'layout.open-play',
+		labelKey: 'songPalette.openPlay',
 		placements: ['window'],
 		scope: 'global'
 	}),

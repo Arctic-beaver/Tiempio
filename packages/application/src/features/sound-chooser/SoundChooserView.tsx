@@ -1,12 +1,8 @@
 import { AudioLines, CircleDot, Music2, Waves } from 'lucide-react'
-import type { CSSProperties, JSX, ReactNode } from 'react'
+import { useState, type CSSProperties, type JSX, type ReactNode } from 'react'
 import { useLocalization, type LocalizationKey } from '../../../../localization/src/index.js'
-import {
-	performanceMapping,
-	type PerformanceKeyMapping
-} from '../../../../music-theory/src/index.js'
-import { PerformanceKeyControl } from '../../performance/PerformanceKeyControl.js'
-import { usePerformanceInputSurface } from '../../performance/usePerformanceInputSurface.js'
+import { songPalette, type SongPalette } from '../../../../music-theory/src/index.js'
+import { PerformanceKeyboard } from '../../performance/PerformanceKeyboard.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
 import { TransportBar } from '../../shell/TransportBar.js'
 import { soundChooserViewModel, type SoundChooserViewModel } from './view-model.js'
@@ -43,27 +39,24 @@ const axes = Object.freeze([
 ])
 
 export interface SoundChooserViewProperties {
-	readonly keyMapping?: readonly PerformanceKeyMapping[]
 	readonly model?: SoundChooserViewModel
 	readonly onBack: () => void
 	readonly onChoose: () => void
+	readonly palette?: SongPalette
 }
 
 export function SoundChooserView({
-	keyMapping = performanceMapping(
-		{ tonic: 9, mode: 'minor' },
-		{ layout: 'compact', rotation: 0, tonicMidi: 45 }
-	),
 	model = soundChooserViewModel,
 	onBack,
-	onChoose
+	onChoose,
+	palette = songPalette({ tonic: 9, mode: 'minor' })
 }: SoundChooserViewProperties): JSX.Element {
 	const { t } = useLocalization()
 	const performanceOwnerId = 'sound-chooser'
-	const performanceSurface = usePerformanceInputSurface(performanceOwnerId, keyMapping)
+	const [octave, setOctave] = useState(2)
+	const [rotation, setRotation] = useState(0)
 	return (
 		<section
-			{...performanceSurface}
 			className="studio-view sound-chooser-view"
 			data-sound-count={model.sounds.length}
 			data-testid="view-sound-chooser"
@@ -136,15 +129,15 @@ export function SoundChooserView({
 							</button>
 						))}
 					</div>
-					<div aria-label={t('soundChooser.keyboardPreview')} className="keys-preview">
-						{keyMapping.map((key) => (
-							<PerformanceKeyControl
-								key={key.code}
-								keyMapping={key}
-								ownerId={performanceOwnerId}
-							/>
-						))}
-					</div>
+					<PerformanceKeyboard
+						layout="compact"
+						octave={octave}
+						onOctaveChange={setOctave}
+						onRotationChange={setRotation}
+						ownerId={performanceOwnerId}
+						palette={palette}
+						rotation={rotation}
+					/>
 				</div>
 				<aside className="semantic-panel">
 					<h2>{t('soundChooser.fineTune')}</h2>

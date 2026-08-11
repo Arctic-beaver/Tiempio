@@ -5,6 +5,7 @@ import type { StudioDrawer as StudioDrawerId, StudioViewId } from '../app/studio
 import { useCommands } from '../commands/CommandContext.js'
 import { ActivityRail } from './ActivityRail.js'
 import { ContextPanel } from './ContextPanel.js'
+import { PlayPerformancePanel } from '../features/song-palette/PlayPerformancePanel.js'
 import { LayersPanel } from './LayersPanel.js'
 import { StudioDrawer } from './StudioDrawer.js'
 import { TitleBar } from './TitleBar.js'
@@ -54,6 +55,15 @@ export function StudioShell({
 				side="right"
 			>
 				<ContextPanel />
+			</StudioDrawer>
+			<StudioDrawer
+				label={t('songPalette.playDrawer')}
+				onClose={closeDrawer}
+				open={activeDrawer === 'play'}
+				size="wide"
+				side="right"
+			>
+				<PlayPerformancePanel />
 			</StudioDrawer>
 		</main>
 	)

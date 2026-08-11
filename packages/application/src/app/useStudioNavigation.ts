@@ -28,12 +28,14 @@ export function useStudioNavigation(): StudioNavigationController {
 			'studio.home': () => navigate('home'),
 			'studio.first-layer': () => navigate('first-layer'),
 			'studio.sound-chooser': () => navigate('sound-chooser'),
+			'studio.song-palette': () => navigate('song-palette'),
 			'studio.piano-roll': () => navigate('piano-roll'),
 			'studio.drums': () => navigate('drums'),
 			'studio.arrangement': () => navigate('arrangement'),
 			'studio.sound-sculpt': () => navigate('sound-sculpt'),
 			'layout.open-navigation': () => openDrawer('navigation'),
 			'layout.open-context': () => openDrawer('context'),
+			'layout.open-play': () => openDrawer('play'),
 			'layout.close-drawer': closeDrawer
 		}),
 		[closeDrawer, navigate, openDrawer]
