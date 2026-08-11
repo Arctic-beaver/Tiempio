@@ -7,9 +7,11 @@ engine host, shared-output adapter, existing-command integration and architectur
 This evidence distinguishes reproducible automated results from acceptance that still requires a
 real Windows audio device or interactive packaged application.
 
-The prototype remains the visual authority. Stage 5 changed no stylesheet, design token, typography,
-spacing, application geometry, reference PNG or `docs/tiempio_ux_prototype.html`. Runtime state uses
-only the existing command availability and audio-status treatments.
+The prototype remains the visual authority. The original Stage 5 delivery changed no stylesheet,
+design token, typography, spacing, application geometry, reference PNG or
+`docs/tiempio_ux_prototype.html`. The 2026-08-11 acceptance remediation adds only two reviewed
+truthfulness exceptions: a semantic space between preset name and description, and engine-driven
+Play/Pause plus playhead positions. Reference assets remain locked and unchanged.
 
 ## Implementation map
 
@@ -21,12 +23,16 @@ only the existing command availability and audio-status treatments.
 | D — engine supervision      | `feature/desktop-engine-supervision`   | `3219215`            | Verified child ownership, restart, coalescing and typed preload bridge          |
 | E — runtime integration     | `feature/desktop-runtime-integration`  | `3f8ca71`            | One controller, project/engine coordination and truthful existing UI states     |
 | F — packaging and evidence  | `feature/desktop-runtime-verification` | This evidence commit | Exact native resources, fuses, target separation and acceptance record          |
+| Acceptance — physical keys  | `fix/layout-independent-audition`      | `7eacff6`            | Physical-code audition across layouts with safe held-key release                |
+| Acceptance — shared output  | `fix/shared-output-recovery`           | `d91f95a`            | Mix-format negotiation, default-device following and bounded reopen             |
+| Acceptance — transport      | `fix/truthful-transport-ui`            | `d4eee19`            | Engine-owned Play/Pause and tick-derived editor playheads                       |
+| Acceptance — verification   | `fix/phase-5-acceptance-verification`  | `f2ec922`            | Initially unavailable output and offline latest-plan regression coverage        |
 
 ## Reproducible automated evidence
 
 ### Runtime, persistence and supervision
 
-- Compiled unit/contract suite: 100 passing tests.
+- Compiled unit/contract suite: 103 passing tests.
 - Policy suite: 86 passing tests after adding package-integrity coverage.
 - Persistence tests exercise physical create/open/save/reopen, Save As/Copy, external fingerprint
   conflict, unsupported-version preservation, recovery, settings and injected write failures in
@@ -50,8 +56,8 @@ The staged and packaged manifest values matched exactly:
 | ---------- | ------------------------------------------------------------------------- |
 | Target     | `win32-x64`                                                               |
 | Executable | `tiempio-engine-native-host.exe`                                          |
-| Bytes      | `955392`                                                                  |
-| SHA-256    | `sha256:30E01D3A35872081488216D7EE8DB4DE7C823A3FE9B47C511083810B413AF467` |
+| Bytes      | `966656`                                                                  |
+| SHA-256    | `sha256:0495680B54F74FA2F6D2F94DB3E7FF5CFB053E96026986278ED9F6906DA84724` |
 
 Package policy requires exactly the executable/manifest pair, validates PE/ELF/Mach-O architecture,
 size, target and SHA-256, rejects duplicate/source/development-relative content and finds exactly one
@@ -69,11 +75,11 @@ remain part of `check:quick`.
 | ---------------- | -------------: | ------------: |
 | Desktop main     |         171555 |        196608 |
 | Desktop preload  |          46584 |         57344 |
-| Desktop renderer |         457244 |        491520 |
-| Web              |         426940 |        458752 |
+| Desktop renderer |         458198 |        491520 |
+| Web              |         427878 |        458752 |
 
-Desktop renderer attribution reported 372853 initial bytes and 34917 deferred bytes. Web reported
-342428 initial bytes and 34905 deferred bytes. The Web graph contains the neutral
+Desktop renderer attribution reported 373215 initial bytes and 35551 deferred bytes. Web reported
+342774 initial bytes and 35539 deferred bytes. The Web graph contains the neutral
 `ApplicationController` contract, but contains neither `EngineClient` nor the concrete
 `ApplicationRuntimeController`; Electron, native backend and filesystem tokens remain forbidden.
 
@@ -86,6 +92,10 @@ Desktop renderer attribution reported 372853 initial bytes and 34917 deferred by
   names and their descriptions now contain one semantic word space. The prototype HTML and retained
   reference PNGs intentionally remain unchanged and still show the previously joined labels. No
   mask, typography, control geometry or broader spacing treatment is changed by this exception.
+- The same acceptance session approved a second narrow truthfulness exception: the transport icon
+  now changes between Play and Pause from the engine snapshot, and the Piano Roll/Arrangement
+  playheads use the engine tick instead of fixed prototype percentages. Layout, control geometry and
+  note visuals remain unchanged.
 - Production browser smoke covered Home, first-layer creation, sound chooser, the shared settings
   dropdown and unavailable-Web audio state at 1280×720, 1024×640 and 1600×900.
 - Both Light and Dark presentation rendered with the application-owned dropdown and existing
@@ -97,19 +107,30 @@ Desktop renderer attribution reported 372853 initial bytes and 34917 deferred by
 
 ## Manual acceptance gates not claimed
 
-The following results cannot be established honestly by the controlled backend or package-content
-inspection and were not fabricated:
+The 2026-08-11 user session established these physical observations on the pre-remediation package:
 
-- real Windows Shared Audio coexistence while an independent browser/player source remains audible;
-- private-device-free capture of negotiated hardware configuration, first-audible latency, callback
-  timing, underruns and device-loss/reopen recovery;
-- subjective confirmation of non-silent Deep Bass output on physical speakers/headphones;
-- interactive launch of the unpacked/package application through native Open, Save As, reopen,
-  conflict and recovery dialogs.
+- the unpacked app launched and a second click did not create another window;
+- Yandex Music and Tiempio were audible together through wired headphones;
+- physical audition worked in an English layout;
+- unplugging wired headphones left audio unavailable instead of falling back to speakers;
+- Cyrillic input did not trigger the same physical audition keys;
+- Play did not expose a Pause state and the editor playhead did not move;
+- note/ghost interactions were confusing, and the user explicitly deferred that entire UX.
 
-The implementation and automated contracts for those paths are present, but Stage 5 is accepted only
-at the automated boundary until a user-observed Windows hardware and packaged-GUI session records
-these gates.
+The first three observations are accepted evidence. The latter four are the defects/boundary that
+created the remediation plan. The rebuilt package now requires a focused manual rerun; controlled
+tests and package inspection cannot honestly establish these remaining hardware/interactive results:
+
+- the same physical A–L positions in Russian, Spanish or another non-Latin layout;
+- audio through laptop speakers when Tiempio starts without headphones;
+- wired-headphone unplug fallback to speakers and replug return without restarting Tiempio;
+- Bluetooth selection as the Windows default while the previous endpoint still exists;
+- continued coexistence with Yandex Music after those endpoint changes;
+- visible Play/Pause state and moving/wrapping Piano Roll and Arrangement playheads.
+
+The implementation and automated contracts for those paths are present, but remediation is accepted
+only at the automated boundary until a user-observed Windows hardware and packaged-GUI session
+records these gates. Note interaction and Scenario 6 are not active acceptance gates for this run.
 
 ## Residual risks and deferred scope
 
@@ -120,6 +141,12 @@ these gates.
   signing/notarization and installer trust remain release-stage work.
 - WASAPI device availability and timing vary by driver and host and still require the manual gate
   above.
+- Tiempio follows the Windows default output automatically. A manual application-owned output picker
+  is deferred product UX; an input picker is intentionally absent until a recording/input workflow
+  exists.
+- Note creation, placement, selection, deletion, transposition, ghost suggestions, decorative notes
+  and their relationship to audible content are explicitly deferred for a separate user-friendly UX
+  design pass. Scenario 6 remains `BLOCKED / NOT ACTIVE` with that scope.
 - Full beginner-facing persistence presentation remains Stage 7; Stage 5 exposes the secure runtime
   and native dialogs without inventing a new application-owned surface.
 
@@ -130,3 +157,9 @@ heartbeats. During the browser smoke, terminating the preview session left an or
 lock after the recorded lifecycle-runner, Vite and esbuild PIDs had already exited. Their exact
 identities were checked, only that verified lock was removed, and the subsequent lifecycle audit was
 clean. No task-owned process, lock or cleanup quarantine is retained.
+
+For the 2026-08-11 remediation, `check:audio`, `check:visual-a11y`, `check:quick`,
+`package:check`, `check:bundle-size` and `check:chunk-topology` all passed sequentially through the
+same lifecycle owner. The final package is
+`artifacts/packages/win-unpacked/Tiempio.exe`; its packaged native manifest exactly matches the
+staged `win32-x64` manifest above. No slowdown or excessive-resource incident occurred.

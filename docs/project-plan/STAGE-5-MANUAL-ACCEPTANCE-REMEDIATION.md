@@ -96,7 +96,7 @@ task does not invent a Save/recovery presentation.
 
 ### Stage A — contract and acceptance record
 
-Branch: `fix/phase-5-acceptance-contract`.
+Planning record on the required task integration branch: `fix/phase-5-manual-acceptance`.
 
 - Record the reduced scope, manual failures, prototype exceptions and deferred note UX.
 - Add focused failing regression cases before behavior changes where practical.
@@ -147,6 +147,19 @@ Branch: `fix/phase-5-acceptance-verification`.
   hardware checks that still require the user.
 - Leave a clean integration branch ready for review, without merging Phase 5 or Phase 6 to `main`.
 
+## Implementation record
+
+| Stage | Branch | Commit | Outcome |
+| --- | --- | --- | --- |
+| Plan | `fix/phase-5-manual-acceptance` | `e23644d` | Agreed scope, architecture, edge cases, verification and definition of done |
+| Physical keys | `fix/layout-independent-audition` | `7eacff6` | `KeyboardEvent.code` mapping with layout-change, IME, modifier and release coverage |
+| Shared output | `fix/shared-output-recovery` | `d91f95a` | Compatible mix-format negotiation, default-device following and bounded recovery |
+| Transport | `fix/truthful-transport-ui` | `d4eee19` | Engine-owned Play/Pause and tick-derived Piano Roll/Arrangement playheads |
+| Verification | `fix/phase-5-acceptance-verification` | `f2ec922` | Initial-no-device and offline-latest-plan recovery coverage |
+
+The earlier `d24cba8` commit supplies the user-approved semantic space between each sound-preset
+name and description. No note interaction was changed by any remediation commit.
+
 ## Edge cases, failures and compatibility risks
 
 - A layout changes between keydown and keyup, or the reported character is empty/non-Latin.
@@ -195,6 +208,16 @@ Combined verification, in order:
 3. `npm run check:quick`;
 4. `npm run package:check`.
 
+Completed on 2026-08-11:
+
+- `npm run check:audio` — passed release build, staging and controlled self-test;
+- `npm run check:visual-a11y` — passed all four stages;
+- `npm run check:quick` — passed all 19 stages, including 103 compiled tests, 86 policy tests and 14
+  native-host tests;
+- `npm run package:check` — passed all 11 stages and rebuilt the verified Windows x64 unpacked
+  package;
+- `npm run check:bundle-size` and `npm run check:chunk-topology` — passed on the final artifacts.
+
 The unpacked application must be closed before package replacement. Final manual acceptance uses
 the rebuilt package and covers launch/single instance, EN/RU/ES physical keys, laptop speakers at
 launch, wired unplug/replug with speaker fallback, Bluetooth default selection, Yandex Music
@@ -215,3 +238,26 @@ explicitly outside this run.
 - Manual hardware outcomes are recorded honestly; unresolved hardware or note-UX gates remain open.
 - The integration branch is clean, contains focused English commits, has no task-owned process,
   lifecycle lock or quarantine, and is not merged to `main`.
+
+## Completion audit
+
+The implementation and automated definition of done are complete. Physical-key behavior,
+compatible-device negotiation, unavailable-at-start recovery, active default-device changes,
+stream-loss recovery, capped retry, explicit-stop cancellation and transport projection all have
+passing automated coverage. The final unpacked executable is available at
+`artifacts/packages/win-unpacked/Tiempio.exe`.
+
+Manual Windows hardware acceptance is deliberately still pending against that rebuilt package. It
+must confirm laptop-speaker startup, wired unplug/replug fallback, Bluetooth default selection,
+coexistence with an independent player, layout-independent physical keys, and visible Play/Pause
+plus moving/wrapping playheads. This pending hardware observation is not reported as an automated
+failure and is not replaced by fabricated evidence.
+
+A manual output-device picker is a separate product decision. Automatic following of the Windows
+default output is implemented here. An application-owned output override may be designed later;
+input selection is deferred until Tiempio has a real recording/input workflow, so the current UI
+does not expose a non-functional selector.
+
+All note UX findings and Scenario 6 remain `BLOCKED / NOT ACTIVE` by explicit user decision. Stage 6
+therefore remains gated until the separate note UX work and the remaining manual hardware checks are
+accepted.
