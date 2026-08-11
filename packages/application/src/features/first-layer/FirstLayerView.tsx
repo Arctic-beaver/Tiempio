@@ -30,7 +30,7 @@ const intentRows: readonly IntentRow[] = Object.freeze([
 		icon: <CircleDot />
 	}),
 	Object.freeze({
-		id: 'melody',
+		id: 'chords',
 		labelKey: 'firstLayer.chords',
 		descriptionKey: 'firstLayer.chordsDescription',
 		icon: <AudioLines />

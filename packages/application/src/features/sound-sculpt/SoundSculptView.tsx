@@ -1,6 +1,8 @@
 import { useState, type CSSProperties, type JSX } from 'react'
 import { SemanticSlider } from '../../../../design-system/src/index.js'
 import { useLocalization } from '../../../../localization/src/index.js'
+import type { SynthPresetId } from '../../../../project-core/src/index.js'
+import { useApplicationRuntimeController } from '../../runtime/ApplicationRuntimeControllerContext.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
 import { TransportBar } from '../../shell/TransportBar.js'
 import { type SculptDimensionViewModel, type SoundSculptViewModel } from './view-model.js'
@@ -11,26 +13,21 @@ const axes = Object.freeze([
 	{ id: 'texture', left: 'Clean', right: 'Dirty' }
 ] as const)
 
-const characters = Object.freeze([
-	{ name: 'Deep', descriptionKey: 'soundChooser.presetDeep' },
-	{ name: 'Warm', descriptionKey: 'soundChooser.presetWarm' },
-	{ name: 'Punchy', descriptionKey: 'soundChooser.presetPunchy' },
-	{ name: 'Dirty', descriptionKey: 'soundChooser.presetDirty' },
-	{ name: 'Retro', descriptionKey: 'soundChooser.presetRetro' }
-] as const)
-
 export interface SoundSculptViewProperties {
 	readonly model: SoundSculptViewModel
 	readonly onCommit: (dimensionId: SculptDimensionViewModel['id'], value: number) => void
 	readonly onDone: () => void
+	readonly onSelectCharacter: (presetId: SynthPresetId) => void
 }
 
 export function SoundSculptView({
 	model,
 	onCommit,
-	onDone
+	onDone,
+	onSelectCharacter
 }: SoundSculptViewProperties): JSX.Element {
 	const { t } = useLocalization()
+	const controller = useApplicationRuntimeController()
 	const [preview, setPreview] = useState<Partial<Record<SculptDimensionViewModel['id'], number>>>(
 		{}
 	)
@@ -46,14 +43,14 @@ export function SoundSculptView({
 				backLabel={t('common.back')}
 				center={<TransportBar mode="preview" />}
 				onBack={onDone}
-				subtitle="Bass · Deep"
+				subtitle={`${model.familyName} · ${model.soundName}`}
 				title={t('sculpt.characterTitle')}
 			/>
 			<div className="sculpt-layout">
 				<main className="sculpt-main">
 					<div className="sculpt-heading">
 						<div>
-							<h1>{model.soundName === '—' ? 'Deep' : model.soundName}</h1>
+							<h1>{model.soundName}</h1>
 							<p>{t('sculpt.description')}</p>
 						</div>
 						<button className="advanced-link" disabled type="button">
@@ -114,21 +111,29 @@ export function SoundSculptView({
 				<aside className="character-panel">
 					<h2>{t('sculpt.nearbyCharacters')}</h2>
 					<div className="character-list">
-						{characters.map((character, index) => (
-							<button
-								aria-current={index === 0 ? 'true' : undefined}
-								className={`character-row${index === 0 ? ' active' : ''}`}
-								disabled
-								key={character.name}
-								type="button"
-							>
-								<span>
-									<strong>{character.name}</strong>
-									<small>{t(character.descriptionKey)}</small>
-								</span>
-								<span aria-hidden="true" className="character-radio" />
-							</button>
-						))}
+						{model.characters.map((character) => {
+							const active = character.id === model.presetId
+							return (
+								<button
+									aria-current={active ? 'true' : undefined}
+									className={`character-row${active ? ' active' : ''}`}
+									key={character.id}
+									onClick={() => {
+										controller.previewCoordinator.interrupt()
+										controller.performanceInput.releaseAll()
+										setPreview({})
+										onSelectCharacter(character.id)
+									}}
+									type="button"
+								>
+									<span>
+										<strong>{character.name}</strong>
+										<small>{t(character.descriptionKey)}</small>
+									</span>
+									<span aria-hidden="true" className="character-radio" />
+								</button>
+							)
+						})}
 					</div>
 				</aside>
 			</div>

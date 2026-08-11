@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { songPalette } from '../../../../music-theory/src/index.js'
+import { synthPresetCatalog } from '../../../../project-core/src/index.js'
 import {
 	advanceSoundWaveFrame,
 	idleSoundWaveFrame,
@@ -12,6 +13,37 @@ import {
 	targetSoundWaveEnergy
 } from './sound-demo-model.js'
 import { SoundWaveAnimator, type SoundWaveAnimationScheduler } from './sound-wave-animator.js'
+import { soundChooserViewModel } from './view-model.js'
+
+describe('sound chooser catalog view model', () => {
+	it('exposes every engine-backed character in the prototype family order', () => {
+		assert.deepEqual(
+			soundChooserViewModel.families.map(({ id }) => id),
+			['bass', 'lead', 'pad', 'pluck', 'texture']
+		)
+		assert.deepEqual(
+			soundChooserViewModel.families.map(({ presets }) => presets.length),
+			[6, 7, 5, 4, 5]
+		)
+		const visibleIds = soundChooserViewModel.families.flatMap(({ presets }) =>
+			presets.map(({ id }) => id)
+		)
+		assert.deepEqual(
+			visibleIds,
+			synthPresetCatalog.map(({ id }) => id)
+		)
+		assert.equal(new Set(visibleIds).size, 27)
+	})
+
+	it('gives every character localized presentation copy', () => {
+		for (const family of soundChooserViewModel.families) {
+			for (const character of family.presets) {
+				assert.match(character.descriptionKey, /^soundChooser\.character\./u)
+				assert.ok(character.name.length > 0)
+			}
+		}
+	})
+})
 
 describe('sound demo and reactive wave model', () => {
 	it('keeps the demo bounded and on the visible compact keyboard', () => {

@@ -78,6 +78,7 @@ export default function EditorSurface({ activeView }: EditorSurfaceProperties): 
 			model={projections.sculpt}
 			onCommit={soundSculpt.commitMacro}
 			onDone={() => execute(commandForView('arrangement'))}
+			onSelectCharacter={soundSculpt.selectCharacter}
 		/>
 	)
 }
