@@ -19,7 +19,8 @@ import {
 } from '../../../project-core/src/index.js'
 import {
 	type ApplicationController,
-	type ApplicationControllerSnapshot
+	type ApplicationControllerSnapshot,
+	silentApplicationMeter
 } from './ApplicationController.js'
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
 import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
@@ -82,6 +83,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		available: false,
 		diagnostic: null,
 		health: null,
+		meter: silentApplicationMeter,
 		playing: false,
 		tick: 0
 	})
@@ -412,6 +414,14 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	#acceptEngineEvent(event: AnyEngineEventEnvelope): void {
+		if (event.type === 'meter-snapshot') {
+			if (!this.#snapshot.available || document.visibilityState !== 'visible') return
+			this.#publish({
+				...this.#snapshot,
+				meter: Object.freeze({ ...event.payload })
+			})
+			return
+		}
 		if (event.type === 'preview-started') {
 			this.previewCoordinator.acceptStarted(event.payload.previewId)
 			return
@@ -479,6 +489,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 			available,
 			diagnostic: available ? null : this.#snapshot.diagnostic,
 			health,
+			meter: available ? this.#snapshot.meter : silentApplicationMeter,
 			playing: available ? this.#snapshot.playing : false
 		})
 		if (this.#engineRestarting && health.backendState === 'stopped') {
@@ -498,7 +509,10 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	#visibilityChanged = (): void => {
-		if (document.visibilityState !== 'visible') this.performanceInput.releaseAll()
+		if (document.visibilityState === 'visible') return
+		this.previewCoordinator.interrupt()
+		this.performanceInput.releaseAll()
+		this.#publish({ ...this.#snapshot, meter: silentApplicationMeter })
 	}
 
 	#attachWindowListeners(): void {
@@ -520,7 +534,13 @@ export class ApplicationRuntimeController implements ApplicationController {
 	#setDiagnostic(error: ApplicationError): void {
 		this.previewCoordinator.reset()
 		this.performanceInput.releaseAll()
-		this.#publish({ ...this.#snapshot, available: false, diagnostic: error, playing: false })
+		this.#publish({
+			...this.#snapshot,
+			available: false,
+			diagnostic: error,
+			meter: silentApplicationMeter,
+			playing: false
+		})
 	}
 
 	#publish(snapshot: ApplicationControllerSnapshot): void {

@@ -1,10 +1,19 @@
-import { AudioLines, CircleDot, Music2, Waves } from 'lucide-react'
-import { useState, type CSSProperties, type JSX, type ReactNode } from 'react'
+import { AudioLines, CircleDot, Headphones, Music2, Square, Waves } from 'lucide-react'
+import {
+	useEffect,
+	useState,
+	useSyncExternalStore,
+	type CSSProperties,
+	type JSX,
+	type ReactNode
+} from 'react'
 import { useLocalization, type LocalizationKey } from '../../../../localization/src/index.js'
 import { songPalette, type SongPalette } from '../../../../music-theory/src/index.js'
 import { PerformanceKeyboard } from '../../performance/PerformanceKeyboard.js'
+import { useApplicationRuntimeController } from '../../runtime/ApplicationRuntimeControllerContext.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
-import { TransportBar } from '../../shell/TransportBar.js'
+import { soundDemoProgram } from './sound-demo-model.js'
+import { SoundWaveform } from './SoundWaveform.js'
 import { soundChooserViewModel, type SoundChooserViewModel } from './view-model.js'
 
 const categories: readonly {
@@ -38,6 +47,8 @@ const axes = Object.freeze([
 	Object.freeze({ left: 'Short', right: 'Long', value: '58%' })
 ])
 
+const defaultPalette = songPalette({ tonic: 9, mode: 'minor' })
+
 export interface SoundChooserViewProperties {
 	readonly model?: SoundChooserViewModel
 	readonly onBack: () => void
@@ -49,12 +60,38 @@ export function SoundChooserView({
 	model = soundChooserViewModel,
 	onBack,
 	onChoose,
-	palette = songPalette({ tonic: 9, mode: 'minor' })
+	palette = defaultPalette
 }: SoundChooserViewProperties): JSX.Element {
 	const { t } = useLocalization()
+	const controller = useApplicationRuntimeController()
+	const engine = useSyncExternalStore(
+		controller.subscribe,
+		controller.getSnapshot,
+		controller.getSnapshot
+	)
+	const preview = useSyncExternalStore(
+		controller.previewCoordinator.subscribe,
+		controller.previewCoordinator.getSnapshot,
+		controller.previewCoordinator.getSnapshot
+	)
 	const performanceOwnerId = 'sound-chooser'
 	const [octave, setOctave] = useState(2)
 	const [rotation, setRotation] = useState(0)
+	const soundDemoActive = preview.active && preview.kind === 'sound'
+	useEffect(() => {
+		return () => {
+			if (controller.previewCoordinator.getSnapshot().kind === 'sound') {
+				controller.previewCoordinator.interrupt()
+			}
+		}
+	}, [controller])
+	const toggleSoundDemo = (): void => {
+		if (soundDemoActive) {
+			controller.previewCoordinator.interrupt()
+			return
+		}
+		controller.previewCoordinator.start('sound', soundDemoProgram(palette, octave, rotation))
+	}
 	return (
 		<section
 			className="studio-view sound-chooser-view"
@@ -62,7 +99,7 @@ export function SoundChooserView({
 			data-testid="view-sound-chooser"
 		>
 			<StudioTopBar
-				center={<TransportBar mode="audition" />}
+				center={<div aria-hidden="true" />}
 				onBack={onBack}
 				subtitle={t('soundChooser.subtitle')}
 				title={t('soundChooser.title')}
@@ -96,19 +133,34 @@ export function SoundChooserView({
 						</button>
 					</div>
 					<div className="audition">
-						<span className="audition-label">{t('soundChooser.auditionHint')}</span>
-						<svg
-							aria-hidden="true"
-							className="wave"
-							preserveAspectRatio="none"
-							viewBox="0 0 800 100"
-						>
-							<path d="M0 50 C25 18 46 82 71 50 S118 18 143 50 189 82 214 50 260 18 286 50 332 82 357 50 403 18 429 50 475 82 500 50 546 18 572 50 618 82 643 50 689 18 715 50 761 82 800 50" />
-							<path
-								d="M0 50 C38 36 61 64 99 50 S160 36 198 50 259 64 297 50 358 36 396 50 457 64 495 50 556 36 594 50 655 64 693 50 754 36 800 50"
-								opacity=".28"
-							/>
-						</svg>
+						<div className="audition__header">
+							<span className="audition-label">{t('soundChooser.auditionHint')}</span>
+							<button
+								aria-label={t(
+									soundDemoActive
+										? 'soundChooser.stopDemoAria'
+										: 'soundChooser.hearSoundAria',
+									{ palette: palette.name, sound: 'Deep Bass' }
+								)}
+								aria-pressed={soundDemoActive}
+								className="sound-demo-action"
+								disabled={!engine.available || engine.playing}
+								onClick={toggleSoundDemo}
+								type="button"
+							>
+								{soundDemoActive ? (
+									<Square aria-hidden="true" />
+								) : (
+									<Headphones aria-hidden="true" />
+								)}
+								{t(
+									soundDemoActive
+										? 'soundChooser.stopDemo'
+										: 'soundChooser.hearSound'
+								)}
+							</button>
+						</div>
+						<SoundWaveform ownerId={performanceOwnerId} />
 					</div>
 					<div className="preset-lines">
 						{presets.map((preset, index) => (

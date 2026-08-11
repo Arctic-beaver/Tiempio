@@ -12,9 +12,20 @@ export interface ApplicationControllerSnapshot {
 	readonly available: boolean
 	readonly diagnostic: ApplicationError | null
 	readonly health: AudioHealthSnapshot | null
+	readonly meter: ApplicationMeterSnapshot
 	readonly playing: boolean
 	readonly tick: number
 }
+
+export interface ApplicationMeterSnapshot {
+	readonly leftPeak: number
+	readonly rightPeak: number
+}
+
+export const silentApplicationMeter = Object.freeze<ApplicationMeterSnapshot>({
+	leftPeak: 0,
+	rightPeak: 0
+})
 
 export interface ApplicationController {
 	readonly performanceInput: PerformanceInputSession
@@ -38,6 +49,7 @@ const unavailableSnapshot = Object.freeze<ApplicationControllerSnapshot>({
 	available: false,
 	diagnostic: null,
 	health: null,
+	meter: silentApplicationMeter,
 	playing: false,
 	tick: 0
 })

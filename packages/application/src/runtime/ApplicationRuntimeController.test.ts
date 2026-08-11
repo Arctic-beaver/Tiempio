@@ -242,11 +242,11 @@ describe('ApplicationRuntimeController', () => {
 				[0]
 			)
 			const beforePreview = session.getSnapshot()
-			const previewId = controller.previewCoordinator.start('palette', [
+			const previewId = controller.previewCoordinator.start('sound', [
 				{ durationMs: 160, offsetMs: 0, pitches: [57], velocity: 100 },
 				{ durationMs: 160, offsetMs: 160, pitches: [60], velocity: 100 }
 			])
-			assert.equal(previewId, 'preview-palette-1')
+			assert.equal(previewId, 'preview-sound-1')
 			await flush()
 			assert.equal(commands.at(-1)?.type, 'start-preview')
 			if (previewId === null) throw new Error('preview should be accepted')
@@ -263,15 +263,22 @@ describe('ApplicationRuntimeController', () => {
 					type: 'preview-state',
 					payload: { active: true, pitches: [57], previewId, samplePosition: 0 }
 				})
+				listener({
+					protocolVersion: engineProtocolVersion,
+					sequence: 2,
+					type: 'meter-snapshot',
+					payload: { leftPeak: 0.25, rightPeak: 0.5 }
+				})
 			}
 			assert.deepEqual(controller.previewCoordinator.getSnapshot().pitches, [57])
+			assert.deepEqual(controller.getSnapshot().meter, { leftPeak: 0.25, rightPeak: 0.5 })
 			assert.equal(session.getSnapshot().revision, beforePreview.revision)
 			assert.equal(session.getSnapshot().canUndo, beforePreview.canUndo)
 			assert.equal(session.getSnapshot().project, beforePreview.project)
 			for (const listener of eventListeners) {
 				listener({
 					protocolVersion: engineProtocolVersion,
-					sequence: 2,
+					sequence: 3,
 					type: 'preview-ended',
 					payload: { previewId, reason: 'completed' }
 				})
@@ -281,7 +288,7 @@ describe('ApplicationRuntimeController', () => {
 			for (const listener of eventListeners) {
 				listener({
 					protocolVersion: engineProtocolVersion,
-					sequence: 3,
+					sequence: 4,
 					type: 'render-plan-acknowledged',
 					payload: { planGeneration: 1, projectRevision: 0 }
 				})
@@ -290,7 +297,7 @@ describe('ApplicationRuntimeController', () => {
 			for (const listener of eventListeners) {
 				listener({
 					protocolVersion: engineProtocolVersion,
-					sequence: 4,
+					sequence: 5,
 					type: 'render-plan-acknowledged',
 					payload: { planGeneration: 1, projectRevision: 0 }
 				})
@@ -312,13 +319,13 @@ describe('ApplicationRuntimeController', () => {
 			for (const listener of eventListeners) {
 				listener({
 					protocolVersion: engineProtocolVersion,
-					sequence: 5,
+					sequence: 6,
 					type: 'render-plan-acknowledged',
 					payload: { planGeneration: 2, projectRevision: 1 }
 				})
 				listener({
 					protocolVersion: engineProtocolVersion,
-					sequence: 6,
+					sequence: 7,
 					type: 'transport-snapshot',
 					payload: {
 						playing: true,
@@ -388,6 +395,7 @@ describe('ApplicationRuntimeController', () => {
 			await flush()
 			assert.equal(commands.at(-1)?.type, 'note-off')
 			assert.equal(controller.getSnapshot().available, false)
+			assert.deepEqual(controller.getSnapshot().meter, { leftPeak: 0, rightPeak: 0 })
 			assert.deepEqual(controller.performanceInput.getSnapshot().heldKeys, [])
 			for (const listener of healthListeners) listener(readyHealth)
 
