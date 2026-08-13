@@ -18,6 +18,11 @@ import {
 	validateLogicalArchive,
 	type LogicalArchiveEntry
 } from './index.js'
+import {
+	decodePhysicalProjectArchive,
+	encodePhysicalProjectArchive,
+	PhysicalProjectArchiveError
+} from './physical-archive.js'
 
 const project = createProject({ projectId: 'project.format', title: 'Формат 🎛️' })
 
@@ -94,6 +99,34 @@ describe('project format', () => {
 			validateLogicalArchive([null] as unknown as readonly LogicalArchiveEntry[]).ok,
 			false
 		)
+	})
+
+	it('preflights and checksum-validates the shared physical ZIP boundary', () => {
+		const encoded = encodePhysicalProjectArchive(createLogicalProjectArchive(project))
+		const decoded = decodePhysicalProjectArchive(encoded)
+		assert.equal(decoded.logical.status, 'loaded')
+		assert.deepEqual(encodePhysicalProjectArchive(decoded.logical.entries), encoded)
+
+		const corrupt = new Uint8Array(encoded)
+		corrupt[Math.floor(corrupt.byteLength / 3)] ^= 0xff
+		assert.throws(
+			() => decodePhysicalProjectArchive(corrupt),
+			(error: unknown) =>
+				error instanceof PhysicalProjectArchiveError && error.code === 'INVALID_ARCHIVE'
+		)
+
+		const encrypted = new Uint8Array(encoded)
+		const data = new DataView(encrypted.buffer)
+		let central = 0
+		while (
+			central + 4 <= encrypted.byteLength &&
+			data.getUint32(central, true) !== 0x02014b50
+		) {
+			central += 1
+		}
+		assert.ok(central + 10 < encrypted.byteLength)
+		data.setUint16(central + 8, data.getUint16(central + 8, true) | 1, true)
+		assert.throws(() => decodePhysicalProjectArchive(encrypted), /Encrypted/iu)
 	})
 
 	it('round-trips recovery with CRC32 corruption detection', () => {
