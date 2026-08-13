@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "reference": "docs/tiempio_ux_prototype.html",
+  "referenceGitBlob": "5c95c6c95b45868a5ec4f22369f911485efb9c47",
+  "referenceSha256": "D2A44B07891F97917A8809B3CEBF2D16697ACF5C1FA578540E9595D55ADFA1DB",
+  "captureDate": "2026-08-13",
+  "captureKind": "user-provided-full-prototype-page",
+  "preservation": "byte-for-byte",
+  "authorityScope": "state-06-linked-bricks-and-song",
+  "images": [
+    {
+      "state": "linked-bricks-song",
+      "scheme": "light",
+      "path": "light/06-linked-bricks-song.png",
+      "width": 3114,
+      "height": 1886,
+      "pixelFormat": "Format32bppArgb",
+      "bytes": 659133,
+      "sha256": "787631DC586D8222408F474E75D108F465C6B6C8C6D3C4A3F208592F2212FED2"
+    },
+    {
+      "state": "linked-bricks-song",
+      "scheme": "dark",
+      "path": "dark/06-linked-bricks-song.png",
+      "width": 3120,
+      "height": 1900,
+      "pixelFormat": "Format32bppArgb",
+      "bytes": 618993,
+      "sha256": "00B4C3881551387230F19BB5A8FF5379726575182F570A7D11AF6FB819CD03BD"
+    }
+  ]
+}

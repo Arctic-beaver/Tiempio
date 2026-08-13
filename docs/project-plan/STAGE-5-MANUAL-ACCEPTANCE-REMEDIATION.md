@@ -29,7 +29,7 @@ Note creation, placement, selection, deletion, transposition, editing, ghost-not
 decorative preview-note replacement and the relationship between visible and audible project notes
 are excluded. The user requested a separate product/UX design pass before any implementation in
 that area. That design pass is now recorded in
-`docs/project-plan/NOTE-EDITOR-INTERACTIONS.md`; its implementation remains outside this completed
+`docs/project-plan/STAGE-9A-NOTE-EDITOR-INTERACTIONS.md`; its implementation remains outside this completed
 remediation branch.
 
 The implementation must not change note data, note commands, note hit targets, preview-note

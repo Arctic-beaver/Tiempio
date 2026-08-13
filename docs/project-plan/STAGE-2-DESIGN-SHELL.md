@@ -1,4 +1,4 @@
-# Step 3 — Tiempio design system and shared application shell
+# Stage 2 — Tiempio design system and shared application shell
 
 ## Status and scope
 

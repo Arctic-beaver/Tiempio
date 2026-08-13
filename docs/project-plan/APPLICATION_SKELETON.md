@@ -2,9 +2,10 @@
 
 ## Status and ownership
 
-**Status:** implementation is complete through Stage 5 and the accepted pre-Stage-6 product work.
-Retained Desktop hardware/packaged observations remain documented; Stage 6 planning is complete,
-but Stage 6 implementation and Stages 7-8 have not started.
+**Status:** implementation is complete through Stage 5 and the accepted product work delivered
+before Stage 6. Retained Desktop hardware/packaged observations remain documented. Stage 6 is the
+current implementation phase. Stages 7–16 are approved plans and have not started; Stage 12 recorder
+UI additionally requires its explicit user design approval before implementation.
 
 **Original planned integration branch:** `feature/application-skeleton`.
 
@@ -33,9 +34,17 @@ composite synth/drum engine rather than creating a Bass-only Web fork.
 | 3 - Project core and logical format | Complete; retained evidence exists |
 | 4 - Engine core and offline proof | Complete; retained evidence exists |
 | 5 - Desktop runtime | Implemented; automated acceptance complete, manual Windows hardware and packaged-GUI gates retained |
-| 6 - Web runtime | Planning complete; implementation not started |
-| 7 - Primary audible vertical slice | Not started |
-| 8 - Acceptance hardening | Not started |
+| 6 - Web runtime | Implementation in progress in a separate task |
+| 7 - Creation flow and focus-safe audition | Approved plan; not started |
+| 8 - Perceptual sound quality and curated catalog | Approved plan; not started |
+| 9 - Brick editor and performance recording | Approved plan; not started |
+| 10 - Linked bricks and song composition | Approved plan; not started |
+| 11 - Empty starts, example song and rhythm library | Approved plan; not started |
+| 12 - Personal audio import and microphone recording | Approved architecture; recorder design review required |
+| 13 - Dedicated audio export | Approved plan; not started |
+| 14 - Responsive, tablet and mobile adaptation | Approved plan; not started |
+| 15 - Combined acceptance hardening | Approved plan; not started |
+| 16 - Interchange import and safe DAW migration | Approved plan; starts after Stage 15 |
 
 **Architecture authority:** `docs/architecture/TIEMPIO_ARCHITECTURE.md`.
 
@@ -48,9 +57,9 @@ feature phases; it does not claim that Tiempio is already a complete music studi
 
 At completion, a user can launch Tiempio Desktop or Tiempio Web and follow one honest path:
 
-> New track -> Bass -> Deep -> play from the computer keyboard -> hear the instrument -> place a
-> short phrase -> play and stop it -> save or retain the project through the target's real
-> persistence capability.
+> New track -> Bass -> Deep -> play from the computer keyboard -> hear the instrument -> record or
+> place a source phrase -> arrange linked instances -> play and stop the song -> save or retain the
+> project through the target's real persistence capability.
 
 The complete seven-state prototype is represented by the real shared application shell:
 
@@ -62,9 +71,11 @@ The complete seven-state prototype is represented by the real shared application
 6. arrangement foundation;
 7. sound-sculpt foundation.
 
-Only the primary Bass vertical slice must be musically complete during this plan. The drum,
-arrangement and sound-sculpt surfaces must be architecture-real and project-state-driven, but
-their full production behavior belongs to later feature plans.
+The primary Bass vertical slice proves the path first. In Stage 8, the bounded built-in
+five-family synth catalog clears the perceptual sound-quality gate; the current procedural
+drums remain the protected positive reference. Arrangement and sound-sculpt surfaces remain
+architecture-real and project-state-driven, while broader catalog expansion belongs to later
+feature plans.
 
 ## Definition of the skeleton boundary
 
@@ -75,25 +86,37 @@ The skeleton includes:
 - versioned application/runtime and engine contracts;
 - canonical revisioned `ProjectSession`;
 - minimal `.tiempio` project format and recovery contract;
-- Rust DSP core with one curated Bass patch;
+- Rust DSP core with a mathematically analysed, human-curated built-in synth catalog and the
+  protected procedural drum reference;
 - native Desktop engine host;
 - WebAssembly `AudioWorklet` engine adapter;
 - real computer-keyboard audition;
+- engine-clock laptop/touch performance recording with automatic grouped Undo;
+- open-ended virtual source editing that grows through authored notes or recorded silence;
+- bounded local PCM WAV import through `Мой звук` as either a portable sample instrument or fixed
+  audio phrase, plus explicitly approved microphone/input recording to the same phrase model;
 - engine-owned transport for one short MIDI phrase;
+- deterministic full-song stereo WAV export from the current project revision through a dedicated
+  application workspace;
 - structured audio diagnostics;
 - source, unit, boundary, smoke, visual/accessibility and audio acceptance gates;
 - repository-owned bounded lifecycle workflows.
 
 The skeleton excludes:
 
-- production-quality complete synth and drum catalogs;
-- large user-audio import and time stretching;
-- complete MIDI-device recording UX;
-- advanced synth controls, effects, automation and user routing;
+- unbounded catalog expansion, multisampled acoustic instruments and third-party sound libraries;
+- large/batch/compressed user-audio import, multisample libraries and time stretching beyond the
+  bounded Stage 12 personal-audio boundary;
+- Web/native MIDI-device permission, discovery and routing UX; keyboard/touch recording and the
+  MIDI-ready normalized event seam are owned by Stage 9;
+- advanced synth controls, user-routable/general-purpose effects, automation and user routing; a
+  bounded per-instrument space primitive is allowed only if the perceptual sound-quality bake-off
+  accepts it as versioned patch data within target budgets;
 - mixing and mastering workflows;
 - immutable history and automatic disk autosave;
 - full reference-track mode;
-- stems and production export formats beyond a testable offline-render primitive;
+- compressed export formats, stems, mastering/normalization and cloud publishing beyond the
+  initial production stereo WAV mixdown;
 - plugins, accounts, cloud sync, collaboration, AI generation and analytics;
 - Linux release certification;
 - repository-hosted automation under `.github/workflows/`.
@@ -129,8 +152,16 @@ feature/skeleton-project-core
 feature/skeleton-engine-core
 feature/skeleton-desktop-runtime
 feature/skeleton-web-runtime
-feature/skeleton-primary-vertical-slice
-feature/skeleton-acceptance-hardening
+feature/creation-and-audition
+feature/perceptual-sound-quality
+feature/brick-editor-performance
+feature/linked-bricks-song-architecture
+feature/starter-content
+feature/personal-sound-import
+feature/audio-export
+feature/responsive-mobile
+feature/stage-15-acceptance
+feature/interchange-import
 ```
 
 If a stage reveals a required architectural change, the integration plan and architecture
@@ -149,10 +180,18 @@ flowchart TD
     Stage4 --> Stage5
     Stage3 --> Stage6["6. Web runtime"]
     Stage4 --> Stage6
-    Stage2 --> Stage7["7. Primary vertical slice"]
+    Stage2 --> Stage7["7. Creation and audition"]
     Stage5 --> Stage7
     Stage6 --> Stage7
-    Stage7 --> Stage8["8. Acceptance hardening"]
+    Stage7 --> Stage8["8. Perceptual sound quality"]
+    Stage8 --> Stage9["9. Brick editor and performance recording"]
+    Stage9 --> Stage10["10. Linked bricks and song"]
+    Stage10 --> Stage11["11. Starter content"]
+    Stage11 --> Stage12["12. Personal audio"]
+    Stage12 --> Stage13["13. Audio export"]
+    Stage13 --> Stage14["14. Responsive and mobile"]
+    Stage14 --> Stage15["15. Acceptance hardening"]
+    Stage15 --> Stage16["16. Interchange import"]
 ```
 
 Stages remain sequential in delivery even where the dependency graph would permit parallel coding.
@@ -549,82 +588,450 @@ than a target-specific Bass-only subset; the detailed parity scope is defined in
 - Shared/Web bundles contain no Electron or native filesystem code.
 - Web remains usable for an in-memory project when persistent browser storage is unavailable.
 
-## Stage 7 — Primary audible vertical slice
+## Stage 7 — Context-preserving creation and focus-safe audition
 
-**Branch:** `feature/skeleton-primary-vertical-slice`.
+**Integration branch:** `feature/creation-and-audition`.
+
+Detailed authorities:
+
+- [`STAGE-7A-CONTEXTUAL-BRICK-CREATION.md`](STAGE-7A-CONTEXTUAL-BRICK-CREATION.md);
+- [`STAGE-7B-FOCUS-SAFE-AUDITION.md`](STAGE-7B-FOCUS-SAFE-AUDITION.md).
 
 ### Outcome
 
-The real project model, shared UI, target persistence and both engine adapters are connected into
-the first-hour path's smallest complete proof.
+`Add brick` opens a resumable inline draft inside the existing brick zone. Existing bricks never
+disappear or become inaccessible, and role/sound choices do not mutate the project before final
+sound/kit confirmation. Fine Tuning focus no longer disables `A–J` audition or turns an unrelated
+musical key release into a slider commit; native slider keys and accessible themed focus remain.
 
-### Work
+### Required order
 
-- Wire Home -> New Track -> Bass -> Deep to real `ProjectSession` commands.
-- Resolve the `Deep` preset into a versioned DSP patch.
-- Implement computer-keyboard mapping and visible note feedback.
-- Send audition note-on/off directly to the engine while keeping committed project content in
-  `ProjectSession`.
-- Implement minimal piano-roll note creation, selection and octave shift.
-- Implement engine-owned play/stop/seek and one bounded loop.
-- Compile and apply revision-bound render plans after project commits.
-- Interpolate throttled engine transport snapshots in the UI.
-- Implement preview/commit semantics for the prototype's sound-character controls.
-- Wire layer mute and gain into project commands and diagnostics.
-- Implement save/recovery presentation according to target capabilities.
-- Replace all remaining demo view models with projections of real startup/project/engine state.
-- Keep Drums, Arrangement and Sound Sculpt foundations honest: real project data and commands where
-  present, clearly unavailable future operations otherwise.
-
-### Edge cases
-
-- Key-up is missed because focus/window visibility changes; all ephemeral notes must be released.
-- React Strict Mode mount/unmount must not duplicate engine clients or notes.
-- Rapid macro preview followed by cancel or commit cannot leave the engine on stale parameters.
-- A project edit while an older render plan is compiling cannot activate the stale plan.
-- Mute/gain changes during held notes are smoothed and reflected in diagnostics.
-- Play after engine restart reloads the latest project revision before sounding.
-- Switching project/surface releases editor leases and live notes.
-- Web user activation happens only once and does not create duplicate `AudioContext` instances.
-
-### Verification
-
-- End-to-end state test of the complete primary path in Desktop and Web.
-- Source-level command coverage proves each visible enabled control has one real handler.
-- Packaged Desktop and production Web smoke with actual engine output.
-- Audio capture or deterministic host evidence proves non-silent output after the first key.
-- Stale render-plan and rapid-preview integration tests.
-- Keyboard focus, stuck-note and visibility-change tests.
-- Minimal save/reopen/recovery continuation of the created phrase.
+1. `fix/contextual-add-brick` — persistent existing list, resumable draft, transient audition and
+   one atomic final commit;
+2. `fix/sound-chooser-focus-audition` — semantic focus routing, exactly-once slider commit and
+   accessible themed focus;
+3. `feature/creation-and-audition-acceptance` — Desktop/Web, non-empty project, keyboard, touch,
+   constrained layout and failure evidence.
 
 ### Exit criteria
 
-- The primary user path produces real audio without a tutorial or manual routing.
-- Desktop and Web use the same project commands, preset and DSP implementation.
-- No enabled control in the slice is a visual-only mock.
-- A missing output, suspended Web context, muted layer or absent instrument has a specific recovery
-  action.
-- The saved/recovered phrase reopens with the same notes and resolved patch.
+- Adding inside a non-empty project preserves every existing brick/editor and remains cancelable.
+- No canonical source, dirty state, recovery snapshot or Undo entry exists before final confirmation.
+- Fine Tuning may retain focus while musical keys audition the current draft; text/modal/shortcut
+  capture remains protected and a slider gesture commits at most once.
+- No enabled creation/audition control is a visual-only mock.
 
-## Stage 8 — Acceptance hardening and evidence
+## Stage 8 — Perceptual sound quality and curated catalog
 
-**Branch:** `feature/skeleton-acceptance-hardening`.
+**Integration branch:** `feature/perceptual-sound-quality`, created from accepted Stage 7.
+
+The mathematical research, offline sound lab, DSP bake-off, semantic macro model and blind human
+acceptance are authoritative in
+[`STAGE-8-PERCEPTUAL-SOUND-QUALITY.md`](STAGE-8-PERCEPTUAL-SOUND-QUALITY.md).
+
+### Outcome
+
+Every retained Sound Chooser entry has a distinct musical job, reviewed default, safe and truthful
+macro surface, controlled loudness/headroom and level-matched desire-to-use evidence. Weak or filler
+sounds are improved, merged or removed rather than preserved to maintain a count. Procedural drums
+remain the positive reference unless a controlled comparison proves an improvement.
+
+### Exit criteria
+
+- Every retained synth default and reachable macro surface passes the frozen objective profile,
+  human role-fit/desire-to-use gate and native/WASM parity evidence.
+- High-return aliasing, expression, topology, loudness, mono and callback-budget defects are closed
+  before the next source schema persists resolved patches.
+- Existing saved resolved patches remain reproducible; catalog evolution never rewrites them on load.
+
+## Stage 9 — Brick editor, source navigation and performance recording
+
+**Integration branch:** `feature/brick-editor-performance`, created from accepted Stage 8.
+
+Detailed authorities:
+
+- [`STAGE-9A-NOTE-EDITOR-INTERACTIONS.md`](STAGE-9A-NOTE-EDITOR-INTERACTIONS.md);
+- [`STAGE-9B-PERFORMANCE-RECORDING.md`](STAGE-9B-PERFORMANCE-RECORDING.md).
+
+### Outcome
+
+Stage 9 introduces the V4 reusable source-material/song-instance boundary and deterministic V3
+migration before recording writes new data. The brick editor then supports open-ended horizontal
+time, vertical pitch navigation, truthful off-screen-note indicators, per-brick semantic viewport
+memory, a full-line draggable playhead and an optional musical-context inspector.
+
+After `Use sound`, a user may seek anywhere, receive a meter-derived count-in and overdub laptop or
+multi-touch performance. Notes and recorded silence extend linearly, appear live, retain engine-clock
+timing and velocity/pressure, and form one automatic Undo group per pass. Recording never waits for
+the first note and never wraps at the old source end.
+
+### Required order
+
+1. `feature/recording-source-domain` — V4 source material, instances, migration and grouped commands;
+2. `feature/brick-editor-navigation` — two-axis canvas, ghosts, inspector, viewport memory and
+   continuous manual playhead;
+3. `feature/performance-recording-protocol` — count-in, record cursor and applied-event acknowledgement;
+4. `feature/performance-recording-session` — coordinator, live reconciliation, history and recovery;
+5. `feature/expressive-performance-input` — configured keyboard velocity, pressure, multi-touch and
+   MIDI-ready normalization;
+6. `feature/source-editor-recording-ui` — unmistakable Record states, open canvas, screen keys and
+   scoped shortcuts;
+7. `feature/brick-editor-performance-integration` — Desktop/Web persistence, restart and evidence.
+
+### Exit criteria
+
+- The source editor creates no hidden/off-viewport notes and makes higher/lower canonical notes
+  discoverable without inventing ghost content.
+- Each brick restores its time, pitch and zoom anchors; ordinary scrolling never mutates the project.
+- The playhead is continuously draggable from any point on its full line, left or right, and seeking
+  never starts playback.
+- Sound Chooser remains audition-only; note recording exists only after `Use sound`.
+- Start time is the exact source playhead tick after count-in, not the first note; existing and
+  overlapping notes survive overdub.
+- Stop automatically keeps the pass and closes held notes/history; one Undo/Redo removes/restores
+  the whole pass including source-length and recorded-silence changes.
+- Desktop native and Web AudioWorklet paths use engine sample position and pass the same input,
+  pressure, stale-event, recovery and visual-state scenarios.
+- The inspector can collapse/reopen without losing essential commands, viewport anchors or
+  playback/recording state; final phone/tablet composition is completed in Stage 14.
+
+## Stage 10 — Linked bricks and song composition
+
+**Integration branch:** `feature/linked-bricks-song-architecture`.
+
+The user-approved scope and detailed staged implementation plan are authoritative in
+[`STAGE-10-LINKED-BRICKS-AND-SONG.md`](STAGE-10-LINKED-BRICKS-AND-SONG.md). This approved change replaces the old assumption
+that `ProjectLayer.clips[]` may continue to own both musical content and timeline placement. Its V4
+domain and migration prerequisite is completed in Stage 9 so recording and composition share
+one source authority from their first implementation.
+
+### Outcome
+
+The real project model, shared UI, persistence and both engine adapters complete the first-hour path
+using one reusable source brick per layer and separate linked instances on the song timeline.
+
+### Required order
+
+Stage 10 is a large architectural change. Its stage branches are created from the updated integration
+branch and merged back sequentially only after their focused exit criteria pass:
+
+1. `feature/linked-bricks-render-plan` — referenced source programs and native/Web scheduling;
+2. `feature/brick-preview-runtime` — transient independent preview cursors;
+3. `feature/song-composition-ui` — approved upper editor and collapsible lower song dock;
+4. `feature/linked-bricks-integration` — first-hour path, persistence and target parity.
+
+Stage 10 must not begin by wiring the new UI onto the old clip model. The domain and render-plan
+boundaries are prerequisites. The domain boundary and recording runtime arrive from Stage 9;
+Stage 10 integrates that recorder into the final linked-bricks surface without redefining its timing,
+overdub, pressure or Undo semantics.
+
+### Work
+
+- Build on the migrated V4 source layer as stable brick identity and its instances by source layer ID.
+- Implement source commands separately from place, move, trim, split, loop-resize and delete.
+- Compile bounded source programs once and schedule linked instances without unbounded event copies.
+- Implement upper preview as transient keyed cursors: a late-enabled brick starts from its own zero.
+- Publish generation-bound local cursor snapshots per enabled brick and interpolate each from its
+  own engine frame; never drive upper lines from one global song tick.
+- Keep lower song playback synchronized to authored timeline positions and independent of preview
+  speaker state.
+- Wire the approved layer speakers, sound-edit pencils, source editor, lower dock, linked-instance
+  inspector and lower Play to real handlers.
+- Add synchronized vertical pitch and horizontal time navigation to melodic source editors, with
+  accessible top/bottom indicators for canonical notes outside the visible pitch band.
+- Retain semantic time, pitch and zoom anchors in presentation state keyed by source layer so every
+  brick returns to its own viewport without dirtying the project.
+- Make the entire source playhead line a continuous bidirectional drag/touch/keyboard control with
+  exact unsnapped placement by default and no implicit playback start.
+- Keep Undo/Redo as one named history group with truthful disabled reasons; remove bare disabled
+  `±8va` top-bar glyphs and expose real `Октава ниже/выше` only for selected notes.
+- Reuse one accessible triangle/chevron disclosure primitive for the right musical-context
+  inspector and lower song dock while keeping their presentation state independent; return the
+  collapsed inspector width to the source canvas and use an overlay drawer/sheet on constrained
+  layouts without hiding essential selected-note actions.
+- Preserve Home -> New Track -> sound choice -> piano roll/drums as real `ProjectSession` flows.
+- Preserve Sound Chooser audition as ephemeral and reuse the Stage 9 recording coordinator only
+  inside editable brick sources.
+- Consume the frozen perceptual catalog, patch model and macro mappings from Stage 8; Stage 10
+  may expose them in linked bricks but cannot retune or silently upgrade saved sounds.
+- Preserve and reverify the Stage 9 V3-to-V4 migration, save, reopen, recovery and undo/redo
+  behavior while introducing referenced song scheduling.
+- Remove obsolete clip-placement demo state after all projections use the new authority.
+
+### Edge cases
+
+- A V3 layer has zero, one or several clips; migration must preserve sound and audible placement
+  without guessing links between legacy clips.
+- A source is edited while an older render plan compiles; the stale plan cannot activate.
+- A cycle is shortened below an instance's source offset; playback normalizes phase without
+  rewriting local instance data.
+- A partial last repetition ends exactly at the instance boundary.
+- Source deletion with linked instances cannot leave dangling references.
+- Ordinary duplication remains linked; explicit variation receives entirely new source identities.
+- Song playback started during preview, or preview started during song playback, cannot double sound
+  or leave stuck voices.
+- Bricks enabled at different times expose different engine-authoritative cursor phases; disabling
+  one stops its moving line without stopping or resetting any other enabled brick.
+- Dragging anywhere on an idle source playhead can cross grid boundaries in either direction and
+  never starts audio; active preview seek affects only the previously running source.
+- Key-up is missed because focus/window visibility changes; all ephemeral audition notes release.
+- React Strict Mode remount cannot duplicate engine clients, preview cursors, placements or notes.
+- Web activation happens once and does not create duplicate `AudioContext` instances.
+- Notes exist only above or below the visible pitch band; the editor must reveal their direction
+  without rendering an editable duplicate or auto-moving the user's viewport.
+- Bass, lead and harmony retain different time/pitch/zoom anchors through rapid switching, resize,
+  responsive layout and 200% zoom without creating project commands.
+- The right inspector and lower song dock are toggled in every open/collapsed combination during
+  idle, upper preview, recording and song playback; neither may force the other open, move a
+  semantic source anchor, trap focus or alter engine/project state.
+
+### Verification
+
+- V3-to-V4 golden migration fixtures for empty, one-clip and multi-clip layers.
+- Domain tests prove source mutations propagate by reference while placement mutations remain local.
+- Shared render-plan fixtures and deterministic scheduling scenarios run through native and Web/WASM
+  adapters.
+- Preview tests prove late enable starts from zero without changing project revision or song state.
+- Cursor tests cover independent phases, pause portions, cycle wrap, disable/re-enable,
+  stale-generation snapshots and source-local seek while other bricks keep advancing.
+- Song tests cover move, trim, split, unequal loop lengths, source pause, arrangement gap, overlaps,
+  seek and partial final cycles.
+- Source-level command coverage proves every visible enabled control has one real handler.
+- Presentation tests switch low/high-register bricks and prove independent semantic viewport
+  restoration, synchronized axes and zero project-revision changes from scrolling.
+- Off-screen-note tests cover top, bottom, both directions, dense aggregation, activation and
+  screen-reader direction/count.
+- Command-presentation tests prove Undo/Redo grouping/tooltips and stable selected-note octave scope,
+  pitch-bound reasons, one-command Undo and absence of unexplained `±8va` controls.
+- Disclosure tests prove the inspector's persistent labelled rail, compact drawer/sheet, focus
+  return, hidden-content tab exclusion and independence from the lower song dock. Visual checks
+  confirm the source canvas receives the released width without losing its musical anchor.
+- Packaged Desktop and production Web save/reopen/recovery smoke with actual engine output.
+- Light/dark and constrained-height UI checks against the approved visual references.
+
+### Exit criteria
+
+- The canonical schema distinguishes source brick material from song instances and no ordinary
+  placement copies source events.
+- Desktop and Web use the same project commands, render-plan schema and DSP scheduling behavior.
+- Upper preview and lower song playback satisfy their separate contracts without a mode switch.
+- No enabled control in the approved composition slice is a visual-only mock.
+- Every source brick restores its own horizontal time, vertical pitch and zoom viewport; canonical
+  notes above or below remain discoverable through reviewed, accessible edge indicators.
+- Source playheads are continuously draggable across the full line; only enabled preview bricks
+  move, each from its own engine cursor, and moving an idle line cannot start playback.
+- The musical-context inspector is optional, independently collapsible and always reopenable;
+  essential selected-note commands survive its collapse and its state never dirties the project.
+- A migrated or newly created linked composition reopens with the same sound, source material,
+  instance positions, cycle pause and arranged durations.
+- Missing output, suspended Web audio, stale plan, invalid reference or exceeded plan limit has a
+  specific recovery action or stable diagnostic.
+
+## Stage 11 — Honest empty starts, example song and curated rhythms
+
+**Integration branch:** `feature/starter-content`, created only from the completed Stage 10
+integration branch.
+
+The detailed implementation authority is
+[`STAGE-11-STARTER-CONTENT.md`](STAGE-11-STARTER-CONTENT.md). This stage deliberately follows
+the source/instance architecture: the example must prove the real song model rather than become
+temporary demo data that a later stage has to migrate.
+
+### Outcome
+
+Home separates `Начать со звука` from `Начать с примера`. The former creates an instrument with
+honestly empty authored material; the latter opens a fresh editable copy of one bundled original
+Tiempio song. Straight, Sparse, Driving and Broken remain available and six additional curated
+drum patterns pass objective, listening and editability acceptance.
+
+### Required order
+
+1. `fix/empty-start-material` — remove production placeholder notes/events/instances and isolate
+   fixture/example factories;
+2. `feature/curated-drum-patterns` — version and extend the editable pattern catalog;
+3. `feature/original-example-composition` — author, mix, validate and document provenance;
+4. `feature/example-project-home-flow` — implement immutable-template/fresh-copy behavior;
+5. `feature/starter-content-acceptance` — retain cross-target, UX, audio and rights evidence.
+
+### Exit criteria
+
+- `Новый трек` and `Начать со звука` contain no hidden or off-viewport authored material.
+- `Начать с примера` creates an independent, unsaved, non-autoplaying V4 project copy that uses
+  ordinary source, instance, render-plan, Undo, Save and recovery paths.
+- The example is an original human-authored Tiempio composition with a versioned rights/provenance
+  record; no external sample, MIDI phrase, stock loop or unreviewed generative output ships.
+- Ten distinct editable drum patterns are available: the four retained patterns plus six approved
+  additions, and no catalog update rewrites a saved project.
+- Desktop and Web reproduce the same bounded starter assets and pass the detailed plan's automated,
+  listening, visual and accessibility evidence.
+
+## Stage 12 — Personal audio, `Мой звук` and `Запись`
+
+**Integration branch:** `feature/personal-sound-import`, created from the completed starter-content
+integration branch.
+
+The detailed implementation authority is
+[`STAGE-12-PERSONAL-AUDIO.md`](STAGE-12-PERSONAL-AUDIO.md). This stage makes the already visible
+`Мой звук · Перетащить аудиофайл` action real and adds a separate `Запись` role for microphone/audio-
+input capture. It is intentionally smaller and earlier than Stage 16 interchange import: one
+imported or newly recorded take creates one brick inside the normal flow; Stage 16 later converts
+MIDI/stem sets and DAW material.
+
+Recorder implementation has a mandatory zero-code design gate. Its dedicated screen and transport,
+monitoring, count-in, in-context recording, take-review, shortcuts and responsive behavior must be
+discussed with the user, recorded in AS-TO-BE/UI references and explicitly approved first.
+
+### Outcome
+
+A user selects or drops one bounded supported PCM WAV and explicitly chooses `Инструмент из звука`
+or `Аудиофраза`. The latter preserves a hummed melody, vocal or played take as continuous fixed audio
+rather than inventing notes. A separate `Запись` screen captures microphone/input into the same
+audio-phrase model after explicit permission. Portable content-addressed assets work in preview,
+song instances, persistence and export without an original external path.
+
+### Required order
+
+0. approved product/design review and repository UI reference for the separate recorder screen;
+1. `feature/personal-audio-asset-domain` — portable asset/sample/phrase schema and grouped command;
+2. `feature/bounded-wav-decoder` — shared hostile-file validation, decode/resample/hash/peaks;
+3. `feature/personal-audio-engine` — immutable native/WASM sample voices and fixed-audio scheduling;
+4. `feature/personal-sound-creation-ui` — contextual picker/drop, intent split and waveform editing;
+5. `feature/personal-audio-capture-runtime` — input permission, clocks, segmented take and cleanup;
+6. `feature/personal-audio-recorder-ui` — only the user-approved dedicated recorder experience;
+7. `feature/personal-sound-target-integration` — Desktop/Web durability and exact cleanup;
+8. `feature/personal-sound-acceptance` — cross-target audio, security, UX and resource evidence.
+
+### Exit criteria
+
+- Import selection/analysis/audition and microphone capture/review remain transient until the
+  approved `Use sound`/`Use recording` commit; one Undo removes the resulting brick.
+- A sample instrument contains no hidden note or song instance. An audio phrase contains only the
+  explicitly selected/imported or captured waveform and never pretends to be MIDI.
+- The `.tiempio` project is portable; Desktop/Web accept and reproduce the same bounded WAV boundary
+  without browser-only decoding differences, callback I/O or network transfer.
+- Unsupported, malformed, oversized, stale, cancelled or failed files leave no partial asset,
+  source, engine registration, Worker, process, temporary file or lock.
+
+## Stage 13 — Dedicated audio export and WAV mixdown
+
+**Integration branch:** `feature/audio-export`, created from the completed personal-sound-import
+integration branch.
+
+The detailed implementation authority is
+[`STAGE-13-AUDIO-EXPORT.md`](STAGE-13-AUDIO-EXPORT.md). Export follows the finished song
+architecture, starter project and personal-sample source so that it renders every accepted source
+through the real linked composition rather than a temporary clip demo.
+
+### Outcome
+
+The outer left application rail has a permanent `Экспорт` destination. It renders the current
+in-memory project revision as a deterministic stereo WAV through the shared offline DSP core, with
+truthful target-specific file handling, progress, cancellation and recovery from failures.
+
+### Required order
+
+1. `feature/export-contracts-and-preflight` — captured revisions, finite range/tail and capabilities;
+2. `feature/offline-wav-mixdown` — deterministic PCM24/PCM16 WAV through the shared Rust core;
+3. `feature/desktop-audio-export` — opaque native destination and atomic completion;
+4. `feature/web-audio-export` — bounded Worker/WASM stream or truthful Download;
+5. `feature/export-workspace-ui` — left-rail route and accessible job states;
+6. `feature/audio-export-integration` — example-song golden export and lifecycle evidence.
+
+### Exit criteria
+
+- Export is visually and semantically separate from Save/Download `.tiempio` project data.
+- Packaged Desktop and production Web export the current captured song revision as a valid WAV at
+  48/44.1 kHz and 24/16-bit, within documented native/WASM tolerance.
+- Reference sources and transient brick-preview state are excluded; persistent song inclusion,
+  gain, pan, mute and solo remain truthful.
+- Export work runs outside React and real-time callbacks, can be cancelled between bounded blocks,
+  and leaves no partial output, task-owned process, lock, temporary file or stale Blob.
+- MP3/AAC/FLAC, stems and mastering remain absent until separate approved plans exist.
+
+## Stage 14 — Responsive, tablet and mobile adaptation
+
+**Integration branch:** `feature/responsive-mobile`, created from the completed Stage 13 integration
+branch.
+
+The detailed implementation authority is
+[`STAGE-14-RESPONSIVE-MOBILE.md`](STAGE-14-RESPONSIVE-MOBILE.md). Earlier stages must keep their own
+constrained layouts safe; Stage 14 is the application-wide pass after all real creative, personal-
+audio and export screens exist.
+
+### Outcome
+
+Desktop windowed/fullscreen, compact, tablet and phone presentations support the complete delivered
+path without overlapping toolbars, unreachable controls or mouse-only interactions. The reported
+Undo/Redo collision is fixed through a transport priority/overflow model. Layers, inspector and song
+become shared rails/drawers/sheets appropriate to available geometry while preserving one semantic
+application and per-brick viewport state.
+
+### Required order
+
+1. `feature/responsive-contracts` — semantic layout capabilities and shared primitives;
+2. `fix/transport-header-collisions` — Undo overlap, overflow and understandable octave actions;
+3. `feature/adaptive-shell-navigation` — application rail, layers, inspector and song surfaces;
+4. `feature/adaptive-source-editors` — note/drum/waveform scrolling, ghosts and playheads;
+5. `feature/adaptive-creation-and-recording` — Add, chooser, personal audio and approved recorder;
+6. `feature/adaptive-export-settings` — Export, project/recovery and settings;
+7. `feature/responsive-mobile-acceptance` — device/browser/accessibility/performance evidence.
+
+### Exit criteria
+
+- The full supported path works in the finite wide/standard/compact/tablet/phone matrix.
+- Header controls never overlap at minimum width or 200% zoom; primary transport/record/cancel
+  controls remain reachable through dynamic viewport, orientation and software-keyboard changes.
+- Editors preserve semantic time/pitch/zoom anchors and truthful scroll/off-screen/playhead behavior.
+- Presentation state never dirties the project, changes playback/recording or alters exported audio.
+
+## Stage 15 — Acceptance hardening and evidence
+
+**Branch:** `feature/stage-15-acceptance`.
+
+The detailed implementation authority is
+[`STAGE-15-ACCEPTANCE-HARDENING.md`](STAGE-15-ACCEPTANCE-HARDENING.md).
 
 ### Outcome
 
 The combined integration branch is audited against the architecture and has reproducible evidence
-for safety, target separation, UX, audio and lifecycle behavior.
+for safety, target separation, UX, audio and lifecycle behavior. Stage 15 audits accepted Stages
+0–14; it does not defer their architecture, responsive work or product decisions.
 
 ### Work
 
 - Review the complete diff against this plan, the architecture and product invariants.
+- Audit the Stage 7 focus-safe audition target classifier, slider gesture boundary and themed
+  focus behavior on both targets.
+- Audit the complete perceptual sound-quality manifest: oscillator/nonlinearity alias probes,
+  loudness/true peak, macro direction, role-range/polyphony, native/WASM budgets, blind creator
+  evidence and resolved-patch compatibility.
+- Audit context-preserving brick creation, transient draft audition, cancel/resume and atomic final
+  commit on both targets and responsive layer surfaces.
+- Audit the Stage 9 recording clock, automatic grouped commit, linear canvas, overdub and
+  pressure/velocity contract on both targets.
+- Audit the linked-brick contract, V3-to-V4 migration and source/instance reference integrity.
+- Audit the Stage 11 empty-start contract, immutable starter catalog, fresh project-copy
+  semantics, original example-song provenance and complete ten-pattern rhythm library.
+- Audit the approved `Мой звук` intent split and `Запись` screen: bounded validation/decode/capture,
+  transient take review, atomic commit, sample/fixed-audio plans, portable assets, permissions,
+  clock/overrun diagnostics and native/Web sound parity.
+- Audit the dedicated Export rail destination, captured-revision preflight, WAV encoder, shared
+  offline DSP parity, target file handling, cancellation and exact cleanup.
+- Audit two-axis source navigation, off-screen canonical-note indicators and per-brick semantic
+  viewport restoration across Desktop/Web, constrained layouts and 200% zoom.
+- Audit musical-context-inspector disclosure against the lower song dock in every state
+  combination, including persistent rail, compact drawer/sheet, focus recovery, reduced motion and
+  unchanged playback/recording.
+- Retain native/Web parity evidence for independent brick preview and synchronized song playback.
+- Cover loop-resize, trim, split, source pause, arrangement gap, overlap and partial final cycles.
 - Remove obsolete scaffolding, demo state and accidental abstractions.
 - Add combined release catalog and independent Desktop/Web artifact policies.
 - Finalize initial bundle, memory, render-plan, latency and callback deadline budgets from measured
   results.
 - Add packaged Windows evidence for Shared Audio, primary path, save/recovery and engine restart.
 - Add Web production evidence for local-only behavior, audio activation and persistence fallbacks.
-- Add light/dark and compact/standard/ultrawide visual baselines plus constrained-height scenarios.
+- Re-audit the complete Stage 14 light/dark wide/standard/compact/tablet/phone and constrained-height
+  matrix rather than introducing new breakpoint behavior here.
 - Complete keyboard and accessibility walkthrough.
 - Document supported operating systems, browser assumptions and residual risks.
 - Update architecture and this plan where implementation evidence changed an approved detail.
@@ -658,12 +1065,70 @@ script owns the workflow.
 ### Exit criteria
 
 - Every foundational criterion in `TIEMPIO_ARCHITECTURE.md` has executable or retained evidence.
+- Every criterion in `STAGE-7B-FOCUS-SAFE-AUDITION.md` maps to an executable check or retained
+  witness.
+- Every criterion in `STAGE-7A-CONTEXTUAL-BRICK-CREATION.md` maps to an executable check or
+  retained witness.
+- Every criterion in `STAGE-8-PERCEPTUAL-SOUND-QUALITY.md` maps to an executable check or retained
+  witness.
+- Every criterion in `STAGE-9A-NOTE-EDITOR-INTERACTIONS.md` and
+  `STAGE-9B-PERFORMANCE-RECORDING.md` maps to an executable check or retained
+  witness.
+- Every criterion in `STAGE-10-LINKED-BRICKS-AND-SONG.md` maps to an executable check or retained
+  witness.
+- Every criterion in `STAGE-11-STARTER-CONTENT.md` maps to an executable check or retained
+  witness.
+- Every criterion in `STAGE-12-PERSONAL-AUDIO.md` maps to an executable check or retained
+  witness.
+- Every criterion in `STAGE-13-AUDIO-EXPORT.md` maps to an executable check or retained witness.
+- Every criterion in `STAGE-14-RESPONSIVE-MOBILE.md` maps to an executable check or retained witness.
+- No V3 combined clip authority or copied-event placement path remains active after migration.
 - All checks pass from a clean integration branch under one lifecycle owner.
 - No task-owned process, lock or cleanup quarantine remains.
 - Desktop and Web production artifacts are independently inspectable and target-clean.
 - The final diff contains no unrelated or pre-existing changes.
 - Documentation describes actual behavior and remaining limits without presenting future scope as
   implemented.
+
+## Stage 16 — Interchange import and safe DAW migration
+
+**Integration branch:** `feature/interchange-import`, created from the accepted Stage 15 integration
+branch.
+
+The detailed implementation authority is
+[`STAGE-16-INTERCHANGE-IMPORT.md`](STAGE-16-INTERCHANGE-IMPORT.md). Import starts after integrated
+acceptance because it introduces batch external MIDI/audio conversion and a lossy mapping
+from other DAWs. It reuses the already accepted portable audio-asset and WAV-decoder foundations
+from the personal-audio import/recording gate rather than creating a second representation.
+
+### Outcome
+
+The outer rail gains a distinct `Импорт` destination. Users can open another `.tiempio`, convert
+Standard MIDI into editable bricks/song instances, import aligned bounded PCM WAV stems as fixed
+audio and follow a tested Ableton migration guide based on Live's official MIDI/stem export. Direct
+`.als` parsing, Ableton installation scanning and automation are excluded by the legal/product gate.
+
+### Required order
+
+1. `feature/import-workspace-and-contracts` — route, draft, hostile-file limits and target-neutral
+   intermediate schemas;
+2. `feature/standard-midi-import` — deterministic SMF type 0/1 parsing and musical mapping;
+3. `feature/aligned-stem-mapping` — batch origin/alignment metadata over accepted audio phrases;
+4. `feature/pcm-wav-stem-import` — aligned local WAV stems through the shared decoder on both targets;
+5. `feature/daw-migration-assistant` — safe Ableton instructions and MIDI/stem pairing;
+6. `feature/interchange-import-integration` — durability, security, audio and UX acceptance.
+
+### Exit criteria
+
+- Open, Import and Export are distinct and truthful.
+- Imported MIDI remains editable; imported stems preserve alignment and original rendered sound;
+  unsupported/lossy concepts are disclosed before one atomic commit.
+- Desktop and Web validate, map, save, reopen, recover and play the same bounded canonical content
+  without filesystem scanning or network transfer.
+- `.als` and other undocumented proprietary project formats are neither parsed nor advertised
+  without a new positive legal and technical approval.
+- Malformed, oversized, cancelled or failed imports leave no partial project mutation, temporary
+  output, worker, process or lock.
 
 ## Cross-stage edge-case inventory
 
@@ -690,6 +1155,8 @@ These cases must remain visible in stage reviews even when their final handling 
 - engine startup timeout, crash or protocol mismatch;
 - audio callback deadline miss and underrun;
 - invalid patch value or render-plan overflow;
+- preset or macro corner that passes numeric schema validation but clips, aliases, reverses its
+  semantic direction, collapses in mono or creates an unsafe loudness jump;
 - stuck note after key-up loss, blur, visibility change or engine restart;
 - plan, seek, tempo or loop change while voices are active;
 - voice exhaustion;
@@ -733,6 +1200,8 @@ Every stage review asks:
 8. Does a heavy dependency enter the initial shell or wrong target graph?
 9. Does a native or Rust process escape lifecycle ownership?
 10. Is an abstraction justified by present skeleton scope rather than a speculative future feature?
+11. Did a sound candidate win because it is louder, or pass metrics while failing blind musical
+    desirability and fatigue review?
 
 Shared changes validate both target graphs. Desktop adapter changes validate Desktop plus shared
 contract scenarios. Web adapter changes validate Web plus shared contract scenarios. DSP changes
@@ -746,6 +1215,17 @@ The application skeleton is complete only when all of the following are true:
 
 - A new user can create a project, choose Bass/Deep, press a computer key and immediately hear a
   real synthesized sound in Desktop and Web.
+- `Начать со звука` never hides demo notes in that new instrument, while `Начать с примера` opens a
+  separate complete original song that teaches linked bricks through real editable content.
+- The retained and new drum patterns form a distinct, editable and creator-approved library rather
+  than renamed density variants.
+- The user can open the dedicated Export destination and render the current song revision to a
+  valid WAV on Desktop and Web without confusing audio export with project Save/Download.
+- `Мой звук` creates either a playable sample instrument or an honest fixed audio phrase, while the
+  separately approved `Запись` screen captures microphone/input into the same portable phrase model;
+  neither path invents notes, hides song instances or depends on an external path after commit.
+- Every retained built-in synth sound has a distinct useful role, invites replay/use in blind
+  level-matched review and remains musical across its stated pitch, velocity and macro surface.
 - The user can place a short phrase, play/stop it and transpose a selected note or phrase by an
   octave.
 - The seven prototype states belong to one coherent shared application and one project session.
@@ -784,8 +1264,11 @@ The application skeleton is complete only when all of the following are true:
 - First-audible-result, callback deadline, underrun, memory and bundle baselines are measured and
   documented.
 - Stale render plans and preview updates cannot become active.
-- The `Deep` patch produces the same approved result across native and WASM within documented
-  numeric tolerance.
+- The frozen built-in catalog produces the same approved result across native and WASM within
+  documented numeric tolerance and callback budgets.
+- Band-limited oscillator/nonlinear paths, loudness/true-peak headroom, mono compatibility and
+  semantic macro direction pass the versioned objective profile; human preference remains a
+  separate mandatory gate.
 
 ### Engineering process
 
@@ -796,10 +1279,10 @@ The application skeleton is complete only when all of the following are true:
 - The final integration branch is clean and ready for review, but is not merged into `main`, pushed
   or submitted as a pull request without explicit authorization.
 
-## Next plan after skeleton
+## Work beyond the numbered roadmap
 
-The next product plan should be written only after skeleton evidence exists. Its likely focus is the
-complete first-hour composition loop: production drum synthesis and patterns, mature piano-roll
-editing, arrangement operations, layer gain/mute/solo, sound sculpt, save/reopen and initial WAV
-export. Exact scope and sequencing must be based on measured engine, UX and bundle results from this
-foundation.
+The approved numbered roadmap currently ends with Stage 16 interchange import in
+[`STAGE-16-INTERCHANGE-IMPORT.md`](STAGE-16-INTERCHANGE-IMPORT.md). Later numbered plans may address
+mixing/mastering depth, additional reviewed export formats, time stretching and further composition
+tools. Their exact scope and sequencing must be based on measured engine, UX and bundle results from
+Stages 0–16 rather than being inserted as another unnamed pre/post gate.

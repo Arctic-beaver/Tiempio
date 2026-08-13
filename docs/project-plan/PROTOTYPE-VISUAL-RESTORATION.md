@@ -1,5 +1,12 @@
 # Prototype-exact visual restoration
 
+> Historical-plan note (2026-08-13): this document records the 2026-08-10 restoration baseline.
+> The user subsequently approved a visible and behavioral evolution of state 06. The active
+> authority is now [`STAGE-10-LINKED-BRICKS-AND-SONG.md`](STAGE-10-LINKED-BRICKS-AND-SONG.md) together with the
+> [`song-composition-visual-reference`](../evidence/song-composition-visual-reference/README.md)
+> pair. The original 14-image matrix remains retained evidence and must not override the newer
+> state-06 decision.
+
 ## Status and scope
 
 **Status:** planning only. No production UI changes are part of this commit.

@@ -1,4 +1,4 @@
-# Step 4 — canonical project model, session and minimal format
+# Stage 3 — canonical project model, session and minimal format
 
 ## Status and scope
 

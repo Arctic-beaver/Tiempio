@@ -1,4 +1,4 @@
-# Note editor interaction plan
+# Stage 9A — note-editor interaction and brick navigation
 
 ## Status and delivery boundary
 
@@ -45,7 +45,9 @@ note manipulation`). The Piano Roll now renders only canonical project notes, ex
   Final packaging and packaged manual acceptance remain mandatory before this plan can be called
   complete.
 - Live A-L audition remains existing functionality. Recording a played performance into timed Piano
-  Roll notes remains explicitly deferred for a separate product and interaction plan.
+  Roll notes is now approved as the separate
+  [`STAGE-9B-PERFORMANCE-RECORDING.md`](STAGE-9B-PERFORMANCE-RECORDING.md) stage; that later
+  authority owns count-in, engine-clock timing, overdub, pressure and automatic grouped commit.
 
 ## Product goals
 
@@ -77,12 +79,21 @@ note manipulation`). The Piano Roll now renders only canonical project notes, ex
 
 - The Piano Roll renders canonical project notes through `ProjectSession`; decorative preview notes
   must not masquerade as editable content or audible output.
+- Production `Новый трек` and `Начать со звука` factories create zero authored notes. Complete
+  musical examples belong only to the explicit `Начать с примера` flow defined in
+  [`STAGE-11-STARTER-CONTENT.md`](STAGE-11-STARTER-CONTENT.md); no example/fixture note may
+  leak into an empty source above, below or beyond the initial viewport.
 - If the active layer or clip has no notes, the grid stays honestly empty and shows one concise,
   dismissible instruction such as `Double-click the grid to add a note`.
 - No suggestion is clickable until suggestion semantics, provenance, placement and acceptance are
   separately designed. A later suggestion must remain visually and semantically distinct from a
   real project note, accept at most once at its displayed pitch/time/duration and become stale when
   the underlying project revision changes.
+- Stage 7 may project a canonical note that is vertically outside the viewport into a non-editable
+  top/bottom navigation indicator. That edge ghost is governed by
+  [`STAGE-10-LINKED-BRICKS-AND-SONG.md`](STAGE-10-LINKED-BRICKS-AND-SONG.md#two-dimensional-source-canvas-and-per-brick-viewport-memory),
+  represents existing saved content only and is not the decorative or generative ghost rejected by
+  this first implementation.
 
 ### Selection and restrained resize affordances
 
@@ -153,9 +164,9 @@ note manipulation`). The Piano Roll now renders only canonical project notes, ex
   pitch rows. A larger invisible hit area keeps very quiet notes selectable.
 - The selected-note detail shows the numeric strength value for precision. `-` and `+` provide
   keyboard adjustment.
-- Ordinary computer keys and pointer-created notes use the configured/default medium strength;
-  they cannot infer strike force. A future MIDI input path may supply real note-on velocity through
-  the same canonical value.
+- Ordinary computer keys and direct pointer-created notes in this stage use the configured/default
+  medium strength. Stage 9B recording may supply touch/pen pressure, and a future MIDI adapter may
+  supply real note-on velocity through the same canonical value.
 
 ### Bars, beats, grid and meter
 
@@ -197,6 +208,101 @@ note manipulation`). The Piano Roll now renders only canonical project notes, ex
   follow `canUndo`, `canRedo` and the user's current bindings.
 - Undo and Redo restore canonical project content first. Selection follows the affected note only
   when its stable identity still exists; otherwise selection clears safely.
+
+### Legible history and octave actions — approved follow-up
+
+The current Piano Roll top bar combines standard history arrows with hard-coded disabled `−8va`
+and `+8va` text buttons. The symbols currently mean:
+
+- curved left arrow — Undo;
+- curved right arrow — Redo;
+- `−8va` — move a selected note one octave lower;
+- `+8va` — move a selected note one octave higher.
+
+`8va` is notation terminology, not beginner-facing product language. A permanently disabled glyph
+also implies functionality without explaining its target or unavailability. This follow-up is
+mandatory in Stage 9B-5 and retained by Stage 10C:
+
+- Undo and Redo remain a visually separated history group, never an undifferentiated run beside
+  pitch-editing actions;
+- each arrow has an immediate visible tooltip on hover/focus: `Отменить` / `Повторить`, plus the
+  active shortcut and, when known, the affected action;
+- a disabled history action explains `Нечего отменять` or `Нечего повторять`; disabled opacity is
+  not its only explanation;
+- the global top bar removes bare `−8va` and `+8va` glyphs;
+- with one note selected, a persistent contextual action strip or labelled overflow offers fully written
+  `Октава ниже` and `Октава выше` actions, optionally paired with a clear vertical arrow icon;
+- the tooltip explains `Переместить выбранную ноту на 12 полутонов ниже/выше` and shows any current
+  shortcut;
+- with no selected note, these note-scoped actions are absent rather than permanently disabled in
+  the global toolbar;
+- at the pitch-domain boundary an action may remain visible in selected-note context but is disabled
+  with the exact reason `Нота уже в нижней/верхней границе диапазона`;
+- a future whole-brick transpose is a separately named action such as `Весь кирпичик: октава ниже`.
+  The same control must never silently change from selected-note to whole-source scope.
+
+Each octave action dispatches one bounded canonical note-pitch command, retains stable selection and
+creates exactly one Undo entry. It is not an audition-octave change: changing the playable keyboard
+octave remains a separately labelled performance control.
+
+On compact screens, the history group remains reachable and contextual octave actions may move into
+the persistent selected-note action strip or labelled overflow menu. The optional musical-context
+inspector may repeat those actions, but it cannot be their only host because the user may collapse
+it. The labels, scope and disabled reason must
+survive mouse, touch, keyboard, screen reader, light/dark and 200% zoom presentation.
+
+### Collapsible musical-context inspector — approved follow-up
+
+The right-hand Piano Roll panel shown in the approved
+[light](../evidence/prototype-visual-reference/light/04-piano-roll.png) and
+[dark](../evidence/prototype-visual-reference/dark/04-piano-roll.png) references contains useful but
+secondary information: key/scale name, scale notes, selected-note details and editing guidance.
+It helps during the first hours with Tiempio, but it must not permanently consume source-canvas
+width after the user understands the editor.
+
+The panel becomes a **musical-context inspector** with explicit progressive disclosure:
+
+- one shared application-owned disclosure control uses the same triangle/chevron language as the
+  lower song dock in the approved [linked-bricks UI](../evidence/song-composition-visual-reference/light/06-linked-bricks-song.png);
+- the two controls remain clearly labelled and independent: collapsing `Музыкальный контекст`
+  never collapses `Песня`, and opening the song never reopens the inspector;
+- on a wide desktop, the expanded inspector remains a right column; collapse replaces it with a
+  narrow persistent edge rail containing the triangle and an accessible concise label/icon, and
+  the released width is actually returned to the note canvas;
+- the rail cannot disappear completely: the reopen affordance remains visible without hover and
+  has a touch-safe hit target;
+- in a constrained tablet layout the inspector is a right drawer/sheet closed by default; on a
+  phone it may become a bottom sheet. Opening either overlays the canvas instead of compressing it
+  below its usable minimum;
+- responsive presentation is selected from measured editor-container space, not from one captured
+  screenshot width. Desktop/Web, application zoom and future tablet shells use the same semantic
+  component and commands;
+- selecting a note, starting playback/recording or switching bricks never forces the inspector
+  open. A non-blocking badge may announce changed context, but the user's collapsed choice wins;
+- scale colouring, note selection, off-screen-note indicators and every editing command continue
+  to work while the inspector is collapsed. Essential actions such as `Октава ниже/выше` stay in
+  the persistent selected-note action strip or labelled overflow rather than becoming unreachable;
+- collapse/expand changes only presentation. It preserves the selected note, manual playhead,
+  per-brick musical time/pitch anchors, zoom, playback and an active recording pass, and it creates
+  no project revision, render-plan publication or Undo entry;
+- after the column width changes, layout remeasures around the same semantic time/pitch anchor;
+  raw `scrollLeft` adjustment is only a transient consequence, never the authority;
+- the wide-layout preference is a bounded target-local user setting, not per-brick state and not
+  `.tiempio` data. It survives source switches and restart; compact drawer/sheet openness is
+  transient and defaults closed without overwriting the stored desktop preference;
+- the command registry exposes `Открыть/свернуть музыкальный контекст` and may assign a remappable
+  shortcut. The control supplies `aria-expanded`, `aria-controls`, a truthful localized name and
+  the same action to pointer, touch, keyboard and assistive technology;
+- if focus is inside the inspector when it collapses, focus returns to the disclosure control.
+  Hidden content is unmounted or inert, never left in the tab order. Reopening keeps focus on the
+  control until the user deliberately enters the panel;
+- motion is brief and layout-safe; `prefers-reduced-motion` removes the width/slide animation.
+  Light/dark, high contrast and the shared themed scrollbar remain consistent.
+
+This follow-up belongs to Stage 9B-5 because recording, long horizontal phrases and touch editing need
+the recovered canvas area before Stage 7 composes the final upper editor with the lower song dock.
+Stage 10 reuses the shared disclosure primitive and proves independent panel state; Stage 15 retains
+the responsive and accessibility evidence.
 
 ### Shortcut settings
 
@@ -351,9 +457,15 @@ After every commit, run `npm run lifecycle:audit` before any next check, commit,
 - Bars, beats, grid and one project-wide meter render and snap consistently.
 - Keyboard editing works across layouts, respects scope and does not collide with audition.
 - Undo/Redo works for every project mutation with one human gesture per history entry.
+- Undo/Redo are named and grouped history actions; bare `±8va` controls are absent, while selected
+  notes expose real `Октава ниже/выше` commands with stable scope and one Undo step.
+- The secondary musical-context inspector collapses to a persistent labelled rail on wide layouts
+  and to a closed-by-default drawer/sheet on constrained layouts; all note actions remain reachable
+  and toggling it changes no musical, history, playback or recording state.
 - Shortcut bindings are discoverable, remappable, conflict-safe, resettable and persisted outside
   project files.
-- Suggestion/ghost behavior is absent until its separate product contract exists.
+- Generative suggestion ghosts remain absent. Stage 7 off-screen-note indicators may appear only
+  under their separate canonical-note navigation contract.
 - Focused tests, visual/accessibility checks, combined quick/release checks and package verification
   pass under lifecycle ownership.
 - Packaged manual acceptance passes and evidence records any platform limitation honestly.

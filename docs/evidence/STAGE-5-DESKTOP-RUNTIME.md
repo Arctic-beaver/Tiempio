@@ -132,7 +132,7 @@ package inspection cannot honestly establish these remaining hardware/interactiv
 The implementation and automated contracts for those paths are present, but remediation is accepted
 only at the automated boundary until a user-observed Windows hardware and packaged-GUI session
 records these gates. Note interaction was subsequently activated and implemented under
-`NOTE-EDITOR-INTERACTIONS.md`; its retained evidence is recorded separately.
+`STAGE-9A-NOTE-EDITOR-INTERACTIONS.md`; its retained evidence is recorded separately.
 
 ## Residual risks and deferred scope
 
@@ -147,7 +147,7 @@ records these gates. Note interaction was subsequently activated and implemented
   is deferred product UX; an input picker is intentionally absent until a recording/input workflow
   exists.
 - Canonical note creation, placement, selection, deletion, movement, duration and strength editing
-  are implemented under `NOTE-EDITOR-INTERACTIONS.md`. Generative ghost suggestions, multi-note
+  are implemented under `STAGE-9A-NOTE-EDITOR-INTERACTIONS.md`. Generative ghost suggestions, multi-note
   selection and recording live A-L audition into timed notes remain deferred product scope.
 - Full beginner-facing persistence presentation remains Stage 7; Stage 5 exposes the secure runtime
   and native dialogs without inventing a new application-owned surface.

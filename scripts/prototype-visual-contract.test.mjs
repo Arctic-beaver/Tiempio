@@ -6,7 +6,12 @@ import test from 'node:test'
 
 const repositoryRoot = resolve('.')
 const evidenceRoot = resolve(repositoryRoot, 'docs/evidence/prototype-visual-reference')
-const manifestPath = resolve(evidenceRoot, 'manifest.json')
+const historicalManifestPath = resolve(evidenceRoot, 'manifest.json')
+const songCompositionEvidenceRoot = resolve(
+	repositoryRoot,
+	'docs/evidence/song-composition-visual-reference'
+)
+const currentManifestPath = resolve(songCompositionEvidenceRoot, 'manifest.json')
 const prototypePath = resolve(repositoryRoot, 'docs/tiempio_ux_prototype.html')
 const responsiveStylesPath = resolve(
 	repositoryRoot,
@@ -45,7 +50,7 @@ async function sourceFiles(directory) {
 }
 
 test('locks the exact prototype revision and its seven application states', async () => {
-	const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+	const manifest = JSON.parse(await readFile(currentManifestPath, 'utf8'))
 	const prototype = await readFile(prototypePath)
 	assert.equal(sha256(prototype), manifest.referenceSha256)
 
@@ -56,7 +61,7 @@ test('locks the exact prototype revision and its seven application states', asyn
 })
 
 test('preserves the complete light and dark reference capture matrix', async () => {
-	const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+	const manifest = JSON.parse(await readFile(historicalManifestPath, 'utf8'))
 	assert.equal(manifest.images.length, 14)
 
 	const expectedStates = [
@@ -77,6 +82,27 @@ test('preserves the complete light and dark reference capture matrix', async () 
 
 	for (const image of manifest.images) {
 		const bytes = await readFile(resolve(evidenceRoot, image.path))
+		assert.equal(bytes.length, image.bytes, image.path)
+		assert.equal(sha256(bytes), image.sha256, image.path)
+		assert.equal(bytes.subarray(1, 4).toString('ascii'), 'PNG', image.path)
+		assert.equal(bytes.readUInt32BE(16), image.width, image.path)
+		assert.equal(bytes.readUInt32BE(20), image.height, image.path)
+	}
+})
+
+test('preserves the approved linked-bricks and song reference pair', async () => {
+	const manifest = JSON.parse(await readFile(currentManifestPath, 'utf8'))
+	assert.equal(manifest.authorityScope, 'state-06-linked-bricks-and-song')
+	assert.deepEqual(
+		manifest.images.map((image) => [image.state, image.scheme]),
+		[
+			['linked-bricks-song', 'light'],
+			['linked-bricks-song', 'dark']
+		]
+	)
+
+	for (const image of manifest.images) {
+		const bytes = await readFile(resolve(songCompositionEvidenceRoot, image.path))
 		assert.equal(bytes.length, image.bytes, image.path)
 		assert.equal(sha256(bytes), image.sha256, image.path)
 		assert.equal(bytes.subarray(1, 4).toString('ascii'), 'PNG', image.path)

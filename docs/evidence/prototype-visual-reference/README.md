@@ -1,5 +1,11 @@
 # Prototype visual reference captures
 
+> Historical baseline note: on 2026-08-13 the user approved a new linked-bricks and song model for
+> state 06 and updated the active HTML prototype. The new authoritative state-06 pair is retained in
+> [`song-composition-visual-reference`](../song-composition-visual-reference/README.md). The 14 files
+> below remain byte-for-byte evidence of the 2026-08-10 baseline; the earlier arrangement image is
+> no longer the active product target.
+
 These 14 PNG files are the user-provided full-page visual witnesses for the exact Tiempio prototype
 in both light and dark schemes. They are committed so future implementation and review work can
 inspect the intended appearance without relying on temporary clipboard files or `file://` browser
@@ -7,10 +13,10 @@ access.
 
 ## Authority and scope
 
-The single executable visual authority remains
-[`docs/tiempio_ux_prototype.html`](../../tiempio_ux_prototype.html). Its recorded Git blob and
-SHA-256 are defined in
-[`PROTOTYPE-VISUAL-RESTORATION.md`](../../project-plan/PROTOTYPE-VISUAL-RESTORATION.md).
+The capture set's recorded Git blob and SHA-256 remain defined in
+[`PROTOTYPE-VISUAL-RESTORATION.md`](../../project-plan/PROTOTYPE-VISUAL-RESTORATION.md). The active
+executable prototype has since evolved through an explicit user decision; see the current state-06
+catalog linked above.
 
 These PNGs are lossless, byte-for-byte copies of the files supplied by the user on 2026-08-10. They
 are authoritative visual witnesses of that prototype rendering, not a replacement for the HTML/CSS
@@ -57,10 +63,11 @@ Future work must:
 
 ## Restoration status
 
-As of 2026-08-10, all seven production states have been restored against this matrix on the
+As of 2026-08-10, all seven production states had been restored against this matrix on the
 `fix/restore-prototype-visuals` integration branch. Both schemes were reviewed in the in-app browser;
 the prototype's 900-pixel compact transition and a narrower reachable-control fallback were also
-checked. The HTML authority and all 14 files in this directory remain unchanged.
+checked. All 14 files in this directory remain unchanged as historical evidence. State 06 now has a
+new approved target, while implementation migration remains separate work.
 
 Visual-only controls whose product behavior belongs to a later phase are deliberately disabled.
 They establish the prototype appearance without expanding this restoration task into audio,

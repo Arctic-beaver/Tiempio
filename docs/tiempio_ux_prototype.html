@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Tiempio — UX prototype</title>
+<title>Tiempio — linked bricks and song prototype</title>
 <style>
   :root {
     --page: #d8d4cd;
@@ -221,6 +221,11 @@
   .layer-tools { display:flex; gap:3px; }
   .micro { width:22px; height:22px; border-radius:50%; border:0; background:transparent; color:var(--muted); font-size:9px; cursor:pointer; }
   .micro:hover, .micro.on { background:var(--surface-2); color:var(--ink); }
+  .layer-action { width:26px; height:26px; border-radius:8px; border:0; background:transparent; color:var(--muted); display:grid; place-items:center; cursor:pointer; }
+  .layer-action .tool-icon { width:14px; height:14px; }
+  .layer-action:hover, .layer-action.is-muted { background:var(--surface-2); color:var(--ink); }
+  .layer-action.is-muted { color:var(--accent); }
+  .layer.is-muted .layer-symbol, .layer.is-muted .layer-name, .layer.is-muted .layer-sub { opacity:.42; }
   .add-layer { width:100%; border:1px dashed var(--line-strong); border-radius:12px; background:transparent; min-height:44px; color:var(--muted); display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; margin-top:8px; font-size:11px; }
   .add-layer:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-ghost); }
   .canvas { min-width:0; min-height:0; display:flex; flex-direction:column; position:relative; overflow:hidden; }
@@ -371,6 +376,80 @@
   .inspector-action strong { font-size:10px; }
   .inspector-action small { color:var(--muted); font-size:8px; }
 
+  /* linked-source composition dock */
+  .song-composer { flex:1; min-height:0; display:flex; flex-direction:column; }
+  .source-editor { flex:1 1 auto; min-height:210px; display:grid; grid-template-columns:210px minmax(0,1fr) 250px; overflow:hidden; }
+  .source-browser { border-right:1px solid var(--line); padding:14px 12px; background:color-mix(in srgb,var(--app),var(--surface) 30%); overflow:auto; }
+  .source-browser .layer { cursor:grab; }
+  .source-browser .layer:active { cursor:grabbing; }
+  .source-editor-canvas { min-width:0; position:relative; overflow:hidden; background:var(--surface); display:flex; flex-direction:column; }
+  .source-editor-head { height:48px; flex:0 0 48px; padding:0 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+  .source-editor-head strong { font-size:12px; }
+  .source-editor-head span { color:var(--muted); font-size:9px; }
+  .source-phrase { flex:1; min-height:0; position:relative; background-image:linear-gradient(to right,var(--line) 1px,transparent 1px),linear-gradient(to bottom,var(--line) 1px,transparent 1px); background-size:12.5% 100%,100% 25%; }
+  .source-phrase::after { content:"пауза 1 такт"; position:absolute; right:0; top:0; bottom:0; width:20%; display:grid; place-items:center; color:var(--muted); font-size:8px; letter-spacing:.08em; text-transform:uppercase; border-left:1px dashed var(--line-strong); background:repeating-linear-gradient(135deg,transparent 0,transparent 8px,var(--line) 8px,var(--line) 9px); }
+  .source-phrase.no-rest::after { display:none; }
+  .source-note { position:absolute; height:22px; min-width:28px; border-radius:8px; background:var(--accent); box-shadow:0 5px 14px color-mix(in srgb,var(--accent),transparent 76%); }
+  .source-insight { border-left:1px solid var(--line); padding:18px; background:color-mix(in srgb,var(--app),var(--surface) 42%); overflow:auto; }
+  .source-insight h3 { margin:0 0 7px; font-family:var(--serif); font-size:23px; font-weight:500; }
+  .source-insight p { margin:0 0 14px; color:var(--muted); font-size:10px; line-height:1.55; }
+  .source-fact { display:grid; grid-template-columns:1fr auto; gap:10px; padding:10px 0; border-top:1px solid var(--line); font-size:9px; }
+  .source-fact span { color:var(--muted); }
+
+  .song-dock { flex:0 0 320px; min-height:0; border-top:1px solid var(--line-strong); background:var(--app); transition:flex-basis .24s ease; }
+  .song-dock.collapsed { flex-basis:42px; }
+  .song-dock.collapsed .song-dock-body { display:none; }
+  .song-dock-header { height:42px; display:grid; grid-template-columns:210px minmax(0,1fr) 250px; align-items:center; border-bottom:1px solid var(--line); background:color-mix(in srgb,var(--app),var(--surface) 28%); }
+  .dock-title-button { height:100%; border:0; border-right:1px solid var(--line); background:transparent; padding:0 15px; display:flex; align-items:center; gap:9px; cursor:pointer; text-align:left; }
+  .dock-title-button:hover { color:var(--accent); }
+  .dock-chevron { width:18px; height:18px; border:1px solid var(--line-strong); border-radius:50%; display:grid; place-items:center; font-size:10px; }
+  .dock-title-button strong { font-size:11px; }
+  .dock-title-button small { color:var(--muted); font-size:8px; }
+  .dock-help { padding:0 14px; color:var(--muted); font-size:9px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .dock-help strong { color:var(--ink); font-weight:600; }
+  .song-transport { height:100%; border-left:1px solid var(--line); display:flex; align-items:center; justify-content:center; gap:9px; padding:0 10px; color:var(--muted); font-size:8px; }
+  .song-play-button { width:30px; height:30px; flex:0 0 30px; border:0; border-radius:50%; background:var(--ink); color:var(--surface); display:grid; place-items:center; cursor:pointer; }
+  .song-play-button .tool-icon { width:15px; height:15px; }
+  .song-play-button.playing { background:var(--accent); color:#fff; }
+  .song-dock-body { height:278px; min-height:0; display:grid; grid-template-columns:210px minmax(0,1fr) 250px; }
+  .song-track-list { padding-top:32px; border-right:1px solid var(--line); background:color-mix(in srgb,var(--app),var(--surface) 30%); }
+  .song-track { height:56px; padding:0 10px 0 13px; display:grid; grid-template-columns:18px 26px minmax(0,1fr); gap:7px; align-items:center; border-bottom:1px solid var(--line); }
+  .drag-grip { color:var(--muted); cursor:grab; }
+  .drag-grip .tool-icon { width:14px; height:14px; }
+  .song-track-glyph { width:25px; height:25px; border-radius:8px; display:grid; place-items:center; color:var(--accent); background:var(--accent-ghost); }
+  .song-track-glyph .tool-icon { width:15px; height:15px; }
+  .song-track-name { min-width:0; }
+  .song-track-name strong { display:block; font-size:10px; }
+  .song-track-name small { display:block; color:var(--muted); font-size:7px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .song-timeline { min-width:0; overflow:hidden; position:relative; background:var(--surface); }
+  .song-ruler { height:32px; display:grid; grid-template-columns:repeat(16,1fr); border-bottom:1px solid var(--line); }
+  .song-ruler span { border-left:1px solid var(--line); padding:10px 0 0 5px; color:var(--muted); font-size:7px; }
+  .song-lane { position:relative; height:56px; border-bottom:1px solid var(--line); background-image:linear-gradient(to right,var(--line) 1px,transparent 1px); background-size:6.25% 100%; }
+  .song-lane.drop-ready { background-color:var(--accent-ghost); }
+  .linked-clip { --clip:var(--accent); position:absolute; top:8px; height:40px; min-width:34px; border:1px solid color-mix(in srgb,var(--clip),transparent 42%); border-radius:9px; color:var(--clip); background:color-mix(in srgb,var(--clip),transparent 83%); overflow:hidden; cursor:pointer; text-align:left; padding:7px 17px 0 9px; }
+  .linked-clip::before { content:""; position:absolute; inset:0; opacity:.18; background:repeating-linear-gradient(to right,currentColor 0,currentColor 1px,transparent 1px,transparent 25%); pointer-events:none; }
+  .linked-clip.has-tail-rest::after { content:""; position:absolute; right:0; top:0; bottom:0; width:20%; border-left:1px dashed currentColor; background:repeating-linear-gradient(135deg,transparent 0,transparent 5px,currentColor 5px,currentColor 6px); opacity:.18; }
+  .linked-clip.selected { box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--accent); z-index:4; }
+  .linked-clip.is-split { background-image:linear-gradient(to right,transparent calc(50% - 1px),currentColor calc(50% - 1px),currentColor calc(50% + 1px),transparent calc(50% + 1px)); }
+  .linked-clip strong { position:relative; z-index:2; display:block; font-size:8px; color:currentColor; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .linked-clip small { position:relative; z-index:2; display:block; margin-top:3px; color:var(--muted); font-size:7px; white-space:nowrap; }
+  .trim-handle { position:absolute; z-index:5; left:0; top:0; bottom:0; width:8px; cursor:ew-resize; }
+  .trim-handle::after { content:""; position:absolute; left:2px; top:11px; width:2px; height:16px; border-left:1px solid currentColor; opacity:.5; }
+  .loop-handle { position:absolute; z-index:5; right:0; top:0; bottom:0; width:12px; border-left:1px solid color-mix(in srgb,var(--clip),transparent 55%); background:color-mix(in srgb,var(--surface),transparent 40%); cursor:ew-resize; }
+  .loop-handle::after { content:""; position:absolute; width:2px; height:14px; border-left:1px solid currentColor; border-right:1px solid currentColor; top:12px; left:4px; opacity:.65; }
+  .song-playhead { position:absolute; z-index:8; left:34%; top:0; bottom:0; width:1px; background:var(--accent); pointer-events:none; }
+  .song-playhead::before { content:""; position:absolute; top:0; left:-3px; border-left:4px solid transparent; border-right:4px solid transparent; border-top:6px solid var(--accent); }
+  .song-playhead.running { animation:song-run 8s linear infinite; }
+  @keyframes song-run { from { left:0; } to { left:100%; } }
+  .clip-inspector { border-left:1px solid var(--line); padding:13px 15px; background:color-mix(in srgb,var(--app),var(--surface) 42%); overflow:auto; }
+  .clip-inspector-kicker { color:var(--accent); font-size:8px; font-weight:750; letter-spacing:.10em; text-transform:uppercase; }
+  .clip-inspector h3 { margin:5px 0 3px; font-family:var(--serif); font-size:20px; font-weight:500; }
+  .clip-inspector > p { margin:0 0 10px; color:var(--muted); font-size:8px; line-height:1.45; }
+  .clip-inspector .inspector-action { min-height:36px; }
+  .clip-inspector .inspector-action strong { font-size:9px; }
+  .live-status { position:absolute; z-index:20; left:50%; bottom:12px; transform:translate(-50%,8px); border:1px solid var(--line-strong); border-radius:999px; background:var(--ink); color:var(--surface); padding:8px 12px; font-size:9px; opacity:0; pointer-events:none; transition:.2s ease; box-shadow:0 9px 28px rgba(0,0,0,.18); }
+  .live-status.show { opacity:1; transform:translate(-50%,0); }
+
   /* sound sculpt */
   .sculpt { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 320px; }
   .sculpt-main { padding:42px 48px 30px; display:flex; flex-direction:column; }
@@ -441,6 +520,12 @@
     .pattern-panel { display:none; }
     .arrange-body { grid-template-columns:160px 1fr; }
     .arrange-inspector { display:none; }
+    .source-editor { grid-template-columns:160px 1fr; }
+    .source-insight { display:none; }
+    .song-dock-header, .song-dock-body { grid-template-columns:160px minmax(0,1fr); }
+    .song-transport, .clip-inspector { display:none; }
+    .dock-title-button { padding:0 10px; }
+    .song-track-list { min-width:0; }
     .sculpt { grid-template-columns:1fr; }
     .sculpt-presets { display:none; }
     .ux-note { grid-template-columns:1fr; }
@@ -474,6 +559,8 @@
   <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M15 8l4 4-4 4"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
   <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10Z"/><path d="m17 9 4 6M21 9l-4 6"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4l11-11-4-4L4 16Z"/><path d="m13.5 6.5 4 4M4 16l4 4"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="8" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="8" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="17" r="1" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-loop" viewBox="0 0 24 24"><path d="M6 7h11l-2-2M18 17H7l2 2"/><path d="M18 7a5 5 0 0 1 0 10M6 17a5 5 0 0 1 0-10"/></symbol>
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
   <symbol id="i-cut" viewBox="0 0 24 24"><circle cx="6" cy="7" r="3"/><circle cx="6" cy="17" r="3"/><path d="m8.5 8.5 11 7M8.5 15.5l11-7"/></symbol>
@@ -613,7 +700,7 @@
               <div class="audio-popover"><div class="popover-head"><span class="round-symbol"><svg class="tool-icon"><use href="#i-speaker"/></svg></span><div><div class="popover-title">Референс может играть параллельно</div><div class="popover-copy">Shared mode включён по умолчанию. Ничего закрывать не нужно.</div></div></div><div class="mode-option"><span class="radio checked"></span><div><div class="mode-name">Shared</div><div class="mode-copy">Tiempio + другие приложения.</div></div><span class="mode-badge">Default</span></div></div>
             </div>
             <div class="project-space">
-              <aside class="layer-list"><div class="layer-title"><span>Слои</span><span>1</span></div><div class="layer selected"><span class="layer-symbol bass"><svg class="tool-icon"><use href="#i-bass"/></svg></span><span><div class="layer-name">Bass</div><div class="layer-sub">Deep · A1–A3</div></span><span class="layer-tools"><button class="micro">S</button><button class="micro">M</button></span></div><button class="add-layer" data-goto="drums"><svg class="tool-icon"><use href="#i-plus"/></svg>Добавить слой</button></aside>
+              <aside class="layer-list"><div class="layer-title"><span>Слои</span><span>1</span></div><div class="layer selected" data-layer-card="bass"><span class="layer-symbol bass"><svg class="tool-icon"><use href="#i-bass"/></svg></span><span><div class="layer-name">Bass</div><div class="layer-sub">Deep · фраза 5 тактов</div></span><span class="layer-tools"><button class="layer-action layer-audio-toggle" data-layer="bass" aria-label="Выключить Bass" data-tip="Звук слоя"><svg class="tool-icon"><use href="#i-speaker"/></svg></button><button class="layer-action" data-goto="sculpt" aria-label="Изменить характер Bass" data-tip="Изменить звук"><svg class="tool-icon"><use href="#i-edit"/></svg></button></span></div><button class="add-layer" data-goto="drums"><svg class="tool-icon"><use href="#i-plus"/></svg>Добавить слой</button></aside>
               <div class="canvas editor-grid">
                 <div class="piano-area">
                   <div class="piano-keys"><div class="pkey">C3</div><div class="pkey black"></div><div class="pkey">B2</div><div class="pkey black"></div><div class="pkey">A2</div><div class="pkey black"></div><div class="pkey">G2</div><div class="pkey black"></div><div class="pkey">F2</div><div class="pkey">E2</div><div class="pkey black"></div><div class="pkey">D2</div><div class="pkey black"></div><div class="pkey">C2</div><div class="pkey">B1</div><div class="pkey black"></div><div class="pkey">A1</div></div>
@@ -636,7 +723,7 @@
               <div class="audio-popover"><div class="popover-head"><span class="round-symbol"><svg class="tool-icon"><use href="#i-speaker"/></svg></span><div><div class="popover-title">Системный звук не блокируется</div><div class="popover-copy">Можно одновременно слушать референс и собирать ритм.</div></div></div><div class="mode-option"><span class="radio checked"></span><div><div class="mode-name">Shared</div></div><span class="mode-badge">Default</span></div></div>
             </div>
             <div class="project-space">
-              <aside class="layer-list"><div class="layer-title"><span>Слои</span><span>2</span></div><div class="layer"><span class="layer-symbol bass"><svg class="tool-icon"><use href="#i-bass"/></svg></span><span><div class="layer-name">Bass</div><div class="layer-sub">Deep</div></span><span class="layer-tools"><button class="micro">S</button><button class="micro">M</button></span></div><div class="layer selected"><span class="layer-symbol"><svg class="tool-icon"><use href="#i-drum"/></svg></span><span><div class="layer-name">Drums</div><div class="layer-sub">Clean Pulse</div></span><span class="layer-tools"><button class="micro">S</button><button class="micro">M</button></span></div><button class="add-layer"><svg class="tool-icon"><use href="#i-plus"/></svg>Добавить слой</button></aside>
+              <aside class="layer-list"><div class="layer-title"><span>Слои</span><span>2</span></div><div class="layer" data-layer-card="bass"><span class="layer-symbol bass"><svg class="tool-icon"><use href="#i-bass"/></svg></span><span><div class="layer-name">Bass</div><div class="layer-sub">Deep · фраза 5 тактов</div></span><span class="layer-tools"><button class="layer-action layer-audio-toggle" data-layer="bass" aria-label="Выключить Bass" data-tip="Звук слоя"><svg class="tool-icon"><use href="#i-speaker"/></svg></button><button class="layer-action" data-goto="sculpt" aria-label="Изменить характер Bass" data-tip="Изменить звук"><svg class="tool-icon"><use href="#i-edit"/></svg></button></span></div><div class="layer selected" data-layer-card="drums"><span class="layer-symbol"><svg class="tool-icon"><use href="#i-drum"/></svg></span><span><div class="layer-name">Drums</div><div class="layer-sub">Clean Pulse · цикл 4 такта</div></span><span class="layer-tools"><button class="layer-action layer-audio-toggle" data-layer="drums" aria-label="Выключить Drums" data-tip="Звук слоя"><svg class="tool-icon"><use href="#i-speaker"/></svg></button><button class="layer-action" data-goto="sculpt" aria-label="Изменить характер Drums" data-tip="Изменить звук"><svg class="tool-icon"><use href="#i-edit"/></svg></button></span></div><button class="add-layer"><svg class="tool-icon"><use href="#i-plus"/></svg>Добавить слой</button></aside>
               <div class="canvas drum-layout">
                 <div class="drum-voices"><div class="voice"><span class="voice-dot"></span><span><div class="voice-name">Kick</div><div class="voice-type">Deep</div></span><span>›</span></div><div class="voice"><span class="voice-dot"></span><span><div class="voice-name">Clap</div><div class="voice-type">Clean</div></span><span>›</span></div><div class="voice"><span class="voice-dot"></span><span><div class="voice-name">Closed hat</div><div class="voice-type">Fine</div></span><span>›</span></div><div class="voice"><span class="voice-dot"></span><span><div class="voice-name">Open hat</div><div class="voice-type">Air</div></span><span>›</span></div><div class="voice"><span class="voice-dot"></span><span><div class="voice-name">Perc</div><div class="voice-type">Glass</div></span><span>›</span></div></div>
                 <div class="drum-grid"><div class="drum-ruler"><span>1</span><span></span><span></span><span></span><span>2</span><span></span><span></span><span></span><span>3</span><span></span><span></span><span></span><span>4</span><span></span><span></span><span></span></div>
@@ -654,21 +741,55 @@
           <!-- ARRANGE -->
           <section class="screen" data-screen="arrange">
             <div class="topbar">
-              <div class="top-left"><button class="icon-button"><svg class="tool-icon"><use href="#i-grid"/></svg></button><div><div class="project-name">Night Drive</div><div class="subtle-label">Последнее изменение сейчас</div></div></div>
-              <div class="transport"><button class="icon-button"><svg class="tool-icon"><use href="#i-back"/></svg></button><button class="icon-button play-button"><svg class="tool-icon"><use href="#i-play"/></svg></button><button class="icon-button"><svg class="tool-icon"><use href="#i-forward"/></svg></button><div class="tempo"><span>Tempo</span><b>124</b></div><div class="key-control"><span>Key</span><b>A minor</b></div></div>
+              <div class="top-left"><button class="icon-button"><svg class="tool-icon"><use href="#i-grid"/></svg></button><div><div class="project-name">Velvet Morning</div><div class="subtle-label">Кирпичик Melody · Glass Lead</div></div></div>
+              <div class="transport"><button class="icon-button"><svg class="tool-icon"><use href="#i-back"/></svg></button><button class="icon-button play-button" data-tip="Прослушать кирпичики"><svg class="tool-icon"><use href="#i-play"/></svg></button><button class="icon-button"><svg class="tool-icon"><use href="#i-forward"/></svg></button><div class="tempo"><span>Tempo</span><b>108</b></div><div class="key-control"><span>Key</span><b>A minor</b></div></div>
               <div class="top-right"><button class="icon-button" data-tip="Отменить"><svg class="tool-icon"><use href="#i-undo"/></svg></button><button class="icon-button" data-tip="Повторить"><svg class="tool-icon"><use href="#i-redo"/></svg></button><button class="audio-chip"><span class="status-dot"></span><strong>Shared audio</strong><svg class="tool-icon" style="width:14px"><use href="#i-speaker"/></svg></button></div>
               <div class="audio-popover"><div class="popover-head"><span class="round-symbol"><svg class="tool-icon"><use href="#i-speaker"/></svg></span><div><div class="popover-title">Shared audio включён</div><div class="popover-copy">Tiempio и референс из другого приложения могут звучать одновременно.</div></div></div><div class="mode-option"><span class="radio checked"></span><div><div class="mode-name">Shared</div></div><span class="mode-badge">Default</span></div></div>
             </div>
-            <div class="arrange-body">
-              <aside class="arrange-tracks"><div class="track-head"><span class="track-glyph"><svg class="tool-icon"><use href="#i-drum"/></svg></span><span><div class="track-role">Drums</div><div class="track-sound">Clean Pulse</div></span><span><button class="track-control">S</button><button class="track-control">M</button></span></div><div class="track-head selected"><span class="track-glyph"><svg class="tool-icon"><use href="#i-bass"/></svg></span><span><div class="track-role">Bass</div><div class="track-sound">Deep</div></span><span><button class="track-control">S</button><button class="track-control">M</button></span></div><div class="track-head"><span class="track-glyph"><svg class="tool-icon"><use href="#i-chord"/></svg></span><span><div class="track-role">Harmony</div><div class="track-sound">Soft Pad</div></span><span><button class="track-control">S</button><button class="track-control">M</button></span></div><div class="track-head"><span class="track-glyph"><svg class="tool-icon"><use href="#i-melody"/></svg></span><span><div class="track-role">Melody</div><div class="track-sound">Glass Lead</div></span><span><button class="track-control">S</button><button class="track-control active">M</button></span></div><button class="add-layer" style="margin:12px"><svg class="tool-icon"><use href="#i-plus"/></svg>Добавить слой</button></aside>
-              <div class="arrange-canvas"><div class="arrange-ruler"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span></div><span class="section-label" style="left:2%">Intro</span><span class="section-label" style="left:27%">Main</span><span class="section-label" style="left:76%">Break</span>
-                <div class="arrange-row"><div class="clip" style="--clip:var(--track-drum);left:1.5%;width:24%"><label>Sparse</label></div><div class="clip" style="--clip:var(--track-drum);left:27%;width:48%"><label>Driving</label></div><div class="clip rest" style="--clip:var(--track-drum);left:76.5%;width:11%"><label>Pause</label></div><div class="clip" style="--clip:var(--track-drum);left:89%;width:10%"><label>Fill</label></div></div>
-                <div class="arrange-row"><div class="clip" style="--clip:var(--track-bass);left:14%;width:11%"><label>Deep A</label></div><div class="clip" style="--clip:var(--track-bass);left:27%;width:48%"><label>Main bass</label></div><div class="clip rest" style="--clip:var(--track-bass);left:76.5%;width:11%"><label>1 bar rest</label></div><div class="clip" style="--clip:var(--track-bass);left:89%;width:10%"><label>Return</label></div></div>
-                <div class="arrange-row"><div class="clip" style="--clip:var(--track-harmony);left:1.5%;width:36%"><label>Am · F</label></div><div class="clip" style="--clip:var(--track-harmony);left:39%;width:36%"><label>C · G</label></div><div class="clip" style="--clip:var(--track-harmony);left:76.5%;width:22.5%"><label>Am · G</label></div></div>
-                <div class="arrange-row"><div class="clip" style="--clip:var(--track-lead);left:27%;width:23%"><label>Motif</label></div><div class="clip" style="--clip:var(--track-lead);left:52%;width:23%"><label>Variation</label></div><div class="clip rest" style="--clip:var(--track-lead);left:76.5%;width:11%"><label>Mute</label></div></div>
-                <div class="playhead" style="left:59%;top:0"></div>
+            <div class="song-composer">
+              <div class="source-editor">
+                <aside class="source-browser">
+                  <div class="layer-title"><span>Слои · тяни вниз</span><span>4</span></div>
+                  <div class="layer" draggable="true" data-source-layer="drums" data-layer-card="drums"><span class="layer-symbol"><svg class="tool-icon"><use href="#i-drum"/></svg></span><span><div class="layer-name">Drums</div><div class="layer-sub">Clean Pulse · 4 такта</div></span><span class="layer-tools"><button class="layer-action layer-audio-toggle" data-layer="drums" aria-label="Выключить Drums"><svg class="tool-icon"><use href="#i-speaker"/></svg></button><button class="layer-action" data-goto="sculpt" aria-label="Изменить Drums"><svg class="tool-icon"><use href="#i-edit"/></svg></button></span></div>
+                  <div class="layer" draggable="true" data-source-layer="bass" data-layer-card="bass"><span class="layer-symbol bass"><svg class="tool-icon"><use href="#i-bass"/></svg></span><span><div class="layer-name">Bass</div><div class="layer-sub">Deep · 5 тактов</div></span><span class="layer-tools"><button class="layer-action layer-audio-toggle" data-layer="bass" aria-label="Выключить Bass"><svg class="tool-icon"><use href="#i-speaker"/></svg></button><button class="layer-action" data-goto="sculpt" aria-label="Изменить Bass"><svg class="tool-icon"><use href="#i-edit"/></svg></button></span></div>
+                  <div class="layer" draggable="true" data-source-layer="harmony" data-layer-card="harmony"><span class="layer-symbol"><svg class="tool-icon"><use href="#i-chord"/></svg></span><span><div class="layer-name">Harmony</div><div class="layer-sub">Warm Pad · 4 такта</div></span><span class="layer-tools"><button class="layer-action layer-audio-toggle" data-layer="harmony" aria-label="Выключить Harmony"><svg class="tool-icon"><use href="#i-speaker"/></svg></button><button class="layer-action" data-goto="sculpt" aria-label="Изменить Harmony"><svg class="tool-icon"><use href="#i-edit"/></svg></button></span></div>
+                  <div class="layer selected" draggable="true" data-source-layer="melody" data-layer-card="melody"><span class="layer-symbol"><svg class="tool-icon"><use href="#i-melody"/></svg></span><span><div class="layer-name">Melody</div><div class="layer-sub">Glass Lead · 4 + 1 пауза</div></span><span class="layer-tools"><button class="layer-action layer-audio-toggle" data-layer="melody" aria-label="Выключить Melody"><svg class="tool-icon"><use href="#i-speaker"/></svg></button><button class="layer-action" data-goto="sculpt" aria-label="Изменить Melody"><svg class="tool-icon"><use href="#i-edit"/></svg></button></span></div>
+                  <button class="add-layer"><svg class="tool-icon"><use href="#i-plus"/></svg>Добавить слой</button>
+                </aside>
+                <div class="source-editor-canvas">
+                  <div class="source-editor-head"><strong>Melody · кирпичик</strong><span>4 такта нот + 1 такт паузы · включение звука всегда начинает фразу заново</span></div>
+                  <div class="source-phrase">
+                    <span class="source-note" style="left:3%;top:68%;width:14%"></span><span class="source-note" style="left:20%;top:53%;width:10%"></span><span class="source-note" style="left:33%;top:37%;width:15%"></span><span class="source-note" style="left:51%;top:53%;width:12%"></span><span class="source-note" style="left:66%;top:29%;width:10%"></span>
+                  </div>
+                </div>
+                <aside class="source-insight"><h3>Один источник</h3><p>Здесь редактируется сама фраза. Ноты, ритм и характер звука обновляются во всех её экземплярах в песне.</p><div class="source-fact"><span>Длина материала</span><strong>4 такта</strong></div><div class="source-fact"><span>Пауза в цикле</span><strong>1 такт</strong></div><div class="source-fact"><span>Экземпляров в песне</span><strong>2</strong></div></aside>
               </div>
-              <aside class="arrange-inspector"><h3>Main bass</h3><p>Выбранный фрагмент · 8 тактов. Действия сформулированы через намерение, а не через устройство DAW.</p><button class="inspector-action"><svg class="tool-icon"><use href="#i-copy"/></svg><span><strong>Повторить после</strong><small>Создать продолжение</small></span><span>↗</span></button><button class="inspector-action"><svg class="tool-icon"><use href="#i-loop"/></svg><span><strong>Добавить паузу</strong><small>1 такт после фразы</small></span><span>↗</span></button><button class="inspector-action"><span style="font-weight:750">−8va</span><span><strong>Опустить на октаву</strong><small>Сохранить рисунок нот</small></span><span>↗</span></button><button class="inspector-action" data-goto="sculpt"><svg class="tool-icon"><use href="#i-wave"/></svg><span><strong>Изменить характер</strong><small>Deep → Warm → Dirty</small></span><span>↗</span></button></aside>
+
+              <section class="song-dock" id="songDock">
+                <div class="song-dock-header">
+                  <button class="dock-title-button" id="songDockToggle" aria-expanded="true"><span class="dock-chevron">▾</span><span><strong>Песня</strong><br><small>16 тактов · 4 дорожки</small></span></button>
+                  <div class="dock-help"><span>Перетащи кирпичик на дорожку. <strong>Тяни правый край — он лупится без зазора.</strong></span><span id="songStatus">Песня воспроизводит размещения на таймлайне</span></div>
+                  <div class="song-transport"><button class="song-play-button" aria-label="Воспроизвести песню"><svg class="tool-icon"><use href="#i-play"/></svg></button><span><strong>Play песни</strong><br>по позициям таймлайна</span></div>
+                </div>
+                <div class="song-dock-body">
+                  <div class="song-track-list">
+                    <div class="song-track" data-track-layer="drums"><span class="drag-grip"><svg class="tool-icon"><use href="#i-grip"/></svg></span><span class="song-track-glyph"><svg class="tool-icon"><use href="#i-drum"/></svg></span><span class="song-track-name"><strong>Drums</strong><small>кирпичик 4 такта</small></span></div>
+                    <div class="song-track" data-track-layer="bass"><span class="drag-grip"><svg class="tool-icon"><use href="#i-grip"/></svg></span><span class="song-track-glyph"><svg class="tool-icon"><use href="#i-bass"/></svg></span><span class="song-track-name"><strong>Bass</strong><small>кирпичик 5 тактов</small></span></div>
+                    <div class="song-track" data-track-layer="harmony"><span class="drag-grip"><svg class="tool-icon"><use href="#i-grip"/></svg></span><span class="song-track-glyph"><svg class="tool-icon"><use href="#i-chord"/></svg></span><span class="song-track-name"><strong>Harmony</strong><small>кирпичик 4 такта</small></span></div>
+                    <div class="song-track" data-track-layer="melody"><span class="drag-grip"><svg class="tool-icon"><use href="#i-grip"/></svg></span><span class="song-track-glyph"><svg class="tool-icon"><use href="#i-melody"/></svg></span><span class="song-track-name"><strong>Melody</strong><small data-rest-label>кирпичик 4 + пауза 1</small></span></div>
+                  </div>
+                  <div class="song-timeline">
+                    <div class="song-ruler"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span></div>
+                    <div class="song-lane" data-lane="drums"><button class="linked-clip" data-layer="drums" data-source-bars="4" style="--clip:var(--track-drum);left:1%;width:49%"><strong>Clean Pulse</strong><small>↻ 2× · linked</small><span class="loop-handle" aria-hidden="true"></span></button></div>
+                    <div class="song-lane" data-lane="bass"><button class="linked-clip" data-layer="bass" data-source-bars="5" style="--clip:var(--track-bass);left:13%;width:31.25%"><strong>Deep bass</strong><small>↻ 1× · linked</small><span class="loop-handle" aria-hidden="true"></span></button><button class="linked-clip" data-layer="bass" data-source-bars="5" style="--clip:var(--track-bass);left:63%;width:31.25%"><strong>Deep bass</strong><small>↻ 1× · linked</small><span class="loop-handle" aria-hidden="true"></span></button></div>
+                    <div class="song-lane" data-lane="harmony"><button class="linked-clip" data-layer="harmony" data-source-bars="4" style="--clip:var(--track-harmony);left:1%;width:73%"><strong>Warm Pad</strong><small>↻ 3× · linked</small><span class="loop-handle" aria-hidden="true"></span></button></div>
+                    <div class="song-lane" data-lane="melody"><button class="linked-clip has-tail-rest selected" data-layer="melody" data-source-bars="5" style="--clip:var(--track-lead);left:25%;width:31.25%"><strong>Glass phrase</strong><small>↻ 1× · linked + pause</small><span class="loop-handle" aria-hidden="true"></span></button><button class="linked-clip has-tail-rest" data-layer="melody" data-source-bars="5" style="--clip:var(--track-lead);left:63%;width:31.25%"><strong>Glass phrase</strong><small>↻ 1× · linked + pause</small><span class="loop-handle" aria-hidden="true"></span></button></div>
+                    <div class="song-playhead"></div>
+                  </div>
+                  <aside class="clip-inspector"><div class="clip-inspector-kicker">Связанный экземпляр</div><h3 id="clipTitle">Glass phrase</h3><p id="clipMeta">5 тактов · 1 повтор. Изменения исходной мелодии появятся здесь и во второй копии.</p><button class="inspector-action split-selected"><svg class="tool-icon"><use href="#i-cut"/></svg><span><strong>Разрезать экземпляр</strong><small>Источник не изменится</small></span><span>↗</span></button><button class="inspector-action toggle-source-rest"><svg class="tool-icon"><use href="#i-loop"/></svg><span><strong>Убрать паузу из цикла</strong><small>Изменится во всех копиях Melody</small></span><span>↗</span></button><button class="inspector-action" data-goto="piano"><svg class="tool-icon"><use href="#i-edit"/></svg><span><strong>Изменить исходную фразу</strong><small>Ноты и длительность</small></span><span>↗</span></button></aside>
+                </div>
+              </section>
+              <div class="live-status" id="liveStatus" role="status" aria-live="polite"></div>
             </div>
           </section>
 
@@ -741,11 +862,11 @@
       style:'Функциональная ритмическая сетка с круглыми событиями — инструмент, а не декоративная карточная галерея.'
     },
     arrange: {
-      n:'06', title:'Структура формулируется намерениями',
-      copy:'На обзорном экране появляются слои и части композиции. Контекстные действия говорят «добавить паузу» и «опустить на октаву», а не требуют знать внутренние команды DAW.',
-      user:'Повторяет фразы, добавляет паузу, выключает слой и строит intro / main / break.',
-      app:'Сохраняет точность обычного arrangement, но переводит операции на человеческий язык.',
-      style:'Нейтральные музыкальные ленты, один акцентный цвет и много воздуха вместо разноцветной панели управления самолётом.'
+      n:'06', title:'Из фраз складывается песня',
+      copy:'Верхняя часть редактирует один музыкальный источник, нижняя — собирает песню из связанных экземпляров. Правый край экземпляра повторяет источник без зазора, а пауза внутри фразы становится частью каждого цикла.',
+      user:'Перетаскивает слой на дорожку, ставит несколько копий, продлевает их лупом, обрезает и при необходимости добавляет паузу в сам источник.',
+      app:'Хранит источник и его размещения как разные сущности: музыкальные изменения синхронны во всех копиях, а позиция, длина и разрез остаются локальными.',
+      style:'Сворачиваемая полоса песни остаётся рядом с редактором, но не забирает место, пока пользователь сочиняет отдельную фразу.'
     },
     sculpt: {
       n:'07', title:'Сложный синтез — простой жест',
@@ -798,6 +919,205 @@
   }));
   document.querySelectorAll('.step').forEach(x=>x.addEventListener('click',()=>{x.classList.toggle('on');x.classList.remove('ghost');}));
   document.querySelectorAll('.micro, .track-control').forEach(x=>x.addEventListener('click',e=>{e.stopPropagation();x.classList.toggle('on');x.classList.toggle('active');}));
+
+  let statusTimer;
+  const layerNames={drums:'Drums',bass:'Bass',harmony:'Harmony',melody:'Melody'};
+  const layerColors={drums:'var(--track-drum)',bass:'var(--track-bass)',harmony:'var(--track-harmony)',melody:'var(--track-lead)'};
+  const sourceBars={drums:4,bass:5,harmony:4,melody:5};
+
+  function showLiveStatus(message){
+    const toast=document.getElementById('liveStatus');
+    const inline=document.getElementById('songStatus');
+    if(inline) inline.textContent=message;
+    if(!toast) return;
+    toast.textContent=message;
+    toast.classList.add('show');
+    clearTimeout(statusTimer);
+    statusTimer=setTimeout(()=>toast.classList.remove('show'),2200);
+  }
+
+  document.querySelectorAll('.layer-audio-toggle').forEach(btn=>btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    const layer=btn.dataset.layer;
+    const muted=!btn.classList.contains('is-muted');
+    document.querySelectorAll(`.layer-audio-toggle[data-layer="${layer}"]`).forEach(peer=>{
+      peer.classList.toggle('is-muted',muted);
+      peer.setAttribute('aria-pressed',String(muted));
+      peer.setAttribute('aria-label',`${muted?'Включить':'Выключить'} ${layerNames[layer]}`);
+      peer.querySelector('use').setAttribute('href',muted?'#i-mute':'#i-speaker');
+    });
+    document.querySelectorAll(`[data-layer-card="${layer}"]`).forEach(x=>x.classList.toggle('is-muted',muted));
+    const playing=!!document.querySelector('.screen.active .play-button.playing');
+    if(muted) showLiveStatus(`${layerNames[layer]} выключен в прослушивании кирпичиков`);
+    else if(playing) showLiveStatus(`${layerNames[layer]} подключён сейчас · кирпичик стартовал с начала`);
+    else showLiveStatus(`${layerNames[layer]} включён · при Play стартует с начала`);
+  }));
+
+  const songDock=document.getElementById('songDock');
+  const songDockToggle=document.getElementById('songDockToggle');
+  if(songDockToggle) songDockToggle.addEventListener('click',()=>{
+    const collapsed=songDock.classList.toggle('collapsed');
+    songDockToggle.setAttribute('aria-expanded',String(!collapsed));
+    songDockToggle.querySelector('.dock-chevron').textContent=collapsed?'▴':'▾';
+  });
+
+  const songPlayButton=document.querySelector('.song-play-button');
+  if(songPlayButton) songPlayButton.addEventListener('click',()=>{
+    const playing=songPlayButton.classList.toggle('playing');
+    songPlayButton.querySelector('use').setAttribute('href',playing?'#i-pause':'#i-play');
+    document.querySelector('.song-playhead')?.classList.toggle('running',playing);
+    showLiveStatus(playing?'Песня играет по размещениям на таймлайне':'Песня остановлена');
+  });
+
+  function clipBars(clip){
+    const lane=clip.closest('.song-lane');
+    if(!lane) return 0;
+    return (clip.getBoundingClientRect().width/lane.getBoundingClientRect().width)*16;
+  }
+
+  function updateClipLabel(clip){
+    const bars=clipBars(clip);
+    const source=Number(clip.dataset.sourceBars)||1;
+    const loops=Math.max(.1,bars/source);
+    const loopText=Number.isInteger(Math.round(loops*10)/10)?String(Math.round(loops)):loops.toFixed(1);
+    const small=clip.querySelector('small');
+    if(small) small.textContent=`↻ ${loopText}× · linked${clip.classList.contains('has-tail-rest')?' + pause':''}`;
+    return {bars,loops};
+  }
+
+  function selectClip(clip){
+    document.querySelectorAll('.linked-clip').forEach(x=>x.classList.toggle('selected',x===clip));
+    const info=updateClipLabel(clip);
+    const title=document.getElementById('clipTitle');
+    const meta=document.getElementById('clipMeta');
+    if(title) title.textContent=clip.querySelector('strong').textContent;
+    if(meta) meta.textContent=`${info.bars.toFixed(1).replace('.0','')} такта · ${info.loops.toFixed(1).replace('.0','')} повтора. Экземпляр связан с ${layerNames[clip.dataset.layer]}.`;
+  }
+
+  function attachClip(clip){
+    clip.addEventListener('click',()=>selectClip(clip));
+    let trim=clip.querySelector('.trim-handle');
+    if(!trim){
+      trim=document.createElement('span');
+      trim.className='trim-handle';
+      trim.setAttribute('aria-hidden','true');
+      clip.prepend(trim);
+    }
+    trim.addEventListener('pointerdown',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      selectClip(clip);
+      const lane=clip.closest('.song-lane');
+      const laneRect=lane.getBoundingClientRect();
+      const clipRect=clip.getBoundingClientRect();
+      const startX=e.clientX;
+      const startLeft=clipRect.left-laneRect.left;
+      const startWidth=clipRect.width;
+      const fixedEnd=startLeft+startWidth;
+      trim.setPointerCapture(e.pointerId);
+      const move=event=>{
+        const delta=Math.max(-startLeft,Math.min(startWidth-laneRect.width*.04,event.clientX-startX));
+        const nextLeft=startLeft+delta;
+        clip.style.left=`${nextLeft/laneRect.width*100}%`;
+        clip.style.width=`${(fixedEnd-nextLeft)/laneRect.width*100}%`;
+        selectClip(clip);
+      };
+      const up=()=>{
+        trim.removeEventListener('pointermove',move);
+        trim.removeEventListener('pointerup',up);
+        const info=updateClipLabel(clip);
+        showLiveStatus(`Экземпляр обрезан до ${info.bars.toFixed(1).replace('.0','')} такта · исходный кирпичик не изменился`);
+      };
+      trim.addEventListener('pointermove',move);
+      trim.addEventListener('pointerup',up);
+    });
+    const handle=clip.querySelector('.loop-handle');
+    if(!handle) return;
+    handle.addEventListener('pointerdown',e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      selectClip(clip);
+      const lane=clip.closest('.song-lane');
+      const laneRect=lane.getBoundingClientRect();
+      const startX=e.clientX;
+      const startWidth=clip.getBoundingClientRect().width;
+      const left=(clip.getBoundingClientRect().left-laneRect.left)/laneRect.width*100;
+      handle.setPointerCapture(e.pointerId);
+      const move=event=>{
+        const nextPx=Math.max(laneRect.width*.04,Math.min(laneRect.width*(1-left/100),startWidth+event.clientX-startX));
+        clip.style.width=`${nextPx/laneRect.width*100}%`;
+        selectClip(clip);
+      };
+      const up=()=>{
+        handle.removeEventListener('pointermove',move);
+        handle.removeEventListener('pointerup',up);
+        const info=updateClipLabel(clip);
+        showLiveStatus(`Экземпляр продлён до ${info.bars.toFixed(1).replace('.0','')} такта · источник повторяется без зазора`);
+      };
+      handle.addEventListener('pointermove',move);
+      handle.addEventListener('pointerup',up);
+    });
+  }
+  document.querySelectorAll('.linked-clip').forEach(attachClip);
+
+  document.querySelectorAll('[data-source-layer]').forEach(source=>source.addEventListener('dragstart',e=>{
+    e.dataTransfer.setData('text/plain',source.dataset.sourceLayer);
+    e.dataTransfer.effectAllowed='copy';
+  }));
+  document.querySelectorAll('.song-lane').forEach(lane=>{
+    lane.addEventListener('dragover',e=>{e.preventDefault();lane.classList.add('drop-ready');});
+    lane.addEventListener('dragleave',()=>lane.classList.remove('drop-ready'));
+    lane.addEventListener('drop',e=>{
+      e.preventDefault();
+      lane.classList.remove('drop-ready');
+      const layer=e.dataTransfer.getData('text/plain');
+      if(layer!==lane.dataset.lane){ showLiveStatus(`Положи ${layerNames[layer]} на дорожку ${layerNames[layer]}`); return; }
+      const rect=lane.getBoundingClientRect();
+      const width=Math.min(sourceBars[layer]*6.25,42);
+      const left=Math.max(0,Math.min(100-width,(e.clientX-rect.left)/rect.width*100));
+      const clip=document.createElement('button');
+      clip.className='linked-clip';
+      if(layer==='melody') clip.classList.add('has-tail-rest');
+      clip.dataset.layer=layer;
+      clip.dataset.sourceBars=sourceBars[layer];
+      clip.style.cssText=`--clip:${layerColors[layer]};left:${left}%;width:${width}%`;
+      clip.innerHTML=`<strong>${layerNames[layer]} phrase</strong><small>↻ 1× · linked${layer==='melody'?' + pause':''}</small><span class="loop-handle" aria-hidden="true"></span>`;
+      lane.appendChild(clip);
+      attachClip(clip);
+      selectClip(clip);
+      showLiveStatus(`${layerNames[layer]} добавлен как связанный экземпляр`);
+    });
+  });
+
+  const splitButton=document.querySelector('.split-selected');
+  if(splitButton) splitButton.addEventListener('click',()=>{
+    const selected=document.querySelector('.linked-clip.selected');
+    if(!selected) return;
+    selected.classList.toggle('is-split');
+    showLiveStatus(selected.classList.contains('is-split')?'Экземпляр разделён · исходная фраза осталась общей':'Разделение отменено');
+  });
+
+  const restButton=document.querySelector('.toggle-source-rest');
+  if(restButton) restButton.addEventListener('click',()=>{
+    const selected=document.querySelector('.linked-clip.selected');
+    if(!selected) return;
+    const layer=selected.dataset.layer;
+    const hadRest=selected.classList.contains('has-tail-rest');
+    const nextSourceBars=hadRest?4:5;
+    sourceBars[layer]=nextSourceBars;
+    document.querySelectorAll(`.linked-clip[data-layer="${layer}"]`).forEach(clip=>{
+      clip.classList.toggle('has-tail-rest',!hadRest);
+      clip.dataset.sourceBars=nextSourceBars;
+      updateClipLabel(clip);
+    });
+    const sourcePhrase=document.querySelector('.source-phrase');
+    if(sourcePhrase) sourcePhrase.classList.toggle('no-rest',hadRest);
+    const restLabel=document.querySelector('[data-rest-label]');
+    if(restLabel) restLabel.textContent=hadRest?'кирпичик 4 такта · без паузы':'кирпичик 4 + пауза 1';
+    restButton.querySelector('strong').textContent=hadRest?'Добавить паузу в цикл':'Убрать паузу из цикла';
+    showLiveStatus(hadRest?'Пауза удалена из источника · обновлены все копии':'Пауза добавлена в источник · обновлены все копии');
+    selectClip(selected);
+  });
 
   document.getElementById('themeToggle').addEventListener('click',()=>{
     document.getElementById('appWindow').classList.toggle('dark');
