@@ -5,11 +5,11 @@ import {
 	applicationError,
 	createUnavailableRuntime,
 	engineProtocolVersion,
+	nativeHostCapabilityCodes,
 	type AnyEngineCommandEnvelope,
 	type AnyEngineEventEnvelope,
 	type ApplicationRuntime,
 	type AudioHealthSnapshot,
-	type EngineCapabilityCode,
 	type EngineRuntime,
 	type LifecycleRuntime,
 	type ProjectsRuntime,
@@ -23,22 +23,7 @@ import { createSeedProject } from '../project/seed-project.js'
 import { performanceSourceId } from '../performance/performance-input-session.js'
 import { ApplicationRuntimeController } from './ApplicationRuntimeController.js'
 
-const capabilities = Object.freeze<readonly EngineCapabilityCode[]>([
-	'protocol.typed-json',
-	'render-plan.full',
-	'transport.basic',
-	'transport.loop',
-	'metronome.native',
-	'synth.bass.deep',
-	'synth.catalog.v2',
-	'drums.procedural.v1',
-	'audition.notes',
-	'preview.programs',
-	'diagnostics.health',
-	'supervision.heartbeat',
-	'audio.native.shared',
-	'audio.devices'
-])
+const capabilities = nativeHostCapabilityCodes
 
 const readyHealth: AudioHealthSnapshot = Object.freeze({
 	activeDeviceId: 'default',
