@@ -1,7 +1,9 @@
 # Интеграционные тесты audio lifecycle и performance-ввода
 
-Дата: 2026-08-13  
-Статус: в работе  
+Дата: 2026-08-13
+
+Статус: завершено
+
 Базовая ветка: `fix/sound-chooser-audio-runtime`
 
 ## Цель
@@ -85,3 +87,18 @@ Live probe остаётся отдельной Windows-проверкой: об�
 - Live probe подтверждает не только принятие команд, но и наблюдавшийся выходной сигнал.
 - После всех проверок lifecycle audit не находит процессов, lock или quarantine.
 - Ветка чистая и слита только в `fix/sound-chooser-audio-runtime`, без merge в `main`.
+
+## Результат
+
+- Добавлен детерминированный integration-test из трёх сценариев в
+  `apps/desktop/main/engine/audio-input.integration.test.ts`.
+- Lifecycle-сценарий подтверждает один spawn, полный порядок инициализации, живой host на всём
+  времени работы controller, один graceful shutdown, идемпотентный dispose и пустой
+  `resourceSnapshot`.
+- Keyboard- и pointer-сценарии подтверждают парные `note-on`/`note-off`, ожидаемые pitch/layer,
+  `preventDefault`, pointer capture/release и очистку held state.
+- `check:audio-live` загружает настоящий Bass render plan и независимо воспроизводит две ноты через
+  production keyboard/pointer adapters. Между нотами проверяется `activeVoices=0`, для каждой ноты —
+  `activeVoices>0`, а итоговый health содержит `outputSignalObserved=true`.
+- На Windows проверка успешно открыла shared output `Onboard Speaker`; после завершения lifecycle
+  audit не обнаружил процессов, lock или quarantine.
