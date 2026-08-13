@@ -36,7 +36,25 @@ const futureRuntimeTokens = Object.freeze([
 ])
 const webForbiddenRuntimeTokens = Object.freeze([
 	'packages/engine-client/',
-	'applicationruntimecontroller.ts'
+	'applicationruntimecontroller.ts',
+	'/audio/webengineruntime.ts',
+	'webaudioworkletadapter.ts',
+	'webengineworkletprocessor.ts',
+	'webprojectsruntime.ts',
+	'webindexeddbruntime.ts',
+	'physical-archive.ts',
+	'web-worklet',
+	'.wasm'
+])
+const webDeferredRuntimeModules = Object.freeze([
+	'apps/web/bootstrap/mountRuntimeApplication.ts',
+	'packages/application/src/runtime/ApplicationRuntimeController.ts',
+	'packages/engine-client/src/EngineClient.ts',
+	'apps/web/runtime/audio/WebEngineRuntime.ts',
+	'apps/web/runtime/audio/webAudioWorkletAdapter.ts',
+	'apps/web/runtime/persistence/WebProjectsRuntime.ts',
+	'apps/web/runtime/persistence/WebIndexedDbRuntime.ts',
+	'packages/project-format/src/physical-archive.ts'
 ])
 
 function normalizedModuleId(module) {
@@ -132,12 +150,24 @@ export function validateChunkTopology(report) {
 	for (const module of initialModules) {
 		const normalized = normalizedModuleId(module)
 		const forbiddenTokens =
-			report.bundleClass === 'web'
-				? [...futureRuntimeTokens, ...webForbiddenRuntimeTokens]
-				: futureRuntimeTokens
+			report.bundleClass === 'web' ? webForbiddenRuntimeTokens : futureRuntimeTokens
 		for (const token of forbiddenTokens) {
 			if (normalized.includes(token)) {
 				errors.push(`initial graph contains future runtime module ${module}`)
+			}
+		}
+	}
+	if (report.bundleClass === 'web') {
+		for (const module of webDeferredRuntimeModules) {
+			const owners = chunks.filter((chunk) =>
+				chunk.modules.some((candidate) => candidate.module === module)
+			)
+			if (owners.length !== 1) {
+				errors.push(`Web runtime module must have exactly one owner: ${module}`)
+				continue
+			}
+			if (initialFiles.has(owners[0].file)) {
+				errors.push(`Web runtime module is part of the initial graph: ${module}`)
 			}
 		}
 	}

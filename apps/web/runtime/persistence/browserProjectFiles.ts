@@ -1,4 +1,4 @@
-import { WebPersistenceError } from './WebIndexedDbRuntime.js'
+import { WebPersistenceError } from './webPersistenceError.js'
 
 export interface WebProjectFile {
 	readonly size: number
@@ -30,10 +30,13 @@ export type WebProjectSaveSelection =
 	| { readonly status: 'unavailable' }
 	| { readonly handle: WebProjectFileHandle; readonly status: 'selected' }
 
-export interface WebProjectFilePort {
-	download(bytes: Uint8Array, suggestedName: string): void
+export interface WebProjectPickerPort {
 	open(): Promise<WebProjectOpenSelection | null>
 	save(suggestedName: string): Promise<WebProjectSaveSelection>
+}
+
+export interface WebProjectFilePort extends WebProjectPickerPort {
+	download(bytes: Uint8Array, suggestedName: string): void
 }
 
 interface FilePickerType {
@@ -85,11 +88,10 @@ function pickerFailure(error: unknown): WebPersistenceError {
 	)
 }
 
-export class BrowserProjectFilePort implements WebProjectFilePort {
+export class BrowserProjectFilePort implements WebProjectPickerPort {
 	public constructor(
 		private readonly pickerWindow: WebFilePickerWindow = window as unknown as WebFilePickerWindow,
-		private readonly documentTarget: Document = document,
-		private readonly objectUrls: Pick<typeof URL, 'createObjectURL' | 'revokeObjectURL'> = URL
+		private readonly documentTarget: Document = document
 	) {}
 
 	#openWithInput(): Promise<WebProjectOpenSelection | null> {
@@ -149,24 +151,6 @@ export class BrowserProjectFilePort implements WebProjectFilePort {
 		} catch (error) {
 			if (isCanceled(error)) return Object.freeze({ status: 'canceled' as const })
 			throw pickerFailure(error)
-		}
-	}
-
-	public download(bytes: Uint8Array, suggestedName: string): void {
-		const owned = new Uint8Array(bytes)
-		const url = this.objectUrls.createObjectURL(
-			new Blob([owned], { type: 'application/vnd.tiempio.project+zip' })
-		)
-		const anchor = this.documentTarget.createElement('a')
-		anchor.download = suggestedName
-		anchor.href = url
-		anchor.hidden = true
-		this.documentTarget.body.append(anchor)
-		try {
-			anchor.click()
-		} finally {
-			anchor.remove()
-			globalThis.setTimeout(() => this.objectUrls.revokeObjectURL(url), 0)
 		}
 	}
 }

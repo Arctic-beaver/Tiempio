@@ -19,6 +19,7 @@ import {
 } from '../../../contracts/src/index.js'
 import { performanceMapping } from '../../../music-theory/src/index.js'
 import { ProjectSession } from '../../../project-core/src/index.js'
+import { EngineClient } from '../../../engine-client/src/index.js'
 import { createSeedProject } from '../project/seed-project.js'
 import { performanceSourceId } from '../performance/performance-input-session.js'
 import { ApplicationRuntimeController } from './ApplicationRuntimeController.js'
@@ -110,6 +111,111 @@ function flush(): Promise<void> {
 }
 
 describe('ApplicationRuntimeController', () => {
+	it('defers the engine client until an activated retry has connected the runtime', async () => {
+		const browser = installBrowserSurfaces()
+		const callOrder: string[] = []
+		let connectCount = 0
+		const engine: EngineRuntime = Object.freeze({
+			connect: () => {
+				connectCount += 1
+				callOrder.push(`connect:${String(connectCount)}`)
+				if (connectCount === 1) {
+					return Promise.resolve(
+						Object.freeze({
+							ok: false as const,
+							error: applicationError(
+								'PERMISSION_DENIED',
+								'Enable audio from an explicit browser action.',
+								{ retryable: true }
+							)
+						})
+					)
+				}
+				return Promise.resolve(
+					Object.freeze({
+						ok: true as const,
+						value: Object.freeze({
+							audioConfiguration: Object.freeze({
+								blockFrames: 128,
+								channels: 2 as const,
+								sampleRate: 44_100
+							}),
+							protocolVersion: engineProtocolVersion,
+							capabilities
+						})
+					})
+				)
+			},
+			disconnect: async () => {
+				callOrder.push('disconnect')
+				return Object.freeze({ ok: true as const, value: null })
+			},
+			send: async () =>
+				Object.freeze({
+					ok: true as const,
+					value: Object.freeze({ accepted: true as const })
+				}),
+			onEvent: () => () => undefined,
+			getHealth: async () => Object.freeze({ ok: true as const, value: readyHealth }),
+			onHealth: () => () => undefined
+		})
+		const unavailable = createUnavailableRuntime('web')
+		const runtime: ApplicationRuntime = Object.freeze({
+			...unavailable,
+			engine: Object.freeze({ availability: 'available' as const, api: engine })
+		})
+		const controller = new ApplicationRuntimeController(
+			runtime,
+			new ProjectSession(createSeedProject()),
+			{
+				loadEngineClient: async (connectedRuntime) => {
+					callOrder.push('load-client')
+					return new EngineClient(connectedRuntime, { capabilities })
+				},
+				prepareEngineActivation: () => {
+					callOrder.push('prepare-activation')
+					let consumed = false
+					return Object.freeze({
+						connect: () => {
+							consumed = true
+							callOrder.push('connect-prepared')
+							return engine.connect()
+						},
+						cancel: async () => {
+							if (!consumed) callOrder.push('cancel-activation')
+						}
+					})
+				}
+			}
+		)
+		try {
+			await controller.start()
+			assert.deepEqual(callOrder, ['connect:1'])
+			assert.equal(controller.getSnapshot().available, false)
+
+			await controller.retryAudio()
+			assert.deepEqual(callOrder, [
+				'connect:1',
+				'prepare-activation',
+				'connect-prepared',
+				'connect:2',
+				'load-client'
+			])
+			assert.equal(controller.getSnapshot().available, true)
+
+			await controller.retryAudio()
+			assert.deepEqual(callOrder.slice(-4), [
+				'prepare-activation',
+				'disconnect',
+				'connect-prepared',
+				'connect:3'
+			])
+		} finally {
+			await controller.dispose()
+			browser.restore()
+		}
+	})
+
 	it('publishes synth and drum layers, follows newest revisions and routes transport', async () => {
 		const browser = installBrowserSurfaces()
 		const commands: AnyEngineCommandEnvelope[] = []

@@ -21,8 +21,12 @@ import {
 	BrowserProjectFilePort,
 	type WebProjectFile,
 	type WebProjectFileHandle,
-	type WebProjectFilePort
+	type WebProjectFilePort,
+	type WebProjectOpenSelection,
+	type WebProjectPickerPort,
+	type WebProjectSaveSelection
 } from './browserProjectFiles.js'
+import { downloadProjectFile } from './browserProjectDownload.js'
 import {
 	WebIndexedDbRuntime,
 	WebPersistenceError,
@@ -85,14 +89,27 @@ async function defaultFingerprint(bytes: Uint8Array): Promise<string> {
 	return `sha256:${bytesToHex(new Uint8Array(digest))}`
 }
 
-function defaultDependencies(): WebProjectsRuntimeDependencies {
+function defaultDependencies(
+	overrides: {
+		readonly files?: WebProjectFilePort
+		readonly storage?: WebIndexedDbRuntime
+	} = {}
+): WebProjectsRuntimeDependencies {
 	return Object.freeze({
 		createIdentity: defaultIdentity,
-		files: new BrowserProjectFilePort(),
+		files: overrides.files ?? browserFilePort(new BrowserProjectFilePort()),
 		fingerprint: defaultFingerprint,
 		loadArchiveCodec: () =>
 			import('../../../../packages/project-format/src/physical-archive.js'),
-		storage: new WebIndexedDbRuntime()
+		storage: overrides.storage ?? new WebIndexedDbRuntime()
+	})
+}
+
+function browserFilePort(picker: WebProjectPickerPort): WebProjectFilePort {
+	return Object.freeze({
+		download: downloadProjectFile,
+		open: () => picker.open(),
+		save: (suggestedName: string) => picker.save(suggestedName)
 	})
 }
 
@@ -303,8 +320,22 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 		}
 	}
 
-	public async open(): Promise<ApplicationResult<ProjectHandle>> {
-		const selectionPromise = this.#dependencies.files.open()
+	public open(): Promise<ApplicationResult<ProjectHandle>> {
+		try {
+			return this.openSelection(this.#dependencies.files.open())
+		} catch (error) {
+			return Promise.resolve(
+				Object.freeze({
+					ok: false as const,
+					error: webPersistenceApplicationError(error)
+				})
+			)
+		}
+	}
+
+	public async openSelection(
+		selectionPromise: Promise<WebProjectOpenSelection | null>
+	): Promise<ApplicationResult<ProjectHandle>> {
 		let codec: PhysicalArchiveCodec | null = null
 		try {
 			const selection = await selectionPromise
@@ -543,9 +574,25 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 		}
 	}
 
-	public async persistAs(
+	public persistAs(
 		handle: ProjectHandle,
 		snapshot: ProjectSnapshotEnvelope
+	): Promise<PersistenceOutcome> {
+		try {
+			return this.persistAsSelection(
+				handle,
+				snapshot,
+				this.#dependencies.files.save(suggestedProjectName)
+			)
+		} catch (error) {
+			return Promise.resolve(failedPersistence(snapshot.revision, error))
+		}
+	}
+
+	public async persistAsSelection(
+		handle: ProjectHandle,
+		snapshot: ProjectSnapshotEnvelope,
+		selectionPromise: Promise<WebProjectSaveSelection>
 	): Promise<PersistenceOutcome> {
 		let record: MutableWebProjectRecord
 		try {
@@ -559,7 +606,6 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 		} catch (error) {
 			return failedPersistence(snapshot.revision, error)
 		}
-		const selectionPromise = this.#dependencies.files.save(suggestedProjectName)
 		return await this.#serialize(record, async () => {
 			try {
 				const selection = await selectionPromise
@@ -670,4 +716,16 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 
 export function createWebProjectsRuntime(): ProjectsRuntime {
 	return new WebProjectsRuntime()
+}
+
+export function createWebPersistenceRuntime(
+	files: WebProjectPickerPort = new BrowserProjectFilePort()
+): Readonly<{ readonly projects: WebProjectsRuntime; readonly settings: WebIndexedDbRuntime }> {
+	const settings = new WebIndexedDbRuntime()
+	return Object.freeze({
+		projects: new WebProjectsRuntime(
+			defaultDependencies({ files: browserFilePort(files), storage: settings })
+		),
+		settings
+	})
 }

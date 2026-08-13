@@ -12,12 +12,14 @@ import { EngineClient } from './EngineClient.js'
 
 class FakeEngineRuntime implements EngineRuntime {
 	readonly commands: AnyEngineCommandEnvelope[] = []
+	connectCount = 0
 	disconnectCount = 0
 	listener: ((event: AnyEngineEventEnvelope) => void) | null = null
 
 	public constructor(readonly connectedProtocolVersion: number = engineProtocolVersion) {}
 
 	public async connect(): Promise<ApplicationResult<EngineConnection>> {
+		this.connectCount += 1
 		return Object.freeze({
 			ok: true as const,
 			value: Object.freeze({
@@ -72,6 +74,28 @@ class FakeEngineRuntime implements EngineRuntime {
 }
 
 describe('EngineClient', () => {
+	it('completes a prepared connection without reconnecting the runtime', async () => {
+		const runtime = new FakeEngineRuntime()
+		const client = new EngineClient(runtime)
+		const connection = Object.freeze({
+			audioConfiguration: Object.freeze({
+				blockFrames: 128,
+				channels: 2 as const,
+				sampleRate: 44_100
+			}),
+			protocolVersion: engineProtocolVersion,
+			capabilities: Object.freeze(['protocol.typed-json'] as const)
+		})
+
+		const connected = await client.connectPrepared(connection)
+
+		assert.equal(connected.ok, true)
+		assert.equal(runtime.connectCount, 0)
+		assert.equal(runtime.commands[0]?.type, 'handshake')
+		assert.equal(client.state, 'ready')
+		assert.equal((await client.disconnect()).ok, true)
+	})
+
 	it('performs one compatible handshake and sends monotonic typed commands', async () => {
 		const runtime = new FakeEngineRuntime()
 		const client = new EngineClient(runtime)
