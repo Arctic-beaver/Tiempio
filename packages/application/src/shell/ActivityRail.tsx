@@ -41,15 +41,13 @@ export function ActivityRail({ activeView }: ActivityRailProperties): JSX.Elemen
 						selected={activeView === 'sound-chooser'}
 						tooltipPlacement="right"
 					/>
-					<button
-						aria-label={t('home.openProject')}
+					<CommandIconButton
 						className="rail-button"
-						disabled
-						title={t('common.notAvailable')}
-						type="button"
-					>
-						<FolderOpen aria-hidden="true" />
-					</button>
+						commandId="project.open"
+						icon={<FolderOpen />}
+						label={t('home.openProject')}
+						tooltipPlacement="right"
+					/>
 				</div>
 				<div className="activity-rail__settings">
 					<button

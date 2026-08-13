@@ -20,7 +20,27 @@ function issueCodes(value: unknown): readonly string[] {
 	return result.ok ? [] : result.issues.map((entry) => entry.code)
 }
 
+function reorderSerializableKeys(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map(reorderSerializableKeys)
+	if (typeof value !== 'object' || value === null) return value
+	return Object.fromEntries(
+		Object.entries(value)
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(([key, entry]) => [key, reorderSerializableKeys(entry)])
+	)
+}
+
 describe('project validation', () => {
+	it('treats serializable object key order as non-semantic', () => {
+		const project = createProject({ projectId: 'project.key-order', title: 'Key order' })
+		const synth = createLayer({ id: 'layer.synth', name: 'Synth', role: 'melody' })
+		const drums = createLayer({ id: 'layer.drums', name: 'Drums', role: 'rhythm' })
+		const result = validateProjectDocument(
+			reorderSerializableKeys({ ...project, layers: [synth, drums] })
+		)
+		assert.equal(result.ok, true)
+	})
+
 	it('accepts an out-of-scale MIDI note because scale is advisory', () => {
 		const project = createProject({ projectId: 'project.scale', title: 'Scale' })
 		const note = createMidiNote({

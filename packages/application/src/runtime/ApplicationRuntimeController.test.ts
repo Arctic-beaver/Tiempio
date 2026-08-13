@@ -110,6 +110,64 @@ function flush(): Promise<void> {
 	return new Promise((resolve) => setImmediate(resolve))
 }
 
+function recoveryProjectsRuntime(
+	createdHandle: ProjectHandle,
+	openedHandle: ProjectHandle,
+	onCreate: () => void,
+	onOpen: () => void,
+	onRecovery: (handle: ProjectHandle, revision: number) => void
+): ProjectsRuntime {
+	const unavailable = Object.freeze({
+		ok: false as const,
+		error: applicationError('OPERATION_UNAVAILABLE', 'Unavailable in test.')
+	})
+	return Object.freeze({
+		create: async () => {
+			onCreate()
+			return Object.freeze({ ok: true as const, value: createdHandle })
+		},
+		open: async () => {
+			onOpen()
+			return Object.freeze({ ok: true as const, value: openedHandle })
+		},
+		load: async (handle: ProjectHandle) =>
+			handle === openedHandle
+				? Object.freeze({
+						ok: true as const,
+						value: Object.freeze({
+							compatibility: 'supported' as const,
+							fingerprint: 'sha256:test',
+							saveAllowed: true,
+							snapshot: Object.freeze({
+								revision: 3,
+								bytes: new Uint8Array([9])
+							})
+						})
+					})
+				: unavailable,
+		persist: async (_handle: ProjectHandle, snapshot: ProjectSnapshotEnvelope) =>
+			Object.freeze({ status: 'canceled' as const, revision: snapshot.revision }),
+		persistAs: async (_handle: ProjectHandle, snapshot: ProjectSnapshotEnvelope) =>
+			Object.freeze({ status: 'canceled' as const, revision: snapshot.revision }),
+		saveCopy: async (_handle: ProjectHandle, snapshot: ProjectSnapshotEnvelope) =>
+			Object.freeze({ status: 'canceled' as const, revision: snapshot.revision }),
+		writeRecovery: async (handle: ProjectHandle, snapshot: ProjectSnapshotEnvelope) => {
+			onRecovery(handle, snapshot.revision)
+			return Object.freeze({
+				ok: true as const,
+				value: Object.freeze({ revision: snapshot.revision })
+			})
+		},
+		listRecoveries: async () => Object.freeze({ ok: true as const, value: Object.freeze([]) }),
+		restoreRecovery: async () => unavailable,
+		discardRecovery: async (_handle: RecoveryHandle, throughRevision: number) =>
+			Object.freeze({
+				ok: true as const,
+				value: Object.freeze({ discardedThroughRevision: throughRevision })
+			})
+	})
+}
+
 describe('ApplicationRuntimeController', () => {
 	it('defers the engine client until an activated retry has connected the runtime', async () => {
 		const browser = installBrowserSurfaces()
@@ -210,6 +268,74 @@ describe('ApplicationRuntimeController', () => {
 				'connect-prepared',
 				'connect:3'
 			])
+		} finally {
+			await controller.dispose()
+			browser.restore()
+		}
+	})
+
+	it('adopts an opened project handle without replacing it with a new runtime handle', async () => {
+		const browser = installBrowserSurfaces()
+		const createdHandle = `project:${'A'.repeat(64)}` as ProjectHandle
+		const openedHandle = `project:${'B'.repeat(64)}` as ProjectHandle
+		let creates = 0
+		let opens = 0
+		const recoveries: Array<{ readonly handle: ProjectHandle; readonly revision: number }> = []
+		const projects = recoveryProjectsRuntime(
+			createdHandle,
+			openedHandle,
+			() => {
+				creates += 1
+			},
+			() => {
+				opens += 1
+			},
+			(handle, revision) => recoveries.push({ handle, revision })
+		)
+		const unavailableRuntime = createUnavailableRuntime('web')
+		const runtime: ApplicationRuntime = Object.freeze({
+			...unavailableRuntime,
+			projects: Object.freeze({ availability: 'available' as const, api: projects })
+		})
+		const controller = new ApplicationRuntimeController(
+			runtime,
+			new ProjectSession(createSeedProject()),
+			{
+				projectCodec: Object.freeze({
+					decode: (bytes: Uint8Array) =>
+						bytes[0] === 9
+							? Object.freeze({
+									status: 'loaded' as const,
+									project: createSeedProject()
+								})
+							: Object.freeze({
+									status: 'invalid' as const,
+									error: Object.freeze({ message: 'Invalid test project.' })
+								}),
+					encode: () => new Uint8Array([1, 2, 3])
+				})
+			}
+		)
+		try {
+			await controller.start()
+			await flush()
+			assert.equal(creates, 1)
+			assert.equal(recoveries.at(-1)?.handle, createdHandle)
+
+			const opening = controller.openProject()
+			assert.equal(opens, 1)
+			const opened = await opening
+			assert.equal(opened.ok, true)
+			if (!opened.ok) return
+			assert.equal(opened.value.handle, openedHandle)
+			controller.bindProjectSession(
+				new ProjectSession(opened.value.project),
+				opened.value.handle
+			)
+			await flush()
+			assert.equal(creates, 1)
+			assert.equal(recoveries.at(-1)?.handle, openedHandle)
+			assert.equal(recoveries.at(-1)?.revision, 0)
 		} finally {
 			await controller.dispose()
 			browser.restore()
@@ -538,10 +664,17 @@ describe('ApplicationRuntimeController', () => {
 			if (retriedPlan?.type === 'load-render-plan') {
 				assert.equal(retriedPlan.payload.plan.projectRevision, 1)
 			}
+			const plansBeforeAudition = commands.filter(
+				(command) => command.type === 'load-render-plan'
+			).length
 
 			controller.auditionDrum('layer.drums', 'openHat')
 			await flush()
 			await flush()
+			assert.equal(
+				commands.filter((command) => command.type === 'load-render-plan').length,
+				plansBeforeAudition
+			)
 			const drumAudition = commands.at(-1)
 			assert.equal(drumAudition?.type, 'note-on')
 			if (drumAudition?.type === 'note-on') {

@@ -23,12 +23,19 @@ import {
 import {
 	type ApplicationController,
 	type ApplicationControllerSnapshot,
+	type OpenedApplicationProject,
 	silentApplicationMeter
 } from './ApplicationController.js'
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
 import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
 
 export interface ProjectDocumentCodec {
+	decode?(
+		bytes: Uint8Array
+	):
+		| { readonly project: ProjectDocument; readonly status: 'loaded' }
+		| { readonly error: { readonly message: string }; readonly status: 'invalid' }
+		| { readonly status: 'unsupported' }
 	encode(project: ProjectDocument): Uint8Array
 }
 
@@ -83,6 +90,8 @@ export class ApplicationRuntimeController implements ApplicationController {
 	#audioRetry: Promise<void> | null = null
 	#latestPlanGeneration = 0
 	#latestRequestedPlanRevision = -1
+	#publishedPlanGeneration = -1
+	#publishedPlanRevision = -1
 	#metronomeEnabled = false
 	#metronomeVolume = 0.65
 	#observedProjectRevision = -1
@@ -151,28 +160,67 @@ export class ApplicationRuntimeController implements ApplicationController {
 
 	public readonly getSnapshot = (): ApplicationControllerSnapshot => this.#snapshot
 
-	public bindProjectSession(session: ProjectSession): void {
+	public bindProjectSession(session: ProjectSession, handle: ProjectHandle | null = null): void {
 		this.previewCoordinator.interrupt()
 		this.performanceInput.releaseAll()
 		this.#projectUnsubscribe?.()
 		this.#projectGeneration += 1
 		this.#projectSession = session
-		this.#currentHandle = null
+		this.#currentHandle = handle
 		this.#latestRequestedPlanRevision = session.getSnapshot().revision
 		this.#observedProjectRevision = session.getSnapshot().revision
 		this.#latestPlanGeneration = this.#projectGeneration
 		this.#projectUnsubscribe = session.subscribe(() => this.#projectChanged())
 		if (this.#started) {
-			void this.#createProjectHandle(this.#projectGeneration)
+			if (handle === null) void this.#createProjectHandle(this.#projectGeneration)
+			else this.#scheduleRecovery(true)
 			this.#schedulePlanPublish()
 		}
+	}
+
+	public openProject(): Promise<ApplicationResult<OpenedApplicationProject>> {
+		if (
+			this.#runtime.projects.availability !== 'available' ||
+			this.#options.projectCodec?.decode === undefined
+		) {
+			return Promise.resolve(
+				Object.freeze({
+					ok: false as const,
+					error: applicationError(
+						'OPERATION_UNAVAILABLE',
+						'Project opening is unavailable.'
+					)
+				})
+			)
+		}
+		let opened: Promise<ApplicationResult<ProjectHandle>>
+		try {
+			opened = this.#runtime.projects.api.open()
+		} catch {
+			return Promise.resolve(
+				Object.freeze({
+					ok: false as const,
+					error: applicationError(
+						'INTERNAL_ERROR',
+						'The project picker could not be opened.',
+						{ retryable: true }
+					)
+				})
+			)
+		}
+		return this.#loadOpenedProject(
+			this.#runtime.projects.api,
+			this.#options.projectCodec.decode,
+			opened
+		)
 	}
 
 	public async start(): Promise<void> {
 		if (this.#started || this.#disposed) return
 		this.#started = true
 		this.#attachWindowListeners()
-		void this.#createProjectHandle(this.#projectGeneration)
+		if (this.#currentHandle === null) void this.#createProjectHandle(this.#projectGeneration)
+		else this.#scheduleRecovery(true)
 		if (this.#runtime.lifecycle.availability === 'available') {
 			await this.#runtime.lifecycle.api.ready()
 		}
@@ -408,6 +456,8 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	async #initializeAudio(connection: EngineConnection): Promise<void> {
+		this.#publishedPlanGeneration = -1
+		this.#publishedPlanRevision = -1
 		const configuration = connection.audioConfiguration ?? {
 			sampleRate: 48_000,
 			blockFrames: 512,
@@ -482,6 +532,8 @@ export class ApplicationRuntimeController implements ApplicationController {
 			}
 			const accepted = await this.#send('load-render-plan', { plan: wire.plan })
 			if (!accepted) return
+			this.#publishedPlanGeneration = publishedGeneration
+			this.#publishedPlanRevision = publishedRevision
 		} while (
 			publishedGeneration !== this.#projectGeneration ||
 			publishedRevision !== this.#latestRequestedPlanRevision
@@ -492,7 +544,16 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.#latestRequestedPlanRevision = this.#projectSession.getSnapshot().revision
 		this.#latestPlanGeneration = this.#projectGeneration
 		if (this.#planDrain !== null) await this.#planDrain
-		else await this.#drainPlans()
+		const revision = this.#projectSession.getSnapshot().revision
+		this.#latestRequestedPlanRevision = revision
+		this.#latestPlanGeneration = this.#projectGeneration
+		if (
+			this.#publishedPlanGeneration === this.#projectGeneration &&
+			this.#publishedPlanRevision === revision
+		) {
+			return
+		}
+		await this.#drainPlans()
 	}
 
 	async #createProjectHandle(generation: number): Promise<void> {
@@ -507,6 +568,56 @@ export class ApplicationRuntimeController implements ApplicationController {
 		if (!created.ok) return
 		this.#currentHandle = created.value
 		this.#scheduleRecovery(true)
+	}
+
+	async #loadOpenedProject(
+		projects: Extract<
+			ApplicationRuntime['projects'],
+			{ readonly availability: 'available' }
+		>['api'],
+		decode: NonNullable<ProjectDocumentCodec['decode']>,
+		opened: Promise<ApplicationResult<ProjectHandle>>
+	): Promise<ApplicationResult<OpenedApplicationProject>> {
+		try {
+			const selected = await opened
+			if (!selected.ok) return selected
+			const loaded = await projects.load(selected.value)
+			if (!loaded.ok) return loaded
+			if (loaded.value.compatibility === 'unsupported') {
+				return Object.freeze({
+					ok: false as const,
+					error: applicationError(
+						'PROJECT_READ_ONLY',
+						'This project was created by a newer Tiempio version and cannot be edited.'
+					)
+				})
+			}
+			const decoded = decode(loaded.value.snapshot.bytes)
+			if (decoded.status !== 'loaded') {
+				return Object.freeze({
+					ok: false as const,
+					error: applicationError(
+						decoded.status === 'unsupported' ? 'PROJECT_READ_ONLY' : 'PROJECT_INVALID',
+						decoded.status === 'unsupported'
+							? 'This project was created by a newer Tiempio version and cannot be edited.'
+							: decoded.error.message
+					)
+				})
+			}
+			return Object.freeze({
+				ok: true as const,
+				value: Object.freeze({ handle: selected.value, project: decoded.project })
+			})
+		} catch {
+			return Object.freeze({
+				ok: false as const,
+				error: applicationError(
+					'INTERNAL_ERROR',
+					'The selected project could not be opened.',
+					{ retryable: true }
+				)
+			})
+		}
 	}
 
 	#scheduleRecovery(force: boolean): void {

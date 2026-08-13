@@ -28,14 +28,22 @@ test('command ids, definitions and activity placements stay unique', () => {
 	assert.equal(new Set(commandIds).size, commandIds.length)
 	assert.equal(new Set(commandDefinitions.map(({ id }) => id)).size, commandDefinitions.length)
 	assert.deepEqual(
-		activityCommandDefinitions.map(({ view }) => view),
-		['home', 'piano-roll', 'drums', 'arrangement', 'sound-sculpt']
+		activityCommandDefinitions.map(({ id }) => id),
+		[
+			'studio.home',
+			'studio.piano-roll',
+			'studio.drums',
+			'studio.arrangement',
+			'studio.sound-sculpt',
+			'project.open'
+		]
 	)
 	assert.equal(
 		commandDefinitions.every(({ disabledReasonKey }) => disabledReasonKey.length > 0),
 		true
 	)
 	assert.equal(commandDefinition('transport.stop').availability, 'engine')
+	assert.equal(commandDefinition('project.open').effectOwner, 'project')
 })
 
 test('every studio view resolves through the registry', () => {

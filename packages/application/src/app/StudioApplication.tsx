@@ -22,18 +22,31 @@ export function StudioApplication(): JSX.Element {
 	const projectSession = useProjectSession()
 	const navigation = useStudioNavigation()
 	const transportCommandHandlers = useTransportCommandHandlers()
+	const projectsAvailable =
+		runtime.projects.availability === 'available' && controller.openProject !== undefined
 	const handlers = useMemo<CommandHandlerMap>(
 		() => ({
 			...navigation.commandHandlers,
 			...transportCommandHandlers,
+			...(projectsAvailable
+				? {
+						'project.open': async () => {
+							const result = await controller.openProject!()
+							if (!result.ok) return
+							projectSession.replaceProject(result.value.project, result.value.handle)
+							navigation.commandHandlers['studio.piano-roll']?.()
+						}
+					}
+				: {}),
 			'transport.toggle-metronome': () => setMetronomeEnabled(!metronomeEnabled),
 			'project.undo': projectSession.undo,
 			'project.redo': projectSession.redo
 		}),
 		[
+			controller,
 			navigation.commandHandlers,
-			projectSession.redo,
-			projectSession.undo,
+			projectSession,
+			projectsAvailable,
 			metronomeEnabled,
 			setMetronomeEnabled,
 			transportCommandHandlers

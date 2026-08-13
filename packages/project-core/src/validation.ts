@@ -71,6 +71,14 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 	return prototype === Object.prototype || prototype === null
 }
 
+function orderedSerializableValue(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map(orderedSerializableValue)
+	if (!isPlainRecord(value)) return value
+	return Object.keys(value)
+		.sort()
+		.map((key) => [key, orderedSerializableValue(value[key])])
+}
+
 function scanSerializableGraph(
 	value: unknown,
 	context: ValidationContext,
@@ -548,7 +556,8 @@ function validateSynthSource(value: unknown, context: ValidationContext, path: s
 				macros as unknown as Parameters<typeof createSynthInstrument>[1]
 			)
 			if (
-				JSON.stringify(expected.resolvedPatch) !== JSON.stringify(instrument.resolvedPatch)
+				JSON.stringify(orderedSerializableValue(expected.resolvedPatch)) !==
+				JSON.stringify(orderedSerializableValue(instrument.resolvedPatch))
 			) {
 				issue(
 					context,
@@ -631,7 +640,10 @@ function validateDrumSource(
 			const expected = createCleanPulseDrumSource(
 				variants as unknown as Parameters<typeof createCleanPulseDrumSource>[0]
 			)
-			if (JSON.stringify(expected.resolvedPatch) !== JSON.stringify(value.resolvedPatch)) {
+			if (
+				JSON.stringify(orderedSerializableValue(expected.resolvedPatch)) !==
+				JSON.stringify(orderedSerializableValue(value.resolvedPatch))
+			) {
 				issue(
 					context,
 					'INVALID_VALUE',

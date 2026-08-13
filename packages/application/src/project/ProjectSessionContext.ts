@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'react'
+import type { ProjectHandle } from '../../../contracts/src/index.js'
 import type {
 	LayerId,
+	ProjectDocument,
 	ProjectCommand,
 	ProjectDispatchOptions,
 	ProjectSessionSnapshot
@@ -18,6 +20,7 @@ export interface ProjectSessionContextValue {
 	readonly nextId: (scope: string) => string
 	readonly projections: StudioProjectProjections
 	readonly redo: () => ProjectSessionSnapshot
+	readonly replaceProject: (project: ProjectDocument, handle: ProjectHandle) => void
 	readonly selectLayer: (layerId: LayerId | null) => void
 	readonly selectedLayerId: LayerId | null
 	readonly snapshot: ProjectSessionSnapshot

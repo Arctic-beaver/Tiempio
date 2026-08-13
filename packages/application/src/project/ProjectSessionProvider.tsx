@@ -7,12 +7,14 @@ import {
 	type JSX,
 	type ReactNode
 } from 'react'
+import type { ProjectHandle } from '../../../contracts/src/index.js'
 import {
 	createProjectFromCommand,
 	layerId,
 	ProjectSession,
 	type LayerId,
 	type ProjectCommand,
+	type ProjectDocument,
 	type ProjectDispatchOptions,
 	type ProjectSessionSnapshot
 } from '../../../project-core/src/index.js'
@@ -23,7 +25,7 @@ import { projectStudio } from './projectors.js'
 export interface ProjectSessionProviderProperties {
 	readonly children: ReactNode
 	readonly initialSession?: ProjectSession
-	readonly onSessionChange?: (session: ProjectSession) => void
+	readonly onSessionChange?: (session: ProjectSession, handle: ProjectHandle | null) => void
 }
 
 export function ProjectSessionProvider({
@@ -71,7 +73,16 @@ export function ProjectSessionProvider({
 			const nextSession = new ProjectSession(project)
 			setSelectedLayerId(null)
 			setSession(nextSession)
-			onSessionChange?.(nextSession)
+			onSessionChange?.(nextSession, null)
+		},
+		[onSessionChange]
+	)
+	const replaceProject = useCallback(
+		(project: ProjectDocument, handle: ProjectHandle): void => {
+			const nextSession = new ProjectSession(project)
+			setSelectedLayerId(null)
+			setSession(nextSession)
+			onSessionChange?.(nextSession, handle)
 		},
 		[onSessionChange]
 	)
@@ -95,6 +106,7 @@ export function ProjectSessionProvider({
 			getSnapshot: session.getSnapshot,
 			selectLayer: setSelectedLayerId,
 			createNewProject,
+			replaceProject,
 			nextId
 		}),
 		[
@@ -104,6 +116,7 @@ export function ProjectSessionProvider({
 			nextId,
 			projections,
 			redo,
+			replaceProject,
 			selectedLayerId,
 			session.getSnapshot,
 			snapshot,

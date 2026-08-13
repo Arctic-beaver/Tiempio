@@ -1,6 +1,7 @@
 import { ArrowRight, FolderOpen, Headphones, Plus, Waves } from 'lucide-react'
 import type { JSX } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
+import { useCommands } from '../../commands/CommandContext.js'
 import { homeViewModel, type HomeViewModel } from './view-model.js'
 
 const visualRecentPieces = Object.freeze([
@@ -21,6 +22,8 @@ export function HomeView({
 	onStartWithSound
 }: HomeViewProperties): JSX.Element {
 	const { t } = useLocalization()
+	const { commands, execute } = useCommands()
+	const openProject = commands['project.open']
 	return (
 		<section className="studio-view home-view" data-testid="view-home">
 			<div className="home">
@@ -52,10 +55,13 @@ export function HomeView({
 							<ArrowRight aria-hidden="true" className="arrow" />
 						</button>
 						<button
-							aria-disabled="true"
+							aria-disabled={!openProject.available || undefined}
 							className="start-row"
-							disabled
-							title={t('common.notAvailable')}
+							disabled={!openProject.available}
+							onClick={() => execute('project.open')}
+							title={
+								openProject.available ? undefined : t(openProject.disabledReasonKey)
+							}
 							type="button"
 						>
 							<span className="round-symbol">
