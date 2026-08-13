@@ -172,9 +172,7 @@ export class ProjectSession {
 		return this.#snapshot
 	}
 
-	public prepareTransaction(
-		commands: readonly ProjectCommand[]
-	): PreparedProjectTransaction {
+	public prepareTransaction(commands: readonly ProjectCommand[]): PreparedProjectTransaction {
 		if (commands.length === 0) {
 			throw sessionError('INVALID_COMMAND', 'A project transaction cannot be empty.')
 		}
@@ -185,7 +183,10 @@ export class ProjectSession {
 			if (result.status === 'rejected') this.#throwFailure(result.failure)
 			if (result.status === 'noop') continue
 			if (revision >= Number.MAX_SAFE_INTEGER) {
-				throw sessionError('REVISION_EXHAUSTED', 'The project revision counter is exhausted.')
+				throw sessionError(
+					'REVISION_EXHAUSTED',
+					'The project revision counter is exhausted.'
+				)
 			}
 			project = result.project
 			revision += 1

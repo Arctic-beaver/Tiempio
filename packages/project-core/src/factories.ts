@@ -27,6 +27,8 @@ import {
 	type ProjectRole,
 	type ProjectSection,
 	type SectionId,
+	type SemanticSynthMacrosV2,
+	type LayerPerformanceMapping,
 	type SynthPresetId
 } from './model.js'
 import { createCleanPulseDrumSource, createSynthInstrument } from './presets.js'
@@ -66,6 +68,11 @@ export interface CreateLayerInput {
 	readonly name: string
 	readonly presetId?: SynthPresetId
 	readonly role: ProjectRole
+	readonly synth?: {
+		readonly macros: SemanticSynthMacrosV2
+		readonly performance: LayerPerformanceMapping
+		readonly presetId: SynthPresetId
+	}
 }
 
 export function createLayer(input: CreateLayerInput): ProjectLayer {
@@ -81,14 +88,19 @@ export function createLayer(input: CreateLayerInput): ProjectLayer {
 				: ({
 						type: 'synth',
 						instrument: createSynthInstrument(
-							input.presetId ??
+							input.synth?.presetId ??
+								input.presetId ??
 								(input.role === 'harmony'
 									? 'pad.warm'
 									: input.role === 'melody'
 										? 'lead.glass'
-										: 'bass.deep')
+										: 'bass.deep'),
+							input.synth?.macros
 						),
-						performance: { key: { tonic: 9, mode: 'minor' }, octave: 2 }
+						performance: input.synth?.performance ?? {
+							key: { tonic: 9, mode: 'minor' },
+							octave: 2
+						}
 					} as const)
 	return cloneAndFreeze({
 		id,

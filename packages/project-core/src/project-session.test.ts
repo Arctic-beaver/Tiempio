@@ -81,6 +81,39 @@ describe('ProjectSession', () => {
 		assert.equal(redone.project.layers.length, 1)
 	})
 
+	it('creates a fully configured synth layer at the atomic add boundary', () => {
+		const session = new ProjectSession(
+			createProject({ projectId: 'project.configured-layer', title: 'Configured layer' })
+		)
+		session.dispatch({
+			type: 'layer.add',
+			baseRevision: 0,
+			id: 'layer.configured',
+			name: 'Configured',
+			role: 'harmony',
+			synth: {
+				presetId: 'pluck.wood',
+				macros: {
+					brightness: 0.2,
+					hardness: 0.3,
+					dirt: 0.1,
+					length: 0.8,
+					width: 0.4
+				},
+				performance: { key: { tonic: 7, mode: 'major' }, octave: 4 }
+			}
+		})
+		const layer = session.getSnapshot().project.layers[0]
+		assert.equal(layer?.source.type, 'synth')
+		if (layer?.source.type !== 'synth') throw new Error('Expected a synth layer.')
+		assert.equal(layer.source.instrument.presetId, 'pluck.wood')
+		assert.equal(layer.source.instrument.macros.brightness, 0.2)
+		assert.deepEqual(layer.source.performance, {
+			key: { tonic: 7, mode: 'major' },
+			octave: 4
+		})
+	})
+
 	it('rejects invalid, stale, foreign and reused prepared transactions atomically', () => {
 		const session = new ProjectSession(
 			createProject({ projectId: 'project.transaction', title: 'Transaction' })
