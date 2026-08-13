@@ -4,13 +4,14 @@ import {
 	evaluateEngineCapabilities,
 	type AnyEngineEventEnvelope,
 	type ApplicationError,
+	type ApplicationResult,
 	type ApplicationRuntime,
 	type AudioHealthSnapshot,
 	type EngineCommandPayloadByType,
 	type EngineConnection,
 	type ProjectHandle
 } from '../../../contracts/src/index.js'
-import { EngineClient, type EngineClientCommandType } from '../../../engine-client/src/index.js'
+import type { EngineClient, EngineClientCommandType } from '../../../engine-client/src/index.js'
 import {
 	compileEngineWireRenderPlan,
 	compileProjectRenderPlan,
@@ -31,8 +32,30 @@ export interface ProjectDocumentCodec {
 	encode(project: ProjectDocument): Uint8Array
 }
 
+export interface PreparedEngineActivation {
+	connect(): Promise<ApplicationResult<EngineConnection>>
+	cancel(): Promise<void>
+}
+
 export interface ApplicationRuntimeControllerOptions {
+	readonly loadEngineClient?: (
+		runtime: Extract<
+			ApplicationRuntime['engine'],
+			{ readonly availability: 'available' }
+		>['api']
+	) => Promise<EngineClient>
+	readonly prepareEngineActivation?: () => PreparedEngineActivation
 	readonly projectCodec?: ProjectDocumentCodec
+}
+
+async function loadEngineClient(
+	runtime: Extract<ApplicationRuntime['engine'], { readonly availability: 'available' }>['api']
+): Promise<EngineClient> {
+	const { EngineClient: EngineClientConstructor } =
+		await import('../../../engine-client/src/index.js')
+	return new EngineClientConstructor(runtime, {
+		capabilities: applicationEngineRequestedCapabilityCodes
+	})
 }
 
 function freezeSnapshot(snapshot: ApplicationControllerSnapshot): ApplicationControllerSnapshot {
@@ -48,7 +71,7 @@ const drumAuditionPitches = Object.freeze({
 } as const satisfies Readonly<Record<DrumInstrument, number>>)
 
 export class ApplicationRuntimeController implements ApplicationController {
-	readonly #client: EngineClient | null
+	#client: EngineClient | null = null
 	readonly #listeners = new Set<() => void>()
 	readonly #options: ApplicationRuntimeControllerOptions
 	readonly #runtime: ApplicationRuntime
@@ -113,12 +136,6 @@ export class ApplicationRuntimeController implements ApplicationController {
 				return true
 			}
 		})
-		this.#client =
-			runtime.engine.availability === 'available'
-				? new EngineClient(runtime.engine.api, {
-						capabilities: applicationEngineRequestedCapabilityCodes
-					})
-				: null
 		if (runtime.lifecycle.availability === 'available') {
 			this.#lifecycleUnsubscribe = runtime.lifecycle.api.onCloseRequested(() => {
 				this.prepareToClose()
@@ -164,8 +181,21 @@ export class ApplicationRuntimeController implements ApplicationController {
 
 	public retryAudio(): Promise<void> {
 		if (this.#audioRetry !== null) return this.#audioRetry
-		if (this.#client === null || this.#disposed) return Promise.resolve()
-		this.#audioRetry = this.#retryAudio().finally(() => {
+		if (this.#runtime.engine.availability !== 'available' || this.#disposed) {
+			return Promise.resolve()
+		}
+		let activation: PreparedEngineActivation | null = null
+		try {
+			activation = this.#options.prepareEngineActivation?.() ?? null
+		} catch {
+			this.#setDiagnostic(
+				applicationError('ENGINE_UNAVAILABLE', 'The audio activation could not start.', {
+					retryable: true
+				})
+			)
+			return Promise.resolve()
+		}
+		this.#audioRetry = this.#retryAudio(activation).finally(() => {
 			this.#audioRetry = null
 		})
 		return this.#audioRetry
@@ -248,23 +278,73 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.#publish({ ...this.#snapshot, available: false, playing: false })
 	}
 
-	async #startEngine(): Promise<void> {
-		if (this.#client === null || this.#runtime.engine.availability !== 'available') return
+	async #startEngine(activation: PreparedEngineActivation | null = null): Promise<void> {
+		if (this.#runtime.engine.availability !== 'available') return
 		this.#detachEngineListeners()
-		this.#unsubscribeEngineEvents = this.#client.onEvent((event) =>
-			this.#acceptEngineEvent(event)
-		)
-		this.#unsubscribeEngineFailures = this.#client.onFailure((error) => {
-			this.previewCoordinator.reset()
-			this.performanceInput.releaseAll()
-			this.#setDiagnostic(error)
-		})
 		this.#runtimeHealthUnsubscribe = this.#runtime.engine.api.onHealth((health) =>
 			this.#acceptHealth(health)
 		)
-		const connected = await this.#client.connect()
+		let client = this.#client
+		let connected
+		if (client === null) {
+			const runtimeConnection = await (activation?.connect() ??
+				this.#runtime.engine.api.connect())
+			if (!runtimeConnection.ok) {
+				if (!this.#disposed) this.#setDiagnostic(runtimeConnection.error)
+				return
+			}
+			if (this.#disposed) {
+				await this.#runtime.engine.api.disconnect()
+				return
+			}
+			try {
+				client = await (this.#options.loadEngineClient ?? loadEngineClient)(
+					this.#runtime.engine.api
+				)
+			} catch {
+				await this.#runtime.engine.api.disconnect()
+				if (!this.#disposed) {
+					this.#setDiagnostic(
+						applicationError(
+							'ENGINE_UNAVAILABLE',
+							'The audio engine client could not load.',
+							{
+								retryable: true
+							}
+						)
+					)
+				}
+				return
+			}
+			if (this.#disposed) {
+				await this.#runtime.engine.api.disconnect()
+				return
+			}
+			this.#client = client
+			this.#attachEngineClientListeners(client)
+			connected = await client.connectPrepared(runtimeConnection.value)
+		} else if (activation === null) {
+			this.#attachEngineClientListeners(client)
+			connected = await client.connect()
+		} else {
+			const runtimeConnection = await activation.connect()
+			if (!runtimeConnection.ok) {
+				if (!this.#disposed) this.#setDiagnostic(runtimeConnection.error)
+				return
+			}
+			if (this.#disposed) {
+				await this.#runtime.engine.api.disconnect()
+				return
+			}
+			this.#attachEngineClientListeners(client)
+			connected = await client.connectPrepared(runtimeConnection.value)
+		}
 		if (!connected.ok) {
-			this.#setDiagnostic(connected.error)
+			if (!this.#disposed) this.#setDiagnostic(connected.error)
+			return
+		}
+		if (this.#disposed) {
+			await client.disconnect()
 			return
 		}
 		const capabilityEvaluation = evaluateEngineCapabilities(connected.value.capabilities)
@@ -279,30 +359,43 @@ export class ApplicationRuntimeController implements ApplicationController {
 					}
 				)
 			)
-			await this.#client.disconnect()
+			await client.disconnect()
 			return
 		}
 		await this.#initializeAudio(connected.value)
 	}
 
-	async #retryAudio(): Promise<void> {
-		if (this.#client === null || this.#disposed) return
-		this.previewCoordinator.interrupt()
-		this.performanceInput.releaseAll()
-		this.#detachEngineListeners()
-		if (this.#client.state === 'ready') {
-			const disconnected = await this.#client.disconnect()
-			if (!disconnected.ok) this.#setDiagnostic(disconnected.error)
+	#attachEngineClientListeners(client: EngineClient): void {
+		this.#unsubscribeEngineEvents = client.onEvent((event) => this.#acceptEngineEvent(event))
+		this.#unsubscribeEngineFailures = client.onFailure((error) => {
+			this.previewCoordinator.reset()
+			this.performanceInput.releaseAll()
+			this.#setDiagnostic(error)
+		})
+	}
+
+	async #retryAudio(activation: PreparedEngineActivation | null): Promise<void> {
+		if (this.#runtime.engine.availability !== 'available' || this.#disposed) return
+		try {
+			this.previewCoordinator.interrupt()
+			this.performanceInput.releaseAll()
+			this.#detachEngineListeners()
+			if (this.#client?.state === 'ready') {
+				const disconnected = await this.#client.disconnect()
+				if (!disconnected.ok) this.#setDiagnostic(disconnected.error)
+			}
+			if (this.#client !== null && this.#client.state !== 'disconnected') {
+				this.#setDiagnostic(
+					applicationError('ENGINE_UNAVAILABLE', 'The audio engine cannot retry yet.', {
+						retryable: true
+					})
+				)
+				return
+			}
+			await this.#startEngine(activation)
+		} finally {
+			await activation?.cancel()
 		}
-		if (this.#client.state !== 'disconnected') {
-			this.#setDiagnostic(
-				applicationError('ENGINE_UNAVAILABLE', 'The audio engine cannot retry yet.', {
-					retryable: true
-				})
-			)
-			return
-		}
-		await this.#startEngine()
 	}
 
 	#detachEngineListeners(): void {

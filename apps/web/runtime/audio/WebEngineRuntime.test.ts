@@ -16,6 +16,7 @@ import {
 	type WebAudioContext,
 	type WebEngineRuntimeDependencies
 } from './WebEngineRuntime.js'
+import { DeferredWebEngineRuntime } from './DeferredWebEngineRuntime.js'
 import type { WebAudioWorkletAdapter } from './webAudioWorkletAdapter.js'
 
 async function flush(): Promise<void> {
@@ -149,6 +150,21 @@ function harness(
 }
 
 describe('WebEngineRuntime', () => {
+	it('accepts a context whose resume began before the runtime loaded', async () => {
+		const test = harness()
+		const context = new FakeContext()
+		const resume = context.resume()
+
+		const connected = await test.runtime.connectPrepared(
+			Object.freeze({ context: context as unknown as WebAudioContext, resume })
+		)
+
+		assert.equal(connected.ok, true)
+		assert.equal(context.resumes, 1)
+		assert.equal(test.contexts.length, 0)
+		assert.deepEqual(test.generations, [1])
+	})
+
 	it('mounts without consuming activation or creating an audio graph', async () => {
 		const test = harness()
 		const health: AudioHealthSnapshot[] = []
@@ -256,5 +272,42 @@ describe('WebEngineRuntime', () => {
 		assert.equal(events.filter((event) => event.type === 'fatal-error').length, 1)
 		assert.equal(test.adapters[0]?.disposed, 1)
 		assert.equal((await test.runtime.connect()).ok, true)
+	})
+})
+
+describe('DeferredWebEngineRuntime', () => {
+	it('captures activation synchronously and loads the complete engine once', async () => {
+		const delegate = harness()
+		const contexts: FakeContext[] = []
+		const calls: string[] = []
+		const runtime = new DeferredWebEngineRuntime({
+			createContext: () => {
+				calls.push('create-context')
+				const context = new FakeContext()
+				contexts.push(context)
+				return context as unknown as WebAudioContext
+			},
+			hasTransientActivation: () => true,
+			loadRuntime: async () => {
+				calls.push('load-runtime')
+				return delegate.runtime
+			}
+		})
+
+		const activation = runtime.prepareActivation()
+		assert.deepEqual(calls, ['create-context'])
+		assert.equal(contexts[0]?.resumes, 1)
+		const connected = activation.connect()
+		assert.deepEqual(calls, ['create-context', 'load-runtime'])
+		assert.equal((await connected).ok, true)
+		assert.deepEqual(delegate.generations, [1])
+
+		const replacement = runtime.prepareActivation()
+		assert.equal(delegate.adapters[0]?.disposed, 1)
+		assert.equal(contexts[0]?.closes, 1)
+		assert.equal(contexts[1]?.resumes, 1)
+		await runtime.disconnect()
+		assert.equal((await replacement.connect()).ok, true)
+		assert.equal(calls.filter((call) => call === 'load-runtime').length, 1)
 	})
 })

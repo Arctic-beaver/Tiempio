@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { requireLifecycleOwnership } from './lifecycle/ownership-guard.mjs'
@@ -17,6 +17,13 @@ export const webStage6ArtifactBudgets = Object.freeze({
 	workletJavaScript: 65_536,
 	wasmRelease: 786_432
 })
+
+const webRuntimeRootModules = Object.freeze([
+	'apps/web/bootstrap/mountRuntimeApplication.ts',
+	'apps/web/runtime/audio/WebEngineRuntime.ts',
+	'apps/web/runtime/audio/webAudioWorkletAdapter.ts',
+	'apps/web/runtime/persistence/WebProjectsRuntime.ts'
+])
 
 export function evaluateBundleClass(bundleClass, files) {
 	const budget = emptyShellBundleBudgets[bundleClass]
@@ -47,6 +54,132 @@ function collectFileSizes(root, directory) {
 	return files.sort((left, right) => right.bytes - left.bytes)
 }
 
+function initialChunkFiles(chunks) {
+	const entries = chunks.filter((chunk) => chunk.isEntry === true)
+	if (entries.length !== 1)
+		throw new Error('Web attribution must contain exactly one entry chunk.')
+	const byFile = new Map(chunks.map((chunk) => [chunk.file, chunk]))
+	const files = new Set()
+	const pending = [entries[0].file]
+	while (pending.length > 0) {
+		const file = pending.pop()
+		if (file === undefined || files.has(file)) continue
+		files.add(file)
+		const chunk = byFile.get(file)
+		if (chunk === undefined)
+			throw new Error(`Web attribution references missing chunk ${file}.`)
+		for (const imported of chunk.imports) pending.push(imported)
+	}
+	return files
+}
+
+function webRuntimeChunkFiles(chunks, initialFiles) {
+	const byFile = new Map(chunks.map((chunk) => [chunk.file, chunk]))
+	const roots = new Set()
+	for (const rootModule of webRuntimeRootModules) {
+		const owners = chunks.filter((chunk) =>
+			chunk.modules.some((module) => module.module === rootModule)
+		)
+		if (owners.length !== 1) {
+			throw new Error(`Web runtime module ${rootModule} must have exactly one chunk owner.`)
+		}
+		roots.add(owners[0].file)
+	}
+	const files = new Set()
+	const pending = [...roots]
+	while (pending.length > 0) {
+		const file = pending.pop()
+		if (file === undefined || files.has(file) || initialFiles.has(file)) continue
+		files.add(file)
+		const chunk = byFile.get(file)
+		if (chunk === undefined) throw new Error(`Web runtime references missing chunk ${file}.`)
+		for (const dependency of [...chunk.imports, ...chunk.dynamicImports]) {
+			if (!initialFiles.has(dependency)) pending.push(dependency)
+		}
+	}
+	return files
+}
+
+function measuredClass(name, bytes, maxBytes, files = []) {
+	return Object.freeze({
+		name,
+		bytes,
+		maxBytes,
+		remainingBytes: maxBytes - bytes,
+		passed: bytes <= maxBytes,
+		files: Object.freeze([...files])
+	})
+}
+
+export function evaluateWebStage6Artifacts({ attribution, files, wasmBytes }) {
+	if (attribution.schemaVersion !== 2 || attribution.bundleClass !== 'web') {
+		throw new Error('Web Stage 6 budgets require current Web module attribution.')
+	}
+	const chunks = attribution.chunks
+	const initialFiles = initialChunkFiles(chunks)
+	const runtimeFiles = webRuntimeChunkFiles(chunks, initialFiles)
+	const initialChunks = chunks.filter((chunk) => initialFiles.has(chunk.file))
+	const runtimeChunks = chunks.filter((chunk) => runtimeFiles.has(chunk.file))
+	const deferredApplicationChunks = chunks.filter(
+		(chunk) => !initialFiles.has(chunk.file) && !runtimeFiles.has(chunk.file)
+	)
+	const workletFiles = files.filter((file) =>
+		/^assets\/web-worklet-[\w-]{8}\.js$/u.test(file.path)
+	)
+	if (workletFiles.length !== 1) {
+		throw new Error(
+			`Web Stage 6 must emit exactly one content-hashed worklet; observed ${String(workletFiles.length)}.`
+		)
+	}
+	const [worklet] = workletFiles
+	const encodedWasmBytes = Math.ceil(wasmBytes / 3) * 4
+	const workletOverhead = worklet.bytes - encodedWasmBytes
+	if (workletOverhead < 0)
+		throw new Error('The packaged worklet is smaller than its encoded WASM payload.')
+	const runtimeOutputFiles = new Set(runtimeChunks.map((chunk) => chunk.file))
+	const shellFiles = files.filter(
+		(file) => file.path !== worklet.path && !runtimeOutputFiles.has(file.path)
+	)
+	const classes = Object.freeze([
+		measuredClass(
+			'initialJavaScript',
+			initialChunks.reduce((total, chunk) => total + chunk.bytes, 0),
+			webStage6ArtifactBudgets.initialJavaScript,
+			initialChunks.map((chunk) => chunk.file)
+		),
+		measuredClass(
+			'deferredApplication',
+			deferredApplicationChunks.reduce((total, chunk) => total + chunk.bytes, 0),
+			webStage6ArtifactBudgets.deferredApplication,
+			deferredApplicationChunks.map((chunk) => chunk.file)
+		),
+		measuredClass(
+			'webRuntimeJavaScript',
+			runtimeChunks.reduce((total, chunk) => total + chunk.bytes, 0),
+			webStage6ArtifactBudgets.webRuntimeJavaScript,
+			runtimeChunks.map((chunk) => chunk.file)
+		),
+		measuredClass(
+			'workletJavaScript',
+			workletOverhead,
+			webStage6ArtifactBudgets.workletJavaScript,
+			[worklet.path]
+		),
+		measuredClass('wasmRelease', wasmBytes, webStage6ArtifactBudgets.wasmRelease),
+		measuredClass(
+			'shellOutput',
+			shellFiles.reduce((total, file) => total + file.bytes, 0),
+			emptyShellBundleBudgets.web.maxBytes,
+			shellFiles.map((file) => file.path)
+		)
+	])
+	return Object.freeze({
+		bundleClass: 'web',
+		passed: classes.every((result) => result.passed),
+		classes
+	})
+}
+
 function classesForTarget(target) {
 	if (target === 'desktop') {
 		return ['desktop-main', 'desktop-preload', 'desktop-renderer']
@@ -67,15 +200,45 @@ export function auditBundleBudgets({
 		const root = resolve(repositoryRoot, budget.root)
 		if (!existsSync(root))
 			throw new Error(`${bundleClass} output is missing at ${budget.root}.`)
-		results.push(evaluateBundleClass(bundleClass, collectFileSizes(root, root)))
+		const files = collectFileSizes(root, root)
+		if (bundleClass !== 'web') {
+			results.push(evaluateBundleClass(bundleClass, files))
+			continue
+		}
+		const attributionPath = resolve(
+			repositoryRoot,
+			'artifacts/stage-1/bundle/web-module-attribution.json'
+		)
+		const wasmPath = resolve(
+			repositoryRoot,
+			'engine/target/wasm32-unknown-unknown/release/tiempio_engine_web_worklet.wasm'
+		)
+		if (!existsSync(attributionPath) || !existsSync(wasmPath)) {
+			throw new Error('Web Stage 6 attribution or release WASM is missing.')
+		}
+		results.push(
+			evaluateWebStage6Artifacts({
+				attribution: JSON.parse(readFileSync(attributionPath, 'utf8')),
+				files,
+				wasmBytes: statSync(wasmPath).size
+			})
+		)
 	}
 	const failures = results.filter((result) => !result.passed)
 	if (failures.length > 0) {
 		throw new Error(
-			`Empty-shell bundle budget failed:\n- ${failures
-				.map(
-					(result) =>
-						`${result.bundleClass}: ${String(result.bytes)} > ${String(result.maxBytes)} bytes`
+			`Bundle budget failed:\n- ${failures
+				.flatMap((result) =>
+					'classes' in result
+						? result.classes
+								.filter((item) => !item.passed)
+								.map(
+									(item) =>
+										`${result.bundleClass}/${item.name}: ${String(item.bytes)} > ${String(item.maxBytes)} bytes`
+								)
+						: [
+								`${result.bundleClass}: ${String(result.bytes)} > ${String(result.maxBytes)} bytes`
+							]
 				)
 				.join('\n- ')}`
 		)
@@ -87,8 +250,15 @@ export function auditBundleBudgets({
 		`${JSON.stringify({ schemaVersion: 1, target, results }, null, 2)}\n`,
 		'utf8'
 	)
-	const message = `PASS empty-shell bundle budgets for ${target}: ${results
-		.map((result) => `${result.bundleClass}=${String(result.bytes)}/${String(result.maxBytes)}`)
+	const message = `PASS bundle budgets for ${target}: ${results
+		.flatMap((result) =>
+			'classes' in result
+				? result.classes.map(
+						(item) =>
+							`${result.bundleClass}/${item.name}=${String(item.bytes)}/${String(item.maxBytes)}`
+					)
+				: [`${result.bundleClass}=${String(result.bytes)}/${String(result.maxBytes)}`]
+		)
 		.join(', ')}.`
 	report(message)
 	return Object.freeze(results)

@@ -88,17 +88,46 @@ export class EngineClient {
 		return this.#lastFailure
 	}
 
-	public async connect(): Promise<ApplicationResult<EngineClientConnection>> {
+	public connect(): Promise<ApplicationResult<EngineClientConnection>> {
 		if (this.#state !== 'disconnected') {
-			return Object.freeze({ ok: false as const, error: stateError(this.#state, 'connect') })
+			return Promise.resolve(
+				Object.freeze({ ok: false as const, error: stateError(this.#state, 'connect') })
+			)
 		}
+		this.#beginConnection()
+		try {
+			return this.#completeConnection(this.#runtime.connect())
+		} catch (error) {
+			this.#releaseRuntimeSubscription()
+			this.#state = 'disconnected'
+			return Promise.reject(error)
+		}
+	}
+
+	public connectPrepared(
+		connection: EngineConnection
+	): Promise<ApplicationResult<EngineClientConnection>> {
+		if (this.#state !== 'disconnected') {
+			return Promise.resolve(
+				Object.freeze({ ok: false as const, error: stateError(this.#state, 'connect') })
+			)
+		}
+		this.#beginConnection()
+		return this.#completeConnection(Promise.resolve(success(connection)))
+	}
+
+	#beginConnection(): void {
 		this.#state = 'connecting'
 		this.#lastEventSequence = -1
 		this.#lastFailure = null
 		this.#nextCommandSequence = 0
 		this.#unsubscribeRuntime = this.#runtime.onEvent((event) => this.#acceptEvent(event))
+	}
 
-		const connected = await this.#runtime.connect()
+	async #completeConnection(
+		connection: Promise<ApplicationResult<EngineConnection>>
+	): Promise<ApplicationResult<EngineClientConnection>> {
+		const connected = await connection
 		if (!connected.ok) {
 			this.#releaseRuntimeSubscription()
 			this.#state = 'disconnected'

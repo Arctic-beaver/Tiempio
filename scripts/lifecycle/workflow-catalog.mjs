@@ -89,6 +89,7 @@ const compiledTestFiles = Object.freeze([
 	resolve('.test-out/apps/web/runtime/audio/webEngineWorkletProtocol.test.js'),
 	resolve('.test-out/apps/web/runtime/persistence/WebIndexedDbRuntime.test.js'),
 	resolve('.test-out/apps/web/runtime/persistence/WebProjectsRuntime.test.js'),
+	resolve('.test-out/apps/web/runtime/webRuntime.test.js'),
 	resolve('.test-out/packages/contracts/src/application-runtime.test.js'),
 	resolve('.test-out/packages/contracts/src/application-runtime-validation.test.js'),
 	resolve('.test-out/packages/contracts/src/engine-protocol.test.js'),

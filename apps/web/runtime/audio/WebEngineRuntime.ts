@@ -32,6 +32,11 @@ export interface WebEngineRuntimeDependencies {
 	readonly windowTarget: Pick<Window, 'addEventListener' | 'removeEventListener'>
 }
 
+export interface PreparedWebAudioActivation {
+	readonly context: WebAudioContext
+	readonly resume: Promise<void>
+}
+
 const stoppedHealth = Object.freeze<AudioHealthSnapshot>({
 	activeDeviceId: null,
 	activeVoices: 0,
@@ -120,7 +125,35 @@ export class WebEngineRuntime implements EngineRuntime {
 		return this.#connecting
 	}
 
-	async #activate(): Promise<ApplicationResult<WebAudioWorkletAdapter['connection']>> {
+	public connectPrepared(
+		activation: PreparedWebAudioActivation
+	): Promise<ApplicationResult<WebAudioWorkletAdapter['connection']>> {
+		if (this.#adapter !== null || this.#connecting !== null || this.#tearingDown !== null) {
+			return Promise.resolve(
+				Object.freeze({
+					ok: false as const,
+					error: applicationError(
+						'INVALID_REQUEST',
+						'The Web audio engine cannot accept a prepared activation.'
+					)
+				})
+			)
+		}
+		this.#connecting = this.#activate(activation).finally(() => {
+			this.#connecting = null
+		})
+		return this.#connecting
+	}
+
+	public prepareForReplacement(): void {
+		if (this.#context === null) return
+		this.#generation += 1
+		void this.#teardown(false)
+	}
+
+	async #activate(
+		prepared: PreparedWebAudioActivation | null = null
+	): Promise<ApplicationResult<WebAudioWorkletAdapter['connection']>> {
 		this.#generation += 1
 		const generation = this.#generation
 		this.#publishHealth({
@@ -129,33 +162,41 @@ export class WebEngineRuntime implements EngineRuntime {
 			sampleRate: null
 		})
 		let context: WebAudioContext
-		try {
-			context = this.#dependencies.createContext()
-		} catch {
-			return this.#activationFailed(
-				applicationError(
-					'ENGINE_UNAVAILABLE',
-					'This browser cannot create an audio context.',
-					{
-						retryable: true,
-						details: { diagnostic: 'audio.start-failed' }
-					}
+		if (prepared === null) {
+			try {
+				context = this.#dependencies.createContext()
+			} catch {
+				return this.#activationFailed(
+					applicationError(
+						'ENGINE_UNAVAILABLE',
+						'This browser cannot create an audio context.',
+						{
+							retryable: true,
+							details: { diagnostic: 'audio.start-failed' }
+						}
+					)
 				)
-			)
-		}
+			}
+		} else context = prepared.context
 		this.#context = context
 		context.addEventListener('statechange', this.#contextStateChanged)
 		let resume: Promise<void>
-		try {
-			resume = context.resume()
-		} catch {
-			return await this.#activationFailed(
-				applicationError('ENGINE_UNAVAILABLE', 'The browser rejected audio activation.', {
-					retryable: true,
-					details: { diagnostic: 'audio.start-failed' }
-				})
-			)
-		}
+		if (prepared === null) {
+			try {
+				resume = context.resume()
+			} catch {
+				return await this.#activationFailed(
+					applicationError(
+						'ENGINE_UNAVAILABLE',
+						'The browser rejected audio activation.',
+						{
+							retryable: true,
+							details: { diagnostic: 'audio.start-failed' }
+						}
+					)
+				)
+			}
+		} else resume = prepared.resume
 		try {
 			const [adapterModule] = await Promise.all([this.#dependencies.loadAdapter(), resume])
 			if (generation !== this.#generation || context !== this.#context) {

@@ -16,6 +16,25 @@ function validReport() {
 		dynamicImports: [],
 		modules: modules.map(module)
 	}))
+	const runtimeModules = [
+		'apps/web/bootstrap/mountRuntimeApplication.ts',
+		'packages/application/src/runtime/ApplicationRuntimeController.ts',
+		'packages/engine-client/src/EngineClient.ts',
+		'apps/web/runtime/audio/WebEngineRuntime.ts',
+		'apps/web/runtime/audio/webAudioWorkletAdapter.ts',
+		'apps/web/runtime/persistence/WebProjectsRuntime.ts',
+		'apps/web/runtime/persistence/WebIndexedDbRuntime.ts',
+		'packages/project-format/src/physical-archive.ts'
+	]
+	const runtimeChunk = {
+		file: 'assets/web-runtime.js',
+		bytes: 10_000,
+		isEntry: false,
+		isDynamicEntry: true,
+		imports: ['assets/entry.js'],
+		dynamicImports: [],
+		modules: runtimeModules.map(module)
+	}
 	return {
 		schemaVersion: 2,
 		bundleClass: 'web',
@@ -26,7 +45,7 @@ function validReport() {
 				isEntry: true,
 				isDynamicEntry: false,
 				imports: [],
-				dynamicImports: lazyChunks.map((chunk) => chunk.file),
+				dynamicImports: [...lazyChunks.map((chunk) => chunk.file), runtimeChunk.file],
 				modules: [
 					module('node_modules/react/index.js'),
 					module('packages/localization/src/index.ts'),
@@ -36,7 +55,8 @@ function validReport() {
 					module('packages/application/src/features/home/useHomeActions.ts')
 				]
 			},
-			...lazyChunks
+			...lazyChunks,
+			runtimeChunk
 		]
 	}
 }
@@ -46,17 +66,20 @@ describe('chunk topology policy', () => {
 		const result = validateChunkTopology(validReport())
 		assert.deepEqual(result.errors, [])
 		assert.equal(result.initialBytes, 250_000)
-		assert.equal(result.deferredBytes, 2_000)
+		assert.equal(result.deferredBytes, 12_000)
 		assert.equal(result.lazyFeatureChunks.length, 2)
 	})
 
 	it('rejects feature, future-runtime and singleton code in unsafe chunks', () => {
 		const report = validReport()
 		const firstLazy = report.chunks[1]
-		report.chunks[0].modules.push(
-			module(lazySurfaceGroups.workflow[0]),
-			module('packages/engine-client/src/EngineClient.ts')
-		)
+		report.chunks[0].modules.push(module(lazySurfaceGroups.workflow[0]))
+		report.chunks.at(-1).modules = report.chunks
+			.at(-1)
+			.modules.filter(
+				(candidate) => candidate.module !== 'packages/engine-client/src/EngineClient.ts'
+			)
+		report.chunks[0].modules.push(module('packages/engine-client/src/EngineClient.ts'))
 		firstLazy.modules.push(module('packages/project-core/src/session.ts'))
 		const errors = validateChunkTopology(report).errors.join('\n')
 		assert.match(errors, /workflow must have exactly one lazy surface chunk/u)
