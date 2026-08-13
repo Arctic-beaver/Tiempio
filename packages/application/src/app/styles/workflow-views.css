@@ -639,17 +639,24 @@ kbd {
 	align-items: center;
 	gap: 0.625rem;
 	padding: 0.5rem 0.75rem;
-	border: var(--ti-hairline) solid var(--ti-border);
+	border: var(--ti-hairline) solid var(--ti-border-strong);
 	border-radius: 0.5rem;
-	background: color-mix(in srgb, var(--ti-canvas), var(--ti-surface-1) 48%);
-	color: var(--ti-text-muted);
+	background: var(--ti-surface-1);
+	color: var(--ti-text);
+	cursor: pointer;
 	text-align: left;
 }
 
 .sound-mapping-dock__tabs > button[aria-selected='true'] {
-	border-color: color-mix(in srgb, var(--ti-accent), var(--ti-border) 58%);
+	border-color: var(--ti-accent);
 	background: var(--ti-accent-soft);
-	color: var(--ti-text);
+	box-shadow: inset 0 -0.125rem 0 var(--ti-accent);
+	color: var(--ti-accent-strong);
+}
+
+.sound-mapping-dock__tabs > button:not([aria-selected='true']):hover {
+	border-color: var(--ti-accent);
+	background: var(--ti-accent-ghost);
 }
 
 .sound-mapping-dock__tabs svg {
@@ -673,6 +680,10 @@ kbd {
 	font-size: 0.5rem;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.sound-mapping-dock__tabs > button[aria-selected='true'] small {
+	color: var(--ti-accent-strong);
 }
 
 .sound-mapping-dock .performance-keyboard--strip .performance-keyboard__row {

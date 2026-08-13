@@ -306,6 +306,7 @@ export function SoundChooserView({
 							role="tabpanel"
 						>
 							<PerformanceKeyboard
+								keyboardCapture="document"
 								layout="compact"
 								layerId={layerId}
 								octave={octave}
