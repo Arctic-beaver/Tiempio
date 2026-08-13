@@ -1,9 +1,15 @@
 import {
 	type ApplicationError,
+	type ApplicationResult,
 	type ApplicationRuntime,
-	type AudioHealthSnapshot
+	type AudioHealthSnapshot,
+	type ProjectHandle
 } from '../../../contracts/src/index.js'
-import { type DrumInstrument, type ProjectSession } from '../../../project-core/src/index.js'
+import {
+	type DrumInstrument,
+	type ProjectDocument,
+	type ProjectSession
+} from '../../../project-core/src/index.js'
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
 import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
 
@@ -22,6 +28,11 @@ export interface ApplicationMeterSnapshot {
 	readonly rightPeak: number
 }
 
+export interface OpenedApplicationProject {
+	readonly handle: ProjectHandle
+	readonly project: ProjectDocument
+}
+
 export const silentApplicationMeter = Object.freeze<ApplicationMeterSnapshot>({
 	leftPeak: 0,
 	rightPeak: 0
@@ -33,7 +44,8 @@ export interface ApplicationController {
 	readonly getSnapshot: () => ApplicationControllerSnapshot
 	readonly subscribe: (listener: () => void) => () => void
 	auditionDrum(layerId: string, instrument: DrumInstrument): void
-	bindProjectSession(session: ProjectSession): void
+	bindProjectSession(session: ProjectSession, handle?: ProjectHandle | null): void
+	openProject?(): Promise<ApplicationResult<OpenedApplicationProject>>
 	retryAudio(): Promise<void>
 	seek(tick: number): void
 	setLoop(loop: {

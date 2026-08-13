@@ -3,7 +3,10 @@ import {
 	renderApplicationBootstrapFailure
 } from '../../../packages/application/src/mount-application.js'
 import { ApplicationRuntimeController } from '../../../packages/application/src/runtime/ApplicationRuntimeController.js'
-import { encodeProjectManifest } from '../../../packages/project-format/src/index.js'
+import {
+	encodeProjectManifest,
+	parseProjectManifest
+} from '../../../packages/project-format/src/index.js'
 import { createDesktopRuntime } from './runtime/desktopRuntime.js'
 
 const runtime = createDesktopRuntime()
@@ -12,7 +15,10 @@ else {
 	const mounted = mountApplication(runtime.value, {
 		createController: (applicationRuntime, initialSession) =>
 			new ApplicationRuntimeController(applicationRuntime, initialSession, {
-				projectCodec: Object.freeze({ encode: encodeProjectManifest })
+				projectCodec: Object.freeze({
+					decode: parseProjectManifest,
+					encode: encodeProjectManifest
+				})
 			})
 	})
 	if (!mounted.ok) renderApplicationBootstrapFailure(mounted.error)

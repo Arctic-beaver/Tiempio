@@ -28,7 +28,9 @@ export function ApplicationProviders({
 					<OverlayBoundary>
 						<ProjectSessionProvider
 							initialSession={initialSession}
-							onSessionChange={(session) => controller.bindProjectSession(session)}
+							onSessionChange={(session, handle) =>
+								controller.bindProjectSession(session, handle)
+							}
 						>
 							{children}
 						</ProjectSessionProvider>
