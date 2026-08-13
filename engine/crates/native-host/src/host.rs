@@ -6,10 +6,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use rtrb::{Consumer, Producer, PushError, RingBuffer};
-use tiempio_engine_core::{
-    DrumInstrument, DrumKitPatchV2, LayerSource, MAX_SAFE_INTEGER, PreparedPlan, RenderPlan,
-    SynthPatchV2,
-};
+use tiempio_engine_core::{MAX_SAFE_INTEGER, PreparedPlan, RenderPlan};
 use tiempio_engine_protocol::{
     AudioConfiguration, ENGINE_PROTOCOL_MAX_FRAME_BYTES, ENGINE_PROTOCOL_VERSION, EngineCommand,
     EngineEvent, HandshakePeer, NATIVE_HOST_CAPABILITY_CODES, NoteOnPayload,
@@ -22,9 +19,10 @@ use crate::backend::{
     SharedOutputBackend,
 };
 use crate::realtime::{
-    CONTROL_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY, PreparedPreview, PreviewEndReason, PreviewId,
-    RealtimeCommand, RealtimeDiagnostic, RealtimeEngine, RealtimeEvent, RetiredRealtimeAllocation,
-    StreamSignals, create_engine,
+    AuditionPatch, CONTROL_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY, PreparedPreview, PreviewEndReason,
+    PreviewId, RealtimeCommand, RealtimeEngine, RealtimeEvent, RetiredRealtimeAllocation,
+    StreamSignals, audition_patch_for_layer, create_engine, drum_instrument_for_pitch,
+    map_realtime_event, stable_audition_identifier, synth_patch_for_layer,
 };
 
 const RECOVERY_BASE_DELAY: Duration = Duration::from_millis(250);
@@ -633,76 +631,6 @@ fn recovery_delay(attempt: u32) -> Duration {
         .min(RECOVERY_MAX_DELAY)
 }
 
-pub(crate) fn map_realtime_event(event: RealtimeEvent) -> EngineEvent {
-    match event {
-        RealtimeEvent::PlanAcknowledged {
-            project_revision,
-            plan_generation,
-        } => EngineEvent::RenderPlanAcknowledged {
-            project_revision,
-            plan_generation,
-        },
-        RealtimeEvent::Transport {
-            playing,
-            project_revision,
-            sample_position,
-            tick,
-        } => EngineEvent::TransportSnapshot {
-            playing,
-            project_revision,
-            sample_position,
-            tick,
-        },
-        RealtimeEvent::Meter {
-            left_peak,
-            right_peak,
-        } => EngineEvent::MeterSnapshot {
-            left_peak,
-            right_peak,
-        },
-        RealtimeEvent::PreviewStarted {
-            preview_id,
-            duration_frames,
-        } => EngineEvent::PreviewStarted {
-            preview_id: preview_id.as_str().to_owned(),
-            duration_frames,
-        },
-        RealtimeEvent::PreviewState {
-            preview_id,
-            pitches,
-            pitch_count,
-            active,
-            sample_position,
-        } => EngineEvent::PreviewState {
-            preview_id: preview_id.as_str().to_owned(),
-            pitches: pitches[..usize::from(pitch_count)].to_vec(),
-            active,
-            sample_position,
-        },
-        RealtimeEvent::PreviewEnded { preview_id, reason } => EngineEvent::PreviewEnded {
-            preview_id: preview_id.as_str().to_owned(),
-            reason: reason.as_str().to_owned(),
-        },
-        RealtimeEvent::RealtimeDiagnostic(diagnostic) => match diagnostic {
-            RealtimeDiagnostic::ControlFailure => EngineEvent::Diagnostic {
-                code: "engine.invalid-plan".to_owned(),
-                message: "A real-time engine control could not be applied.".to_owned(),
-                project_revision: None,
-            },
-            RealtimeDiagnostic::NonFiniteOutput => EngineEvent::Diagnostic {
-                code: "audio.non-finite-output".to_owned(),
-                message: "Non-finite output was replaced with silence.".to_owned(),
-                project_revision: None,
-            },
-            RealtimeDiagnostic::RenderOverload => EngineEvent::Diagnostic {
-                code: "audio.render-overload".to_owned(),
-                message: "The audio callback exceeded its bounded render budget.".to_owned(),
-                project_revision: None,
-            },
-        },
-    }
-}
-
 pub(crate) fn run_shared_stdio() -> i32 {
     let (event_tx, event_rx) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
     let writer_failed = Arc::new(AtomicBool::new(false));
@@ -850,44 +778,6 @@ fn nonzero(value: u64) -> Option<u64> {
     (value > 0).then_some(value)
 }
 
-enum AuditionPatch {
-    Synth(SynthPatchV2),
-    Drums(DrumKitPatchV2),
-}
-
-fn synth_patch_for_layer(plan: &RenderPlan, layer_id: &str) -> Option<SynthPatchV2> {
-    match audition_patch_for_layer(plan, layer_id) {
-        Some(AuditionPatch::Synth(patch)) => Some(patch),
-        Some(AuditionPatch::Drums(_)) | None => None,
-    }
-}
-
-fn audition_patch_for_layer(plan: &RenderPlan, layer_id: &str) -> Option<AuditionPatch> {
-    plan.layers
-        .iter()
-        .find(|layer| layer.id == layer_id)
-        .map(|layer| match &layer.source {
-            LayerSource::Synth { patch, .. } => AuditionPatch::Synth(patch.clone()),
-            LayerSource::Drums { patch, .. } => AuditionPatch::Drums(patch.clone()),
-        })
-}
-
-const fn drum_instrument_for_pitch(pitch: u8) -> DrumInstrument {
-    match pitch {
-        36 => DrumInstrument::Kick,
-        39 => DrumInstrument::Clap,
-        42 => DrumInstrument::ClosedHat,
-        46 => DrumInstrument::OpenHat,
-        _ => DrumInstrument::Perc,
-    }
-}
-
-fn stable_audition_identifier(value: &str) -> u64 {
-    value.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
-        (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3)
-    }) & MAX_SAFE_INTEGER
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;
@@ -896,6 +786,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use tiempio_engine_core::DrumInstrument;
 
     #[derive(Clone)]
     struct SwitchingBackend {

@@ -8,8 +8,8 @@ use tiempio_engine_protocol::{
     ENGINE_PROTOCOL_VERSION, EngineEvent, ProtocolSession, encode_frame,
 };
 
-use crate::host::{WriterEvent, map_realtime_event, null_controller, read_frame};
-use crate::realtime::EVENT_QUEUE_CAPACITY;
+use crate::host::{WriterEvent, null_controller, read_frame};
+use crate::realtime::{EVENT_QUEUE_CAPACITY, map_realtime_event};
 
 pub(crate) fn run() -> i32 {
     match exercise_null_backend() {

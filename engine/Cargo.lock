@@ -680,6 +680,7 @@ dependencies = [
  "tiempio-engine-drums",
  "tiempio-engine-dsp",
  "tiempio-engine-protocol",
+ "tiempio-engine-realtime",
  "tiempio-engine-synth",
 ]
 
@@ -705,6 +706,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tiempio-engine-realtime"
+version = "0.1.0"
+dependencies = [
+ "rtrb",
+ "tiempio-engine-core",
+ "tiempio-engine-drums",
+ "tiempio-engine-dsp",
+ "tiempio-engine-protocol",
+ "tiempio-engine-synth",
+]
+
+[[package]]
 name = "tiempio-engine-synth"
 version = "0.1.0"
 dependencies = [
@@ -717,10 +730,13 @@ dependencies = [
 name = "tiempio-engine-web-worklet"
 version = "0.1.0"
 dependencies = [
+ "rtrb",
+ "serde_json",
  "tiempio-engine-core",
  "tiempio-engine-drums",
  "tiempio-engine-dsp",
  "tiempio-engine-protocol",
+ "tiempio-engine-realtime",
  "tiempio-engine-synth",
 ]
 

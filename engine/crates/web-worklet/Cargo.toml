@@ -9,11 +9,20 @@ publish.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+rtrb.workspace = true
+serde_json.workspace = true
 tiempio-engine-core = { path = "../core" }
 tiempio-engine-drums = { path = "../drums" }
 tiempio-engine-dsp = { path = "../dsp" }
 tiempio-engine-protocol = { path = "../protocol" }
+tiempio-engine-realtime = { path = "../realtime" }
 tiempio-engine-synth = { path = "../synth" }
 
-[lints]
-workspace = true
+# Raw WebAssembly imports need stable exported symbol names. Unsafe code remains
+# denied by default; each ABI export narrowly allows Rust 2024's `unsafe(no_mangle)`.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all = "deny"
+pedantic = "deny"

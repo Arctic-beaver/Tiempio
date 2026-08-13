@@ -110,6 +110,15 @@ describe('target boundary policy', () => {
 		assert.deepEqual(
 			validateRustCrateDependencies([
 				{
+					path: 'engine/crates/web-worklet/Cargo.toml',
+					source: 'tiempio-engine-realtime = { path = "../realtime" }'
+				}
+			]),
+			[]
+		)
+		assert.deepEqual(
+			validateRustCrateDependencies([
+				{
 					path: 'engine/crates/dsp/Cargo.toml',
 					source: '[dependencies.local-core]\npath = "../core"'
 				}

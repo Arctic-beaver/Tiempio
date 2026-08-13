@@ -381,6 +381,13 @@ const steps = Object.freeze({
 			],
 			10 * minute
 		),
+	webEngineWasmParity: () =>
+		nodeFileStep(
+			'Web engine WebAssembly parity harness',
+			'scripts/web-engine-wasm-parity.mjs',
+			[],
+			2 * minute
+		),
 	engineEvidence: () =>
 		directStep(
 			'Stage 4 engine evidence render',
@@ -532,7 +539,9 @@ const workflowFactories = Object.freeze({
 	'check:web-engine': () => [
 		steps.webWasmTargetInventory(),
 		steps.webEngineCheck(),
-		steps.webEngineTest()
+		steps.webEngineTest(),
+		steps.webEngineBuild(),
+		steps.webEngineWasmParity()
 	],
 	'evidence:engine': () => [steps.engineEvidence()],
 	'build:engine': engineBuildSteps,

@@ -54,11 +54,12 @@ const allowedRustCrateDependencies = Object.freeze({
 	core: Object.freeze(['dsp']),
 	drums: Object.freeze(['core', 'dsp']),
 	dsp: Object.freeze([]),
-	'native-host': Object.freeze(['core', 'drums', 'dsp', 'protocol', 'synth']),
+	'native-host': Object.freeze(['core', 'drums', 'dsp', 'protocol', 'realtime', 'synth']),
 	'offline-render': Object.freeze(['core', 'drums', 'dsp', 'protocol', 'synth']),
 	protocol: Object.freeze(['core']),
+	realtime: Object.freeze(['core', 'drums', 'dsp', 'protocol', 'synth']),
 	synth: Object.freeze(['core', 'dsp']),
-	'web-worklet': Object.freeze(['core', 'drums', 'dsp', 'protocol', 'synth'])
+	'web-worklet': Object.freeze(['core', 'drums', 'dsp', 'protocol', 'realtime', 'synth'])
 })
 const generatedPathPattern =
 	/(?:^|\/)(?:\.git|\.test-out|artifacts|dist|node_modules)(?:\/|$)|^engine\/target(?:\/|$)/u

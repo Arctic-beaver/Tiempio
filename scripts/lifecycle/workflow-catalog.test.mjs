@@ -114,6 +114,19 @@ describe('closed lifecycle workflow catalog', () => {
 		}
 	})
 
+	it('runs the real release WebAssembly parity harness after deterministic native tests', () => {
+		assert.deepEqual(
+			workflowSteps('check:web-engine').map((step) => step.name),
+			[
+				'Rust WebAssembly target inventory',
+				'Web engine target check',
+				'Web engine deterministic native tests',
+				'Web engine release build',
+				'Web engine WebAssembly parity harness'
+			]
+		)
+	})
+
 	it('owns native build, audio and package stages without recursive workflows', () => {
 		const engine = workflowSteps('build:engine')
 		assert.deepEqual(

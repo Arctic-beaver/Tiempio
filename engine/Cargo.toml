@@ -6,6 +6,7 @@ members = [
 	"crates/dsp",
 	"crates/synth",
 	"crates/drums",
+	"crates/realtime",
 	"crates/offline-render",
 	"crates/native-host",
 	"crates/web-worklet"

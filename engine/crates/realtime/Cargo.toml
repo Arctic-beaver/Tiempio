@@ -1,24 +1,17 @@
 [package]
-name = "tiempio-engine-native-host"
+name = "tiempio-engine-realtime"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [dependencies]
-cpal.workspace = true
 rtrb.workspace = true
-serde_json.workspace = true
-sha2.workspace = true
 tiempio-engine-core = { path = "../core" }
 tiempio-engine-drums = { path = "../drums" }
 tiempio-engine-dsp = { path = "../dsp" }
 tiempio-engine-protocol = { path = "../protocol" }
-tiempio-engine-realtime = { path = "../realtime" }
 tiempio-engine-synth = { path = "../synth" }
-
-[dev-dependencies]
-allocation-counter = "=0.8.1"
 
 [lints]
 workspace = true
