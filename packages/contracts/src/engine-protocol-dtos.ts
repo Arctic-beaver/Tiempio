@@ -6,6 +6,7 @@ import {
 	engineProtocolLimits,
 	engineProtocolVersion,
 	nativeHostCapabilityCodes,
+	webWorkletCapabilityCodes,
 	type EngineCapabilityCode,
 	type EngineCommandType,
 	type EngineDiagnosticCode,
@@ -24,7 +25,8 @@ export {
 	engineEventTypes,
 	engineProtocolLimits,
 	engineProtocolVersion,
-	nativeHostCapabilityCodes
+	nativeHostCapabilityCodes,
+	webWorkletCapabilityCodes
 }
 export type { EngineCapabilityCode, EngineCommandType, EngineDiagnosticCode, EngineEventType }
 

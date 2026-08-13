@@ -85,6 +85,8 @@ const compiledTestFiles = Object.freeze([
 	resolve('.test-out/apps/desktop/main/runtime-channels.test.js'),
 	resolve('.test-out/apps/desktop/main/window-options.test.js'),
 	resolve('.test-out/apps/desktop/renderer/runtime/desktopRuntime.test.js'),
+	resolve('.test-out/apps/web/runtime/audio/WebEngineRuntime.test.js'),
+	resolve('.test-out/apps/web/runtime/audio/webEngineWorkletProtocol.test.js'),
 	resolve('.test-out/packages/contracts/src/application-runtime.test.js'),
 	resolve('.test-out/packages/contracts/src/application-runtime-validation.test.js'),
 	resolve('.test-out/packages/contracts/src/engine-protocol.test.js'),
@@ -484,6 +486,8 @@ function desktopBuildSteps() {
 function webBuildSteps() {
 	return [
 		steps.typecheckWeb(),
+		steps.webWasmTargetInventory(),
+		steps.webEngineBuild(),
 		steps.webBuild(),
 		steps.security('web'),
 		steps.bundleBudget('web'),
