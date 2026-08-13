@@ -56,6 +56,19 @@ export interface ProjectDispatchOptions {
 	readonly historyGroup?: string
 }
 
+declare const preparedProjectTransactionBrand: unique symbol
+
+export interface PreparedProjectTransaction {
+	readonly baseRevision: number
+	readonly project: ProjectDocument
+	readonly revision: number
+	readonly [preparedProjectTransactionBrand]: true
+}
+
+interface OwnedPreparedProjectTransaction extends PreparedProjectTransaction {
+	readonly baseProject: ProjectDocument
+}
+
 function freezeOperation(operation: RevisionOperation | null): RevisionOperation | null {
 	return operation === null ? null : Object.freeze({ ...operation })
 }
@@ -96,6 +109,7 @@ function validateRevision(value: number): void {
 export class ProjectSession {
 	readonly #historyCapacity: number
 	readonly #listeners = new Set<() => void>()
+	readonly #preparedTransactions = new WeakSet<object>()
 	readonly #undoHistory: ProjectDocument[] = []
 	readonly #redoHistory: ProjectDocument[] = []
 	#activeHistoryGroup: string | null = null
@@ -156,6 +170,68 @@ export class ProjectSession {
 		this.#activeHistoryGroup = historyGroup
 		this.#publishContent(result.project)
 		return this.#snapshot
+	}
+
+	public prepareTransaction(
+		commands: readonly ProjectCommand[]
+	): PreparedProjectTransaction {
+		if (commands.length === 0) {
+			throw sessionError('INVALID_COMMAND', 'A project transaction cannot be empty.')
+		}
+		let project = this.#snapshot.project
+		let revision = this.#snapshot.revision
+		for (const command of commands) {
+			const result = reduceProjectCommand(project, revision, command)
+			if (result.status === 'rejected') this.#throwFailure(result.failure)
+			if (result.status === 'noop') continue
+			if (revision >= Number.MAX_SAFE_INTEGER) {
+				throw sessionError('REVISION_EXHAUSTED', 'The project revision counter is exhausted.')
+			}
+			project = result.project
+			revision += 1
+		}
+		if (project === this.#snapshot.project) {
+			throw sessionError('INVALID_COMMAND', 'A project transaction must change the project.')
+		}
+		const prepared = Object.freeze({
+			baseRevision: this.#snapshot.revision,
+			baseProject: this.#snapshot.project,
+			project,
+			revision
+		}) as OwnedPreparedProjectTransaction
+		this.#preparedTransactions.add(prepared)
+		return prepared
+	}
+
+	public commitTransaction(prepared: PreparedProjectTransaction): ProjectSessionSnapshot {
+		const owned = prepared as OwnedPreparedProjectTransaction
+		if (!this.#preparedTransactions.delete(owned)) {
+			throw sessionError(
+				'INVALID_COMMAND',
+				'The prepared project transaction is foreign, discarded or already committed.'
+			)
+		}
+		if (
+			owned.baseRevision !== this.#snapshot.revision ||
+			owned.baseProject !== this.#snapshot.project
+		) {
+			throw sessionError(
+				'STALE_REVISION',
+				`Prepared revision ${String(owned.baseRevision)} does not match current revision ${String(this.#snapshot.revision)}.`
+			)
+		}
+		if (owned.revision <= owned.baseRevision || !Number.isSafeInteger(owned.revision)) {
+			throw sessionError('INVALID_COMMAND', 'The prepared project transaction is invalid.')
+		}
+		this.#activeHistoryGroup = null
+		this.#pushBounded(this.#undoHistory, this.#snapshot.project)
+		this.#redoHistory.length = 0
+		this.#publishContentAtRevision(owned.project, owned.revision)
+		return this.#snapshot
+	}
+
+	public discardTransaction(prepared: PreparedProjectTransaction): boolean {
+		return this.#preparedTransactions.delete(prepared)
 	}
 
 	public endHistoryGroup(historyGroup: string): void {
@@ -287,7 +363,10 @@ export class ProjectSession {
 	}
 
 	#publishContent(project: ProjectDocument): void {
-		const revision = this.#nextRevision()
+		this.#publishContentAtRevision(project, this.#nextRevision())
+	}
+
+	#publishContentAtRevision(project: ProjectDocument, revision: number): void {
 		this.#publish({
 			...this.#snapshot,
 			project,

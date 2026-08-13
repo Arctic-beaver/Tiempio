@@ -41,6 +41,117 @@ function expectSessionError(operation: () => unknown, code: ProjectSessionError[
 }
 
 describe('ProjectSession', () => {
+	it('prepares and commits a multi-command transaction as one observable undo unit', () => {
+		const session = new ProjectSession(
+			createProject({ projectId: 'project.transaction', title: 'Transaction' })
+		)
+		let publications = 0
+		session.subscribe(() => (publications += 1))
+		const prepared = session.prepareTransaction([
+			{
+				type: 'layer.add',
+				baseRevision: 0,
+				id: 'layer.transaction',
+				name: 'Bass',
+				role: 'bass'
+			},
+			{
+				type: 'layer.performance.set',
+				baseRevision: 1,
+				layerId: layerId('layer.transaction'),
+				performance: { key: { tonic: 2, mode: 'minor' }, octave: 3 }
+			}
+		])
+
+		assert.equal(session.getSnapshot().revision, 0)
+		assert.equal(session.getSnapshot().dirty, false)
+		assert.equal(session.getSnapshot().project.layers.length, 0)
+		assert.equal(prepared.revision, 2)
+		assert.equal(prepared.project.layers.length, 1)
+		assert.equal(publications, 0)
+
+		const committed = session.commitTransaction(prepared)
+		assert.equal(committed.revision, 2)
+		assert.equal(committed.project.layers.length, 1)
+		assert.equal(publications, 1)
+		const undone = session.undo(2)
+		assert.equal(undone.project.layers.length, 0)
+		assert.equal(undone.canRedo, true)
+		const redone = session.redo(3)
+		assert.equal(redone.project.layers.length, 1)
+	})
+
+	it('rejects invalid, stale, foreign and reused prepared transactions atomically', () => {
+		const session = new ProjectSession(
+			createProject({ projectId: 'project.transaction', title: 'Transaction' })
+		)
+		expectSessionError(() => session.prepareTransaction([]), 'INVALID_COMMAND')
+		expectSessionError(
+			() =>
+				session.prepareTransaction([
+					{
+						type: 'layer.add',
+						baseRevision: 1,
+						id: 'layer.stale',
+						name: 'Stale',
+						role: 'bass'
+					}
+				]),
+			'STALE_REVISION'
+		)
+		assert.equal(session.getSnapshot().project.layers.length, 0)
+
+		const discarded = session.prepareTransaction([
+			{
+				type: 'layer.add',
+				baseRevision: 0,
+				id: 'layer.discarded',
+				name: 'Discarded',
+				role: 'bass'
+			}
+		])
+		assert.equal(session.discardTransaction(discarded), true)
+		expectSessionError(() => session.commitTransaction(discarded), 'INVALID_COMMAND')
+
+		const stale = session.prepareTransaction([
+			{
+				type: 'layer.add',
+				baseRevision: 0,
+				id: 'layer.prepared',
+				name: 'Prepared',
+				role: 'bass'
+			}
+		])
+		session.dispatch({
+			type: 'layer.add',
+			baseRevision: 0,
+			id: 'layer.newer',
+			name: 'Newer',
+			role: 'melody'
+		})
+		expectSessionError(() => session.commitTransaction(stale), 'STALE_REVISION')
+		assert.deepEqual(
+			session.getSnapshot().project.layers.map(({ id }) => id),
+			['layer.newer']
+		)
+
+		const other = new ProjectSession(
+			createProject({ projectId: 'project.other', title: 'Other' })
+		)
+		const foreign = other.prepareTransaction([
+			{
+				type: 'layer.add',
+				baseRevision: 0,
+				id: 'layer.foreign',
+				name: 'Foreign',
+				role: 'bass'
+			}
+		])
+		expectSessionError(() => session.commitTransaction(foreign), 'INVALID_COMMAND')
+		other.commitTransaction(foreign)
+		expectSessionError(() => other.commitTransaction(foreign), 'INVALID_COMMAND')
+	})
+
 	it('advances once for an accepted command and not for a no-op or stale command', () => {
 		const session = createBassSession()
 		assert.equal(session.getSnapshot().revision, 1)

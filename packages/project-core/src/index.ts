@@ -173,6 +173,7 @@ export {
 	ProjectSession,
 	ProjectSessionError,
 	type ProjectDispatchOptions,
+	type PreparedProjectTransaction,
 	type ProjectSessionErrorCode,
 	type ProjectSessionSnapshot,
 	type RevisionOperation
