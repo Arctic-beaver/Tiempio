@@ -5,6 +5,7 @@ import {
 	engineEventTypes,
 	engineProtocolLimits,
 	engineProtocolVersion,
+	nativeHostCapabilityCodes,
 	type EngineCapabilityCode,
 	type EngineCommandType,
 	type EngineDiagnosticCode,
@@ -22,7 +23,8 @@ export {
 	engineDiagnosticCodes,
 	engineEventTypes,
 	engineProtocolLimits,
-	engineProtocolVersion
+	engineProtocolVersion,
+	nativeHostCapabilityCodes
 }
 export type { EngineCapabilityCode, EngineCommandType, EngineDiagnosticCode, EngineEventType }
 

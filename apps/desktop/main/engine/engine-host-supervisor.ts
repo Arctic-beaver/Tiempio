@@ -5,13 +5,13 @@ import type { Writable } from 'node:stream'
 import {
 	applicationError,
 	engineProtocolVersion,
+	nativeHostCapabilityCodes,
 	validateEngineCommandEnvelope,
 	validateEngineEventEnvelope,
 	type AnyEngineCommandEnvelope,
 	type AnyEngineEventEnvelope,
 	type ApplicationResult,
 	type AudioHealthSnapshot,
-	type EngineCapabilityCode,
 	type EngineConnection,
 	type EngineHandshake
 } from '../../../../packages/contracts/src/index.js'
@@ -22,21 +22,6 @@ import {
 	validateNativeHostBootstrapAcknowledgement
 } from '../../host/native-host-contract.js'
 import { encodeNativeHostFrame, NativeHostFrameDecoder } from './framed-json-transport.js'
-
-const nativeHostCapabilities = Object.freeze<readonly EngineCapabilityCode[]>([
-	'protocol.typed-json',
-	'render-plan.full',
-	'transport.basic',
-	'transport.loop',
-	'metronome.native',
-	'synth.bass.deep',
-	'audition.notes',
-	'preview.programs',
-	'diagnostics.health',
-	'supervision.heartbeat',
-	'audio.native.shared',
-	'audio.devices'
-])
 
 const maximumPendingWrites = 64
 const pipeWriteTimeoutMs = 2_000
@@ -304,7 +289,7 @@ export class EngineHostSupervisor {
 			return Promise.resolve(
 				success(
 					Object.freeze({
-						capabilities: nativeHostCapabilities,
+						capabilities: nativeHostCapabilityCodes,
 						protocolVersion: engineProtocolVersion
 					})
 				)
@@ -318,7 +303,7 @@ export class EngineHostSupervisor {
 			.then(() =>
 				success(
 					Object.freeze({
-						capabilities: nativeHostCapabilities,
+						capabilities: nativeHostCapabilityCodes,
 						protocolVersion: engineProtocolVersion
 					})
 				)

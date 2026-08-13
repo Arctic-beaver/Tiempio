@@ -125,7 +125,8 @@ describe('performance input events', () => {
 			key({ metaKey: true }),
 			key({ shiftKey: true }),
 			key({ isComposing: true }),
-			key({ target: { tagName: 'INPUT' } })
+			key({ target: { tagName: 'INPUT' } }),
+			key({ target: { closest: () => ({ role: 'dialog' }), tagName: 'BUTTON' } })
 		]) {
 			assert.equal(performanceKeyDown(session, 'surface', blocked), false)
 		}

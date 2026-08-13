@@ -45,11 +45,14 @@ describe('engine protocol generation', () => {
 				commands: ['handshake'],
 				events: ['ready'],
 				capabilities: ['protocol.typed-json'],
+				nativeHostCapabilities: ['protocol.typed-json'],
 				diagnosticCodes: ['protocol.invalid']
 			})
 		)
 		assert.match(renderTypescriptBinding(schema), /engineProtocolVersion = 7/u)
+		assert.match(renderTypescriptBinding(schema), /nativeHostCapabilityCodes/u)
 		assert.match(renderRustBinding(schema), /ENGINE_PROTOCOL_VERSION: u32 = 7/u)
+		assert.match(renderRustBinding(schema), /NATIVE_HOST_CAPABILITY_CODES/u)
 		assert.match(renderRustBinding(schema), /pub max_meter_points: usize/u)
 		assert.match(
 			renderRustBinding(schema),
@@ -89,10 +92,21 @@ describe('engine protocol generation', () => {
 						commands: ['play', 'play'],
 						events: ['ready'],
 						capabilities: ['protocol.typed-json'],
+						nativeHostCapabilities: ['protocol.typed-json'],
 						diagnosticCodes: ['protocol.invalid']
 					})
 				),
 			/commands must be a non-empty unique stable-code list/u
+		)
+	})
+
+	it('rejects native-host capabilities outside the protocol vocabulary', () => {
+		const source = readFileSync('packages/contracts/schema/engine-protocol.schema.json', 'utf8')
+		const schema = JSON.parse(source)
+		schema.nativeHostCapabilities = [...schema.nativeHostCapabilities, 'native.unknown']
+		assert.throws(
+			() => parseEngineProtocolSchema(JSON.stringify(schema)),
+			/nativeHostCapabilities contains unknown capability native\.unknown/u
 		)
 	})
 })

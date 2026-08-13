@@ -141,6 +141,23 @@ pub const ENGINE_CAPABILITY_CODES: &[&str] = &[
     "audio.devices",
 ];
 
+pub const NATIVE_HOST_CAPABILITY_CODES: &[&str] = &[
+    "protocol.typed-json",
+    "render-plan.full",
+    "transport.basic",
+    "transport.loop",
+    "metronome.native",
+    "synth.bass.deep",
+    "synth.catalog.v2",
+    "drums.procedural.v1",
+    "audition.notes",
+    "preview.programs",
+    "diagnostics.health",
+    "supervision.heartbeat",
+    "audio.native.shared",
+    "audio.devices",
+];
+
 pub const ENGINE_DIAGNOSTIC_CODES: &[&str] = &[
     "protocol.version-mismatch",
     "protocol.frame-too-large",

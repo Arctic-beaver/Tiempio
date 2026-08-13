@@ -16,6 +16,18 @@ const editorStylesPath = resolve(
 	repositoryRoot,
 	'packages/application/src/app/styles/editor-views.css'
 )
+const workflowStylesPath = resolve(
+	repositoryRoot,
+	'packages/application/src/app/styles/workflow-views.css'
+)
+const soundChooserPath = resolve(
+	repositoryRoot,
+	'packages/application/src/features/sound-chooser/SoundChooserView.tsx'
+)
+const performanceInputSurfacePath = resolve(
+	repositoryRoot,
+	'packages/application/src/performance/usePerformanceInputSurface.ts'
+)
 
 function sha256(bytes) {
 	return createHash('sha256').update(bytes).digest('hex').toUpperCase()
@@ -113,4 +125,35 @@ test('preserves the prototype compact transition for every composition family', 
 	}
 	assert.match(responsiveStyles, /@media \(max-width: 56\.25rem\)/u)
 	assert.match(editorStyles, /@media \(max-width: 56\.25rem\)/u)
+})
+
+test('keeps Use sound in the prototype title row and the keyboard dock unframed', async () => {
+	const soundChooser = await readFile(soundChooserPath, 'utf8')
+	const performanceInputSurface = await readFile(performanceInputSurfacePath, 'utf8')
+	const workflowStyles = await readFile(workflowStylesPath, 'utf8')
+	const titleStart = soundChooser.indexOf('<div className="sound-title">')
+	const auditionStart = soundChooser.indexOf('<div className="audition">', titleStart)
+	const dockStart = soundChooser.indexOf('<div className="sound-mapping-dock"', auditionStart)
+	const dockEnd = soundChooser.indexOf('<aside className="semantic-panel">', dockStart)
+	assert.ok(titleStart >= 0 && auditionStart > titleStart)
+	assert.ok(dockStart > auditionStart && dockEnd > dockStart)
+	assert.match(soundChooser.slice(titleStart, auditionStart), /sound-title__use/u)
+	assert.match(soundChooser.slice(titleStart, auditionStart), /soundChooser\.useSound/u)
+	assert.doesNotMatch(soundChooser.slice(dockStart, dockEnd), /soundChooser\.useSound/u)
+	assert.doesNotMatch(workflowStyles, /sound-mapping-dock__use/u)
+	assert.match(
+		workflowStyles,
+		/\.sound-mapping-dock\s*\{[^}]*width:\s*min\(100%, 45rem\);[^}]*border:\s*0;[^}]*background:\s*transparent;/su
+	)
+	assert.match(
+		workflowStyles,
+		/\.sound-mapping-dock__tabs > button\s*\{[^}]*border:\s*var\(--ti-hairline\) solid var\(--ti-border-strong\);[^}]*background:\s*var\(--ti-surface-1\);[^}]*color:\s*var\(--ti-text\);/su
+	)
+	assert.match(
+		workflowStyles,
+		/\.sound-mapping-dock__tabs > button\[aria-selected='true'\]\s*\{[^}]*border-color:\s*var\(--ti-accent\);[^}]*background:\s*var\(--ti-accent-soft\);[^}]*color:\s*var\(--ti-accent-strong\);/su
+	)
+	assert.match(soundChooser, /<PerformanceKeyboard\s+keyboardCapture="document"/u)
+	assert.match(performanceInputSurface, /document\.addEventListener\('keydown', handleKeyDown\)/u)
+	assert.match(performanceInputSurface, /window\.addEventListener\('blur', releaseOwnedNotes\)/u)
 })

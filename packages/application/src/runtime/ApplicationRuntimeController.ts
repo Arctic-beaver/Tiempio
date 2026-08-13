@@ -1,10 +1,10 @@
 import {
 	applicationError,
+	nativeHostCapabilityCodes,
 	type AnyEngineEventEnvelope,
 	type ApplicationError,
 	type ApplicationRuntime,
 	type AudioHealthSnapshot,
-	type EngineCapabilityCode,
 	type EngineCommandPayloadByType,
 	type ProjectHandle
 } from '../../../contracts/src/index.js'
@@ -25,22 +25,7 @@ import {
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
 import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
 
-const applicationEngineCapabilities = Object.freeze<readonly EngineCapabilityCode[]>([
-	'protocol.typed-json',
-	'render-plan.full',
-	'transport.basic',
-	'transport.loop',
-	'metronome.native',
-	'synth.bass.deep',
-	'synth.catalog.v2',
-	'drums.procedural.v1',
-	'audition.notes',
-	'preview.programs',
-	'diagnostics.health',
-	'supervision.heartbeat',
-	'audio.native.shared',
-	'audio.devices'
-])
+const applicationEngineCapabilities = nativeHostCapabilityCodes
 
 export interface ProjectDocumentCodec {
 	encode(project: ProjectDocument): Uint8Array
