@@ -11,6 +11,7 @@ import {
 	engineProtocolLimits,
 	engineProtocolVersion,
 	engineRenderPlanVersion,
+	nativeHostCapabilityCodes,
 	validateEngineCommandEnvelope,
 	type AnyEngineCommandEnvelope,
 	type AnyEngineEventEnvelope,
@@ -29,20 +30,7 @@ import {
 } from './engine-host-supervisor.js'
 import { encodeNativeHostFrame, NativeHostFrameDecoder } from './framed-json-transport.js'
 
-const capabilities = Object.freeze([
-	'protocol.typed-json',
-	'render-plan.full',
-	'transport.basic',
-	'transport.loop',
-	'metronome.native',
-	'synth.bass.deep',
-	'audition.notes',
-	'preview.programs',
-	'diagnostics.health',
-	'supervision.heartbeat',
-	'audio.native.shared',
-	'audio.devices'
-])
+const capabilities = nativeHostCapabilityCodes
 
 const plan = JSON.parse(
 	readFileSync(resolve('fixtures/engine-protocol/valid-bass-plan.json'), 'utf8')
@@ -262,7 +250,13 @@ describe('EngineHostSupervisor', () => {
 		const first = supervisor.connect()
 		const second = supervisor.connect()
 		assert.equal(first, second)
-		assert.equal((await first).ok, true)
+		const connected = await first
+		assert.equal(connected.ok, true)
+		if (connected.ok) {
+			assert.deepEqual(connected.value.capabilities, nativeHostCapabilityCodes)
+			assert.ok(connected.value.capabilities.includes('synth.catalog.v2'))
+			assert.ok(connected.value.capabilities.includes('drums.procedural.v1'))
+		}
 		assert.equal((await supervisor.send(handshake())).ok, true)
 
 		const events: AnyEngineEventEnvelope[] = []

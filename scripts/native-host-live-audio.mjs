@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 
 import { EngineHostSupervisor } from '../.test-out/apps/desktop/main/engine/engine-host-supervisor.js'
+import { nativeHostCapabilityCodes } from '../.test-out/packages/contracts/src/index.js'
 import { EngineClient } from '../.test-out/packages/engine-client/src/EngineClient.js'
 import { requireLifecycleOwnership } from './lifecycle/ownership-guard.mjs'
 
@@ -11,26 +12,11 @@ requireLifecycleOwnership('Native host live audio probe')
 const executablePath = resolve(process.argv[2] ?? '')
 assert.notEqual(process.argv[2], undefined, 'Native host executable path is required.')
 
-const requiredCapabilities = Object.freeze([
-	'protocol.typed-json',
-	'render-plan.full',
-	'transport.basic',
-	'transport.loop',
-	'metronome.native',
-	'synth.bass.deep',
-	'audition.notes',
-	'preview.programs',
-	'diagnostics.health',
-	'supervision.heartbeat',
-	'audio.native.shared',
-	'audio.devices'
-])
-
 const supervisor = new EngineHostSupervisor({
 	approvedRoot: dirname(executablePath),
 	executablePath
 })
-const client = new EngineClient(supervisor, { capabilities: requiredCapabilities })
+const client = new EngineClient(supervisor, { capabilities: nativeHostCapabilityCodes })
 const observations = []
 const removeHealth = supervisor.onHealth((health) => {
 	observations.push({ type: 'health', value: health })

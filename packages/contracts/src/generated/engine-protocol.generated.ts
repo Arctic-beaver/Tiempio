@@ -93,6 +93,23 @@ export const engineCapabilityCodes = Object.freeze([
 ] as const)
 export type EngineCapabilityCode = (typeof engineCapabilityCodes)[number]
 
+export const nativeHostCapabilityCodes = Object.freeze([
+	'protocol.typed-json',
+	'render-plan.full',
+	'transport.basic',
+	'transport.loop',
+	'metronome.native',
+	'synth.bass.deep',
+	'synth.catalog.v2',
+	'drums.procedural.v1',
+	'audition.notes',
+	'preview.programs',
+	'diagnostics.health',
+	'supervision.heartbeat',
+	'audio.native.shared',
+	'audio.devices'
+] as const)
+
 export const engineDiagnosticCodes = Object.freeze([
 	'protocol.version-mismatch',
 	'protocol.frame-too-large',
