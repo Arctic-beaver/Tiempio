@@ -12,8 +12,9 @@ use tiempio_engine_core::{
 };
 use tiempio_engine_protocol::{
     AudioConfiguration, ENGINE_PROTOCOL_MAX_FRAME_BYTES, ENGINE_PROTOCOL_VERSION, EngineCommand,
-    EngineEvent, HandshakePeer, NoteOnPayload, PreviewIdentifierPayload, PreviewProgramPayload,
-    ProtocolLimits, ProtocolSession, ProtocolSessionState, encode_event_body, encode_frame,
+    EngineEvent, HandshakePeer, NATIVE_HOST_CAPABILITY_CODES, NoteOnPayload,
+    PreviewIdentifierPayload, PreviewProgramPayload, ProtocolLimits, ProtocolSession,
+    ProtocolSessionState, encode_event_body, encode_frame,
 };
 
 use crate::backend::{
@@ -26,22 +27,6 @@ use crate::realtime::{
     StreamSignals, create_engine,
 };
 
-const HOST_CAPABILITIES: &[&str] = &[
-    "protocol.typed-json",
-    "render-plan.full",
-    "transport.basic",
-    "transport.loop",
-    "metronome.native",
-    "synth.bass.deep",
-    "synth.catalog.v2",
-    "drums.procedural.v1",
-    "audition.notes",
-    "preview.programs",
-    "diagnostics.health",
-    "supervision.heartbeat",
-    "audio.native.shared",
-    "audio.devices",
-];
 const RECOVERY_BASE_DELAY: Duration = Duration::from_millis(250);
 const RECOVERY_MAX_DELAY: Duration = Duration::from_secs(4);
 
@@ -111,7 +96,7 @@ impl<Backend: OutputBackend> HostController<Backend> {
                     protocol_version: ENGINE_PROTOCOL_VERSION,
                 })?;
                 self.emit(EngineEvent::Capabilities {
-                    capabilities: HOST_CAPABILITIES
+                    capabilities: NATIVE_HOST_CAPABILITY_CODES
                         .iter()
                         .map(|capability| (*capability).to_owned())
                         .collect(),

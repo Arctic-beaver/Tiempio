@@ -34,12 +34,17 @@ export interface PerformancePointerEvent {
 
 function editableTarget(target: EventTarget | null): boolean {
 	if (target === null || typeof target !== 'object') return false
-	const candidate = target as { readonly isContentEditable?: boolean; readonly tagName?: string }
+	const candidate = target as {
+		readonly closest?: (selectors: string) => unknown
+		readonly isContentEditable?: boolean
+		readonly tagName?: string
+	}
 	return (
 		candidate.isContentEditable === true ||
 		candidate.tagName === 'INPUT' ||
 		candidate.tagName === 'TEXTAREA' ||
-		candidate.tagName === 'SELECT'
+		candidate.tagName === 'SELECT' ||
+		candidate.closest?.('dialog, [role="dialog"], [aria-modal="true"]') != null
 	)
 }
 

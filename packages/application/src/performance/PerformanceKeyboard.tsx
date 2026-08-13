@@ -11,10 +11,14 @@ import {
 } from '../../../music-theory/src/index.js'
 import { useApplicationRuntimeController } from '../runtime/ApplicationRuntimeControllerContext.js'
 import { PerformanceKeyControl } from './PerformanceKeyControl.js'
-import { usePerformanceInputSurface } from './usePerformanceInputSurface.js'
+import {
+	usePerformanceInputSurface,
+	type PerformanceKeyboardCapture
+} from './usePerformanceInputSurface.js'
 
 export interface PerformanceKeyboardProperties {
 	readonly chord?: BeginnerChordSuggestion | null
+	readonly keyboardCapture?: PerformanceKeyboardCapture
 	readonly layout: PerformanceLayout
 	readonly layerId: string | null
 	readonly octave: number
@@ -31,6 +35,7 @@ const fullRows = Object.freeze<readonly PerformanceRow[]>(['upper', 'home', 'low
 
 export function PerformanceKeyboard({
 	chord = null,
+	keyboardCapture = 'surface',
 	layout,
 	layerId,
 	octave,
@@ -58,7 +63,7 @@ export function PerformanceKeyboard({
 			}),
 		[layout, octave, palette, rotation]
 	)
-	const surface = usePerformanceInputSurface(ownerId, layerId, mapping)
+	const surface = usePerformanceInputSurface(ownerId, layerId, mapping, keyboardCapture)
 	const chordDegrees = new Set(chord?.degreeIndices ?? [])
 	const changeOctave = (next: number): void => {
 		if (onOctaveChange === undefined) return

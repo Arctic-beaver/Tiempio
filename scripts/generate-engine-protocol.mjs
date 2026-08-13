@@ -71,6 +71,12 @@ export function parseEngineProtocolSchema(source) {
 	assertStableStringList(schema.commands, 'commands')
 	assertStableStringList(schema.events, 'events')
 	assertStableStringList(schema.capabilities, 'capabilities')
+	assertStableStringList(schema.nativeHostCapabilities, 'nativeHostCapabilities')
+	for (const capability of schema.nativeHostCapabilities) {
+		if (!schema.capabilities.includes(capability)) {
+			throw new Error(`nativeHostCapabilities contains unknown capability ${capability}.`)
+		}
+	}
 	assertStableStringList(schema.diagnosticCodes, 'diagnosticCodes')
 	return Object.freeze({
 		...schema,
@@ -78,6 +84,7 @@ export function parseEngineProtocolSchema(source) {
 		commands: Object.freeze([...schema.commands]),
 		events: Object.freeze([...schema.events]),
 		capabilities: Object.freeze([...schema.capabilities]),
+		nativeHostCapabilities: Object.freeze([...schema.nativeHostCapabilities]),
 		diagnosticCodes: Object.freeze([...schema.diagnosticCodes])
 	})
 }
@@ -115,6 +122,8 @@ export function renderTypescriptBinding(schema) {
 		'',
 		typescriptList('engineCapabilityCodes', schema.capabilities),
 		'export type EngineCapabilityCode = (typeof engineCapabilityCodes)[number]',
+		'',
+		typescriptList('nativeHostCapabilityCodes', schema.nativeHostCapabilities),
 		'',
 		typescriptList('engineDiagnosticCodes', schema.diagnosticCodes),
 		'export type EngineDiagnosticCode = (typeof engineDiagnosticCodes)[number]',
@@ -189,6 +198,8 @@ export function renderRustBinding(schema) {
 		rustList('ENGINE_EVENT_TYPES', schema.events),
 		'',
 		rustList('ENGINE_CAPABILITY_CODES', schema.capabilities),
+		'',
+		rustList('NATIVE_HOST_CAPABILITY_CODES', schema.nativeHostCapabilities),
 		'',
 		rustList('ENGINE_DIAGNOSTIC_CODES', schema.diagnosticCodes),
 		''

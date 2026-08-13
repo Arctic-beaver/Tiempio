@@ -238,6 +238,13 @@ export function SoundChooserView({
 									: t(activePreset.descriptionKey)}
 							</p>
 						</div>
+						<button
+							className="primary-action sound-title__use"
+							onClick={choose}
+							type="button"
+						>
+							{t('soundChooser.useSound')}
+						</button>
 					</div>
 					<div className="audition">
 						<div className="audition__header">
@@ -299,6 +306,7 @@ export function SoundChooserView({
 							role="tabpanel"
 						>
 							<PerformanceKeyboard
+								keyboardCapture="document"
 								layout="compact"
 								layerId={layerId}
 								octave={octave}
@@ -394,7 +402,7 @@ export function SoundChooserView({
 								</div>
 							</div>
 						</div>
-						<aside className="sound-mapping-dock__actions">
+						<aside className="sound-mapping-dock__switcher">
 							<div
 								aria-label={t('soundChooser.mappingControls')}
 								aria-orientation="vertical"
@@ -447,13 +455,6 @@ export function SoundChooserView({
 									</span>
 								</button>
 							</div>
-							<button
-								className="primary-action sound-mapping-dock__use"
-								onClick={choose}
-								type="button"
-							>
-								{t('soundChooser.useSound')}
-							</button>
 						</aside>
 					</div>
 				</div>
