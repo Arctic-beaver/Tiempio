@@ -2,9 +2,9 @@
 
 ## Status and ownership
 
-**Status:** implementation is complete through the automated Stage 5 acceptance boundary. The
-remaining Stage 5 acceptance gates require a real Windows audio device/independent audio source and
-an interactive packaged-GUI smoke; Stages 6-8 have not started.
+**Status:** implementation is complete through Stage 5 and the accepted pre-Stage-6 product work.
+Retained Desktop hardware/packaged observations remain documented; Stage 6 planning is complete,
+but Stage 6 implementation and Stages 7-8 have not started.
 
 **Original planned integration branch:** `feature/application-skeleton`.
 
@@ -20,6 +20,11 @@ The detailed Stage 5 delivery plan is recorded in
 `9ee5191` as an immutable implementation baseline: Desktop runtime work may activate existing
 truthful states, but it may not redesign or visually drift from the approved prototype.
 
+The detailed Stage 6 delivery plan is recorded in
+`docs/project-plan/STAGE-6-WEB-RUNTIME.md`. It preserves the same authority and visual boundaries,
+adds an activation-gated WASM AudioWorklet plus browser persistence, and reflects the current
+composite synth/drum engine rather than creating a Bass-only Web fork.
+
 | Stage | Current state |
 | --- | --- |
 | 0 - Lifecycle foundation | Complete |
@@ -28,7 +33,7 @@ truthful states, but it may not redesign or visually drift from the approved pro
 | 3 - Project core and logical format | Complete; retained evidence exists |
 | 4 - Engine core and offline proof | Complete; retained evidence exists |
 | 5 - Desktop runtime | Implemented; automated acceptance complete, manual Windows hardware and packaged-GUI gates retained |
-| 6 - Web runtime | Not started |
+| 6 - Web runtime | Planning complete; implementation not started |
 | 7 - Primary audible vertical slice | Not started |
 | 8 - Acceptance hardening | Not started |
 
@@ -493,6 +498,11 @@ Shared Audio mode and durably opens/saves a minimal project through opaque proje
 
 The independent static Web target plays the same Bass patch through the same DSP core and retains a
 minimal project without claiming native guarantees.
+
+The current accepted engine baseline now includes five synth families and procedural drums. `Deep`
+remains the minimum Stage 6 proof, but the Web adapter must expose the shared composite engine rather
+than a target-specific Bass-only subset; the detailed parity scope is defined in
+`STAGE-6-WEB-RUNTIME.md`.
 
 ### Work
 
