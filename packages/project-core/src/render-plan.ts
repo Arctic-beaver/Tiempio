@@ -4,7 +4,8 @@ import {
 	engineRenderPlanVersion,
 	engineTicksPerQuarter,
 	validateEngineWireRenderPlan,
-	type EngineWireRenderPlan
+	type EngineWireRenderPlan,
+	type EngineWireSynthPatchV2
 } from '../../contracts/src/index.js'
 import {
 	defaultTicksPerQuarter,
@@ -89,6 +90,19 @@ export type EngineWirePlanCompilationResult =
 			readonly message: string
 			readonly status: 'rejected'
 	  }
+
+export function compileEngineWireSynthPatch(patch: ResolvedSynthPatchV2): EngineWireSynthPatchV2 {
+	return cloneAndFreeze({
+		patchModelVersion: enginePatchModelVersion,
+		oscillator: patch.oscillator,
+		filter: patch.filter,
+		amplifier: patch.amplifier,
+		movement: patch.movement,
+		drive: patch.drive,
+		stereoWidth: patch.stereoWidth,
+		outputGain: patch.outputGain
+	})
+}
 
 function eventOrder(left: RenderPlanEvent, right: RenderPlanEvent): number {
 	return left.startTick - right.startTick || opaqueIdOrder(left.id, right.id)
@@ -246,23 +260,13 @@ export function compileEngineWireRenderPlan(
 		loop: projectPlan.loop,
 		layers: projectPlan.layers.map((layer) => {
 			if (layer.source.type === 'synth') {
-				const patch = layer.source.instrument
 				return {
 					id: layer.id,
 					gain: layer.gain,
 					pan: layer.pan,
 					source: {
 						type: 'subtractive-synth' as const,
-						patch: {
-							patchModelVersion: enginePatchModelVersion,
-							oscillator: patch.oscillator,
-							filter: patch.filter,
-							amplifier: patch.amplifier,
-							movement: patch.movement,
-							drive: patch.drive,
-							stereoWidth: patch.stereoWidth,
-							outputGain: patch.outputGain
-						}
+						patch: compileEngineWireSynthPatch(layer.source.instrument)
 					},
 					events: layer.events.flatMap((event) =>
 						event.type === 'midi-note'

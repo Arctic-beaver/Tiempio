@@ -18,7 +18,7 @@ import {
 	type RecoveryHandle
 } from '../../../contracts/src/index.js'
 import { performanceMapping } from '../../../music-theory/src/index.js'
-import { ProjectSession } from '../../../project-core/src/index.js'
+import { createSynthInstrument, ProjectSession } from '../../../project-core/src/index.js'
 import { EngineClient } from '../../../engine-client/src/index.js'
 import { createSeedProject } from '../project/seed-project.js'
 import { performanceSourceId } from '../performance/performance-input-session.js'
@@ -664,16 +664,90 @@ describe('ApplicationRuntimeController', () => {
 			if (retriedPlan?.type === 'load-render-plan') {
 				assert.equal(retriedPlan.payload.plan.projectRevision, 1)
 			}
-			const plansBeforeAudition = commands.filter(
+			const draftPlanAccepted = await controller.setDraftAuditionLayer({
+				draftId: 'draft.layer:test',
+				instrument: createSynthInstrument('lead.glass', {
+					brightness: 0.8,
+					hardness: 0.4,
+					dirt: 0.1,
+					length: 0.6,
+					width: 0.7
+				})
+			})
+			assert.equal(draftPlanAccepted, true)
+			const draftPlan = commands.at(-1)
+			assert.equal(draftPlan?.type, 'load-render-plan')
+			if (draftPlan?.type === 'load-render-plan') {
+				const draftLayer = draftPlan.payload.plan.layers.find(
+					(layer) => layer.id === 'draft.layer:test'
+				)
+				assert.equal(draftPlan.payload.plan.projectRevision, 1)
+				assert.equal(draftLayer?.source.type, 'subtractive-synth')
+				assert.deepEqual(draftLayer?.events, [])
+			}
+			assert.equal(session.getSnapshot().revision, 1)
+			assert.equal(session.getSnapshot().dirty, true)
+
+			const prepared = session.prepareTransaction([
+				{
+					type: 'layer.add',
+					baseRevision: 1,
+					id: 'layer.created',
+					name: 'Created',
+					role: 'melody',
+					synth: {
+						presetId: 'lead.glass',
+						macros: createSynthInstrument('lead.glass').macros,
+						performance: { key: { tonic: 9, mode: 'minor' }, octave: 3 }
+					}
+				}
+			])
+			const preactivation = controller.preactivateProject(prepared)
+			await flush()
+			const candidatePlan = commands.at(-1)
+			assert.equal(candidatePlan?.type, 'load-render-plan')
+			if (candidatePlan?.type === 'load-render-plan') {
+				assert.equal(candidatePlan.payload.plan.projectRevision, 2)
+				assert.equal(
+					candidatePlan.payload.plan.layers.some(
+						(layer) => layer.id === 'draft.layer:test'
+					),
+					false
+				)
+				assert.equal(
+					candidatePlan.payload.plan.layers.some((layer) => layer.id === 'layer.created'),
+					true
+				)
+			}
+			for (const listener of eventListeners) {
+				listener({
+					protocolVersion: engineProtocolVersion,
+					sequence: 50,
+					type: 'render-plan-acknowledged',
+					payload: { planGeneration: 3, projectRevision: 2 }
+				})
+			}
+			assert.equal(await preactivation, true)
+			assert.equal(session.getSnapshot().revision, 1)
+			const plansBeforeCommit = commands.filter(
 				(command) => command.type === 'load-render-plan'
 			).length
+			session.commitTransaction(prepared)
+			await flush()
+			assert.equal(session.getSnapshot().revision, 2)
+			assert.equal(session.getSnapshot().project.layers.at(-1)?.id, 'layer.created')
+			assert.equal(controller.getSnapshot().acknowledgedProjectRevision, 2)
+			assert.equal(
+				commands.filter((command) => command.type === 'load-render-plan').length,
+				plansBeforeCommit
+			)
 
 			controller.auditionDrum('layer.drums', 'openHat')
 			await flush()
 			await flush()
 			assert.equal(
 				commands.filter((command) => command.type === 'load-render-plan').length,
-				plansBeforeAudition
+				plansBeforeCommit
 			)
 			const drumAudition = commands.at(-1)
 			assert.equal(drumAudition?.type, 'note-on')
@@ -683,6 +757,14 @@ describe('ApplicationRuntimeController', () => {
 				assert.equal(drumAudition.payload.velocity, 112)
 			}
 
+			controller.performanceInput.activate(
+				'sound-chooser',
+				'layer.created',
+				performanceMapping(
+					{ tonic: 9, mode: 'minor' },
+					{ layout: 'compact', rotation: 0, tonicMidi: 45 }
+				)
+			)
 			controller.performanceInput.pressCode(
 				'sound-chooser',
 				performanceSourceId('keyboard', 'KeyF'),

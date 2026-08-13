@@ -157,6 +157,7 @@ export {
 } from './presets.js'
 export {
 	compileEngineWireRenderPlan,
+	compileEngineWireSynthPatch,
 	compileProjectRenderPlan,
 	renderPlanVersion,
 	type EngineWirePlanCompilationResult,
