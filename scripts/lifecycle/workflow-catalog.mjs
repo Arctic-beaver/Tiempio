@@ -75,6 +75,7 @@ const repositoryScriptTestFiles = Object.freeze([
 
 const compiledTestFiles = Object.freeze([
 	resolve('.test-out/apps/desktop/main/native-host-contract.test.js'),
+	resolve('.test-out/apps/desktop/main/engine/audio-input.integration.test.js'),
 	resolve('.test-out/apps/desktop/main/engine/engine-host-supervisor.test.js'),
 	resolve('.test-out/apps/desktop/main/engine/framed-json-transport.test.js'),
 	resolve('.test-out/apps/desktop/main/engine/native-host-resolver.test.js'),
