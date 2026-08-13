@@ -75,7 +75,7 @@ fn run_commands(
             "capabilities": [
                 "protocol.typed-json",
                 "audio.native.shared",
-                "metronome.native",
+                "metronome.clock",
                 "preview.programs",
                 "audio.devices"
             ]

@@ -5,7 +5,7 @@ import {
 	type AnyEngineCommandEnvelope,
 	type AnyEngineEventEnvelope,
 	type ApplicationResult,
-	type EngineCapabilityCode,
+	type EngineConnection,
 	type EngineRuntime
 } from '../../contracts/src/index.js'
 import { EngineClient } from './EngineClient.js'
@@ -17,15 +17,11 @@ class FakeEngineRuntime implements EngineRuntime {
 
 	public constructor(readonly connectedProtocolVersion: number = engineProtocolVersion) {}
 
-	public async connect(): Promise<
-		ApplicationResult<{
-			readonly capabilities: readonly EngineCapabilityCode[]
-			readonly protocolVersion: number
-		}>
-	> {
+	public async connect(): Promise<ApplicationResult<EngineConnection>> {
 		return Object.freeze({
 			ok: true as const,
 			value: Object.freeze({
+				audioConfiguration: null,
 				protocolVersion: this.connectedProtocolVersion,
 				capabilities: Object.freeze(['protocol.typed-json'] as const)
 			})
@@ -85,6 +81,7 @@ describe('EngineClient', () => {
 			ok: true,
 			value: {
 				protocolVersion: engineProtocolVersion,
+				audioConfiguration: null,
 				capabilities: ['protocol.typed-json']
 			}
 		})

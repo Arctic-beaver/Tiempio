@@ -84,10 +84,13 @@ describe('closed lifecycle workflow catalog', () => {
 			'generate:cargo-lock',
 			'toolchain:rust',
 			'toolchain:rust-clippy',
+			'toolchain:web-wasm',
 			'format:rust',
 			'check:rust',
+			'check:web-engine',
 			'evidence:engine',
 			'build:engine',
+			'build:web-engine',
 			'check:audio',
 			'check:audio-live'
 		]) {
@@ -96,6 +99,18 @@ describe('closed lifecycle workflow catalog', () => {
 				steps.some((step) => /(?:cargo|rustc|rustup)(?:\.exe)?$/iu.test(step.command))
 			)
 			assert.ok(steps.every((step) => Object.hasOwn(step, 'shell') === false))
+		}
+	})
+
+	it('keeps WebAssembly installation explicit and outside ordinary builds', () => {
+		const install = workflowSteps('toolchain:web-wasm')
+		assert.equal(install.length, 1)
+		assert.deepEqual(install[0].arguments, ['target', 'add', 'wasm32-unknown-unknown'])
+		for (const name of ['check:web-engine', 'build:web-engine', 'build:web']) {
+			assert.equal(
+				workflowSteps(name).some((step) => step.arguments.includes('add')),
+				false
+			)
 		}
 	})
 

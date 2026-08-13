@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { emptyShellBundleBudgets, evaluateBundleClass } from './bundle-budget.mjs'
+import {
+	emptyShellBundleBudgets,
+	evaluateBundleClass,
+	webStage6ArtifactBudgets
+} from './bundle-budget.mjs'
 
 describe('empty-shell bundle budgets', () => {
 	it('defines independent initial classes for both targets', () => {
@@ -9,6 +13,16 @@ describe('empty-shell bundle budgets', () => {
 			'desktop-preload': { root: 'dist/desktop/preload', maxBytes: 61_440 },
 			'desktop-renderer': { root: 'dist/desktop/renderer', maxBytes: 622_592 },
 			web: { root: 'dist/web', maxBytes: 585_728 }
+		})
+	})
+
+	it('owns separate Stage 6 Web artifact ceilings', () => {
+		assert.deepEqual(webStage6ArtifactBudgets, {
+			initialJavaScript: 425_984,
+			deferredApplication: 81_920,
+			webRuntimeJavaScript: 196_608,
+			workletJavaScript: 65_536,
+			wasmRelease: 786_432
 		})
 	})
 

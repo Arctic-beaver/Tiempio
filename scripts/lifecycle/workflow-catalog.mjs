@@ -9,6 +9,7 @@ const rustBin =
 const cargo = rustBin === null ? 'cargo' : resolve(rustBin, 'cargo.exe')
 const rustc = rustBin === null ? 'rustc' : resolve(rustBin, 'rustc.exe')
 const rustup = rustBin === null ? 'rustup' : resolve(rustBin, 'rustup.exe')
+const webWasmTarget = 'wasm32-unknown-unknown'
 
 function directStep(name, command, arguments_ = [], timeoutMs = minute) {
 	return Object.freeze({
@@ -264,6 +265,15 @@ const steps = Object.freeze({
 			['component', 'add', 'clippy'],
 			5 * minute
 		),
+	webWasmTargetInstall: () =>
+		directStep(
+			'Rust WebAssembly target installation',
+			rustup,
+			['target', 'add', webWasmTarget],
+			5 * minute
+		),
+	webWasmTargetInventory: () =>
+		directStep('Rust WebAssembly target inventory', rustup, ['target', 'list', '--installed']),
 	rustFormat: () =>
 		directStep(
 			'Rust format check',
@@ -322,6 +332,54 @@ const steps = Object.freeze({
 				'--locked'
 			],
 			5 * minute
+		),
+	webEngineCheck: () =>
+		directStep(
+			'Web engine target check',
+			cargo,
+			[
+				'check',
+				'--manifest-path',
+				'engine/Cargo.toml',
+				'--package',
+				'tiempio-engine-web-worklet',
+				'--target',
+				webWasmTarget,
+				'--locked'
+			],
+			10 * minute
+		),
+	webEngineTest: () =>
+		directStep(
+			'Web engine deterministic native tests',
+			cargo,
+			[
+				'test',
+				'--manifest-path',
+				'engine/Cargo.toml',
+				'--package',
+				'tiempio-engine-web-worklet',
+				'--all-targets',
+				'--locked'
+			],
+			5 * minute
+		),
+	webEngineBuild: () =>
+		directStep(
+			'Web engine release build',
+			cargo,
+			[
+				'build',
+				'--manifest-path',
+				'engine/Cargo.toml',
+				'--package',
+				'tiempio-engine-web-worklet',
+				'--target',
+				webWasmTarget,
+				'--release',
+				'--locked'
+			],
+			10 * minute
 		),
 	engineEvidence: () =>
 		directStep(
@@ -459,6 +517,7 @@ const workflowFactories = Object.freeze({
 	'generate:cargo-lock': () => [steps.cargoLock()],
 	'toolchain:rust': () => steps.rustToolchain(),
 	'toolchain:rust-clippy': () => [steps.rustClippyInstall()],
+	'toolchain:web-wasm': () => [steps.webWasmTargetInstall()],
 	test: testSteps,
 	'test:lifecycle': () => [steps.testLifecycle()],
 	'typecheck:node': () => [steps.typecheckNode()],
@@ -470,8 +529,14 @@ const workflowFactories = Object.freeze({
 		steps.rustClippy(),
 		steps.rustTest()
 	],
+	'check:web-engine': () => [
+		steps.webWasmTargetInventory(),
+		steps.webEngineCheck(),
+		steps.webEngineTest()
+	],
 	'evidence:engine': () => [steps.engineEvidence()],
 	'build:engine': engineBuildSteps,
+	'build:web-engine': () => [steps.webWasmTargetInventory(), steps.webEngineBuild()],
 	'check:audio': () => [...engineBuildSteps(), steps.nativeHostAudioCheck()],
 	'check:audio-live': () => [
 		steps.testOutputClean(),
@@ -510,6 +575,8 @@ const workflowTimeoutOverrides = Object.freeze({
 	build: 8 * minute,
 	'build:web': 8 * minute,
 	'build:engine': 10 * minute,
+	'build:web-engine': 12 * minute,
+	'check:web-engine': 16 * minute,
 	'check:audio': 12 * minute,
 	'check:audio-live': 12 * minute,
 	'package:check': 20 * minute,

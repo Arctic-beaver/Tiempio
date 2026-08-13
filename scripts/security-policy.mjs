@@ -30,6 +30,12 @@ export function validateProductionHtml(html, target) {
 	]) {
 		if (html.includes(forbidden)) errors.push(`${target} production HTML contains ${forbidden}`)
 	}
+	if (target === 'web' && !html.includes("script-src 'self' 'wasm-unsafe-eval'")) {
+		errors.push('web CSP does not narrowly allow packaged WebAssembly execution')
+	}
+	if (target === 'desktop' && html.includes("'wasm-unsafe-eval'")) {
+		errors.push('desktop CSP unexpectedly allows WebAssembly evaluation')
+	}
 	return errors
 }
 

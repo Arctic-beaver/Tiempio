@@ -71,11 +71,35 @@ export function parseEngineProtocolSchema(source) {
 	assertStableStringList(schema.commands, 'commands')
 	assertStableStringList(schema.events, 'events')
 	assertStableStringList(schema.capabilities, 'capabilities')
-	assertStableStringList(schema.nativeHostCapabilities, 'nativeHostCapabilities')
-	for (const capability of schema.nativeHostCapabilities) {
-		if (!schema.capabilities.includes(capability)) {
-			throw new Error(`nativeHostCapabilities contains unknown capability ${capability}.`)
+	for (const profile of [
+		'applicationCommonCapabilities',
+		'audibleOutputCapabilities',
+		'nativeHostCapabilities',
+		'webWorkletCapabilities'
+	]) {
+		assertStableStringList(schema[profile], profile)
+		for (const capability of schema[profile]) {
+			if (!schema.capabilities.includes(capability)) {
+				throw new Error(`${profile} contains unknown capability ${capability}.`)
+			}
 		}
+	}
+	for (const capability of schema.applicationCommonCapabilities) {
+		if (!schema.nativeHostCapabilities.includes(capability)) {
+			throw new Error(`nativeHostCapabilities is missing common capability ${capability}.`)
+		}
+		if (!schema.webWorkletCapabilities.includes(capability)) {
+			throw new Error(`webWorkletCapabilities is missing common capability ${capability}.`)
+		}
+	}
+	const nativeOutputs = schema.audibleOutputCapabilities.filter((capability) =>
+		schema.nativeHostCapabilities.includes(capability)
+	)
+	const webOutputs = schema.audibleOutputCapabilities.filter((capability) =>
+		schema.webWorkletCapabilities.includes(capability)
+	)
+	if (nativeOutputs.length !== 1 || webOutputs.length !== 1) {
+		throw new Error('Each audible engine profile must expose exactly one output capability.')
 	}
 	assertStableStringList(schema.diagnosticCodes, 'diagnosticCodes')
 	return Object.freeze({
@@ -84,7 +108,10 @@ export function parseEngineProtocolSchema(source) {
 		commands: Object.freeze([...schema.commands]),
 		events: Object.freeze([...schema.events]),
 		capabilities: Object.freeze([...schema.capabilities]),
+		applicationCommonCapabilities: Object.freeze([...schema.applicationCommonCapabilities]),
+		audibleOutputCapabilities: Object.freeze([...schema.audibleOutputCapabilities]),
 		nativeHostCapabilities: Object.freeze([...schema.nativeHostCapabilities]),
+		webWorkletCapabilities: Object.freeze([...schema.webWorkletCapabilities]),
 		diagnosticCodes: Object.freeze([...schema.diagnosticCodes])
 	})
 }
@@ -123,7 +150,13 @@ export function renderTypescriptBinding(schema) {
 		typescriptList('engineCapabilityCodes', schema.capabilities),
 		'export type EngineCapabilityCode = (typeof engineCapabilityCodes)[number]',
 		'',
+		typescriptList('applicationCommonCapabilityCodes', schema.applicationCommonCapabilities),
+		'',
+		typescriptList('audibleOutputCapabilityCodes', schema.audibleOutputCapabilities),
+		'',
 		typescriptList('nativeHostCapabilityCodes', schema.nativeHostCapabilities),
+		'',
+		typescriptList('webWorkletCapabilityCodes', schema.webWorkletCapabilities),
 		'',
 		typescriptList('engineDiagnosticCodes', schema.diagnosticCodes),
 		'export type EngineDiagnosticCode = (typeof engineDiagnosticCodes)[number]',
@@ -132,6 +165,9 @@ export function renderTypescriptBinding(schema) {
 }
 
 function rustList(name, values) {
+	if (values.length <= 2) {
+		return `pub const ${name}: &[&str] = &[${values.map((value) => JSON.stringify(value)).join(', ')}];`
+	}
 	const entries = values.map((value) => `    ${JSON.stringify(value)},`).join('\n')
 	return `pub const ${name}: &[&str] = &[\n${entries}\n];`
 }
@@ -199,7 +235,13 @@ export function renderRustBinding(schema) {
 		'',
 		rustList('ENGINE_CAPABILITY_CODES', schema.capabilities),
 		'',
+		rustList('APPLICATION_COMMON_CAPABILITY_CODES', schema.applicationCommonCapabilities),
+		'',
+		rustList('AUDIBLE_OUTPUT_CAPABILITY_CODES', schema.audibleOutputCapabilities),
+		'',
 		rustList('NATIVE_HOST_CAPABILITY_CODES', schema.nativeHostCapabilities),
+		'',
+		rustList('WEB_WORKLET_CAPABILITY_CODES', schema.webWorkletCapabilities),
 		'',
 		rustList('ENGINE_DIAGNOSTIC_CODES', schema.diagnosticCodes),
 		''

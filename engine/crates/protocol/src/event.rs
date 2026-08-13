@@ -162,7 +162,9 @@ fn valid_audio_health(event: &EngineEvent) -> bool {
         && block_frames
             .is_none_or(|frames| frames > 0 && frames as usize <= ENGINE_PROTOCOL_MAX_BLOCK_FRAMES)
         && matches!(device_state.as_str(), "available" | "unavailable" | "lost")
-        && mode.as_deref().is_none_or(|value| value == "shared")
+        && mode
+            .as_deref()
+            .is_none_or(|value| matches!(value, "shared" | "browser"))
         && project_revision.is_none_or(wire_safe)
         && sample_rate.is_none_or(|rate| {
             rate as usize >= ENGINE_PROTOCOL_MIN_SAMPLE_RATE

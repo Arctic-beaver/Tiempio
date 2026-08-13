@@ -10,7 +10,7 @@ export const contentSecurityPolicyMarkers = Object.freeze({
 export function contentSecurityPolicy(target: ProductionTarget, development = false): string {
 	const directives = [
 		"default-src 'self'",
-		"script-src 'self'",
+		target === 'web' ? "script-src 'self' 'wasm-unsafe-eval'" : "script-src 'self'",
 		development ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'",
 		"img-src 'self' data:",
 		"font-src 'self'",

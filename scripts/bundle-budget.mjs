@@ -10,6 +10,14 @@ export const emptyShellBundleBudgets = Object.freeze({
 	web: Object.freeze({ root: 'dist/web', maxBytes: 585_728 })
 })
 
+export const webStage6ArtifactBudgets = Object.freeze({
+	initialJavaScript: 425_984,
+	deferredApplication: 81_920,
+	webRuntimeJavaScript: 196_608,
+	workletJavaScript: 65_536,
+	wasmRelease: 786_432
+})
+
 export function evaluateBundleClass(bundleClass, files) {
 	const budget = emptyShellBundleBudgets[bundleClass]
 	if (budget === undefined) throw new Error(`Unknown bundle class ${String(bundleClass)}.`)

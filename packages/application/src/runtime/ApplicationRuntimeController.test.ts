@@ -125,7 +125,11 @@ describe('ApplicationRuntimeController', () => {
 				connects += 1
 				return Object.freeze({
 					ok: true as const,
-					value: Object.freeze({ protocolVersion: engineProtocolVersion, capabilities })
+					value: Object.freeze({
+						audioConfiguration: null,
+						protocolVersion: engineProtocolVersion,
+						capabilities
+					})
 				})
 			},
 			disconnect: async () => {

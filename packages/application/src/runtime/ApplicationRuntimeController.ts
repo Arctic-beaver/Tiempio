@@ -1,11 +1,13 @@
 import {
 	applicationError,
-	nativeHostCapabilityCodes,
+	applicationEngineRequestedCapabilityCodes,
+	evaluateEngineCapabilities,
 	type AnyEngineEventEnvelope,
 	type ApplicationError,
 	type ApplicationRuntime,
 	type AudioHealthSnapshot,
 	type EngineCommandPayloadByType,
+	type EngineConnection,
 	type ProjectHandle
 } from '../../../contracts/src/index.js'
 import { EngineClient, type EngineClientCommandType } from '../../../engine-client/src/index.js'
@@ -24,8 +26,6 @@ import {
 } from './ApplicationController.js'
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
 import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
-
-const applicationEngineCapabilities = nativeHostCapabilityCodes
 
 export interface ProjectDocumentCodec {
 	encode(project: ProjectDocument): Uint8Array
@@ -116,7 +116,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.#client =
 			runtime.engine.availability === 'available'
 				? new EngineClient(runtime.engine.api, {
-						capabilities: applicationEngineCapabilities
+						capabilities: applicationEngineRequestedCapabilityCodes
 					})
 				: null
 		if (runtime.lifecycle.availability === 'available') {
@@ -267,14 +267,13 @@ export class ApplicationRuntimeController implements ApplicationController {
 			this.#setDiagnostic(connected.error)
 			return
 		}
-		const missingCapability = applicationEngineCapabilities.find(
-			(capability) => !connected.value.capabilities.includes(capability)
-		)
-		if (missingCapability !== undefined) {
+		const capabilityEvaluation = evaluateEngineCapabilities(connected.value.capabilities)
+		if (!capabilityEvaluation.compatible) {
+			const missingCapability = capabilityEvaluation.missingRequired[0] ?? 'audible-output'
 			this.#setDiagnostic(
 				applicationError(
 					'ENGINE_UNAVAILABLE',
-					'The native engine is missing a required capability.',
+					'The audio engine is missing a required compatible capability.',
 					{
 						details: { capability: missingCapability }
 					}
@@ -283,7 +282,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 			await this.#client.disconnect()
 			return
 		}
-		await this.#initializeAudio()
+		await this.#initializeAudio(connected.value)
 	}
 
 	async #retryAudio(): Promise<void> {
@@ -315,11 +314,16 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.#unsubscribeEngineFailures = null
 	}
 
-	async #initializeAudio(): Promise<void> {
-		const configured = await this.#send('configure-audio', {
+	async #initializeAudio(connection: EngineConnection): Promise<void> {
+		const configuration = connection.audioConfiguration ?? {
 			sampleRate: 48_000,
 			blockFrames: 512,
-			channels: 2
+			channels: 2 as const
+		}
+		const configured = await this.#send('configure-audio', {
+			sampleRate: configuration.sampleRate,
+			blockFrames: configuration.blockFrames,
+			channels: configuration.channels
 		})
 		if (!configured) return
 		await this.#publishLatestPlan()

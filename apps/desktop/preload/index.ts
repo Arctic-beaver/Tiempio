@@ -94,9 +94,16 @@ function validValue<Value>(
 }
 
 function validConnection(value: unknown): value is EngineConnection {
+	const audioConfiguration = record(value) ? value.audioConfiguration : undefined
 	return (
 		record(value) &&
-		exactKeys(value, ['protocolVersion', 'capabilities']) &&
+		exactKeys(value, ['audioConfiguration', 'protocolVersion', 'capabilities']) &&
+		(audioConfiguration === null ||
+			(record(audioConfiguration) &&
+				exactKeys(audioConfiguration, ['blockFrames', 'channels', 'sampleRate']) &&
+				Number.isSafeInteger(audioConfiguration.blockFrames) &&
+				Number.isSafeInteger(audioConfiguration.sampleRate) &&
+				audioConfiguration.channels === 2)) &&
 		typeof value.protocolVersion === 'number' &&
 		Array.isArray(value.capabilities) &&
 		value.capabilities.every(

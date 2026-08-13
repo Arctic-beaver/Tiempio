@@ -372,7 +372,7 @@ export function validateAudioHealthSnapshot(
 				input.blockFrames === 0 ||
 				input.blockFrames > engineProtocolLimits.maxBlockFrames)) ||
 		!['available', 'unavailable', 'lost'].includes(String(input.deviceState)) ||
-		(input.mode !== null && input.mode !== 'shared') ||
+		(input.mode !== null && input.mode !== 'shared' && input.mode !== 'browser') ||
 		typeof input.outputMuted !== 'boolean' ||
 		typeof input.outputSignalObserved !== 'boolean' ||
 		(input.projectRevision !== null && !safeInteger(input.projectRevision)) ||

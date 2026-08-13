@@ -1,7 +1,8 @@
 use tiempio_engine_core::RenderPlanRevision;
 
 use crate::{
-    EngineCommand, EngineCommandEnvelope, ProtocolDiagnostic, ProtocolError, decode_command_body,
+    EngineCommand, EngineCommandEnvelope, NATIVE_HOST_CAPABILITY_CODES, ProtocolDiagnostic,
+    ProtocolError, WEB_WORKLET_CAPABILITY_CODES, decode_command_body,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -11,26 +12,13 @@ pub enum ProtocolSessionState {
     Terminated,
 }
 
-#[derive(Debug, Default)]
-struct NegotiatedCapabilities {
-    native_audio: bool,
-    native_features: NativeFeatureCapabilities,
-}
-
-#[derive(Debug, Default)]
-struct NativeFeatureCapabilities {
-    audio_devices: bool,
-    preview_programs: bool,
-    metronome: bool,
-}
-
 #[derive(Debug)]
 pub struct ProtocolSession {
     state: ProtocolSessionState,
     last_sequence: Option<u64>,
     highest_plan_revision: Option<RenderPlanRevision>,
-    native_audio_available: bool,
-    capabilities: NegotiatedCapabilities,
+    supported_capabilities: &'static [&'static str],
+    negotiated_capabilities: Vec<&'static str>,
 }
 
 impl Default for ProtocolSession {
@@ -46,35 +34,35 @@ impl ProtocolSession {
             state: ProtocolSessionState::AwaitingHandshake,
             last_sequence: None,
             highest_plan_revision: None,
-            native_audio_available: false,
-            capabilities: NegotiatedCapabilities {
-                native_audio: false,
-                native_features: NativeFeatureCapabilities {
-                    audio_devices: false,
-                    preview_programs: false,
-                    metronome: false,
-                },
-            },
+            supported_capabilities: &[],
+            negotiated_capabilities: Vec::new(),
         }
     }
 
-    /// Creates a session that can negotiate the Stage 5 native shared-audio commands.
+    /// Creates a session with an explicit immutable supported-capability set.
     #[must_use]
-    pub const fn native_host() -> Self {
+    pub const fn with_supported_capabilities(
+        supported_capabilities: &'static [&'static str],
+    ) -> Self {
         Self {
             state: ProtocolSessionState::AwaitingHandshake,
             last_sequence: None,
             highest_plan_revision: None,
-            native_audio_available: true,
-            capabilities: NegotiatedCapabilities {
-                native_audio: false,
-                native_features: NativeFeatureCapabilities {
-                    audio_devices: false,
-                    preview_programs: false,
-                    metronome: false,
-                },
-            },
+            supported_capabilities,
+            negotiated_capabilities: Vec::new(),
         }
+    }
+
+    /// Creates a session that negotiates the native shared-audio profile.
+    #[must_use]
+    pub const fn native_host() -> Self {
+        Self::with_supported_capabilities(NATIVE_HOST_CAPABILITY_CODES)
+    }
+
+    /// Creates a session that negotiates the browser `AudioWorklet` profile.
+    #[must_use]
+    pub const fn web_worklet() -> Self {
+        Self::with_supported_capabilities(WEB_WORKLET_CAPABILITY_CODES)
     }
 
     #[must_use]
@@ -171,12 +159,12 @@ impl ProtocolSession {
             EngineCommand::ConfigureAudio(_)
             | EngineCommand::StartAudio
             | EngineCommand::StopAudio
-                if self.capabilities.native_audio => {}
-            EngineCommand::RefreshDevices if self.capabilities.native_features.audio_devices => {}
+                if self.has_audible_output() => {}
+            EngineCommand::RefreshDevices if self.negotiated("audio.devices") => {}
             EngineCommand::StartPreview(_) | EngineCommand::CancelPreview(_)
-                if self.capabilities.native_features.preview_programs => {}
+                if self.negotiated("preview.programs") => {}
             EngineCommand::SetMetronomeEnabled(_) | EngineCommand::SetMetronomeVolume(_)
-                if self.capabilities.native_features.metronome => {}
+                if self.negotiated("metronome.clock") => {}
             EngineCommand::ApplyRenderPlanDelta(_)
             | EngineCommand::PreviewMacro(_)
             | EngineCommand::CommitMacro(_)
@@ -209,13 +197,20 @@ impl ProtocolSession {
     }
 
     fn negotiate_capabilities(&mut self, requested: &[String]) {
-        let negotiated = |capability: &str| {
-            self.native_audio_available && requested.iter().any(|value| value == capability)
-        };
-        self.capabilities.native_audio = negotiated("audio.native.shared");
-        self.capabilities.native_features.audio_devices = negotiated("audio.devices");
-        self.capabilities.native_features.preview_programs = negotiated("preview.programs");
-        self.capabilities.native_features.metronome = negotiated("metronome.native");
+        self.negotiated_capabilities = self
+            .supported_capabilities
+            .iter()
+            .copied()
+            .filter(|capability| requested.iter().any(|requested| requested == capability))
+            .collect();
+    }
+
+    fn negotiated(&self, capability: &str) -> bool {
+        self.negotiated_capabilities.contains(&capability)
+    }
+
+    fn has_audible_output(&self) -> bool {
+        self.negotiated("audio.native.shared") || self.negotiated("audio.web.worklet")
     }
 
     pub fn terminate(&mut self) {
@@ -339,7 +334,7 @@ mod tests {
                         "audio.native.shared",
                         "audio.devices",
                         "preview.programs",
-                        "metronome.native"
+                        "metronome.clock"
                     ]
                 }),
             ))
@@ -389,6 +384,50 @@ mod tests {
         assert_eq!(
             unnegotiated
                 .accept_body(&command(1, "start-audio", &json!({})))
+                .unwrap_err()
+                .diagnostic,
+            ProtocolDiagnostic::UnsupportedCommand
+        );
+    }
+
+    #[test]
+    fn web_worklet_profile_accepts_web_output_without_native_device_commands() {
+        let mut session = ProtocolSession::web_worklet();
+        session
+            .accept_body(&command(
+                0,
+                "handshake",
+                &json!({
+                    "protocolVersion": ENGINE_PROTOCOL_VERSION,
+                    "peer": "application",
+                    "renderPlanVersion": 3,
+                    "patchModelVersion": 2,
+                    "capabilities": [
+                        "protocol.typed-json",
+                        "audio.web.worklet",
+                        "preview.programs",
+                        "metronome.clock"
+                    ]
+                }),
+            ))
+            .unwrap();
+        session
+            .accept_body(&command(
+                1,
+                "configure-audio",
+                &json!({ "sampleRate": 44_100, "blockFrames": 128, "channels": 2 }),
+            ))
+            .unwrap();
+        session
+            .accept_body(&command(
+                2,
+                "set-metronome-enabled",
+                &json!({ "enabled": true }),
+            ))
+            .unwrap();
+        assert_eq!(
+            session
+                .accept_body(&command(3, "refresh-devices", &json!({})))
                 .unwrap_err()
                 .diagnostic,
             ProtocolDiagnostic::UnsupportedCommand

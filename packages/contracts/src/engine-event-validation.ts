@@ -163,7 +163,7 @@ function validEventPayload(type: EngineEventType, value: unknown): boolean {
 					value.blockFrames >= 1 &&
 					value.blockFrames <= engineProtocolLimits.maxBlockFrames)) &&
 			['available', 'unavailable', 'lost'].includes(String(value.deviceState)) &&
-			(value.mode === null || value.mode === 'shared') &&
+			(value.mode === null || value.mode === 'shared' || value.mode === 'browser') &&
 			typeof value.outputMuted === 'boolean' &&
 			typeof value.outputSignalObserved === 'boolean' &&
 			(value.projectRevision === null || safeInteger(value.projectRevision)) &&

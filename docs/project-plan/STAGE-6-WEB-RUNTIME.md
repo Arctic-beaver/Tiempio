@@ -198,6 +198,22 @@ unbounded structured-clone queue is forbidden.
 
 ### WASM build and CSP
 
+Stage A decision (2026-08-13): the Web engine uses a small versioned raw WASM ABI exported by the
+Rust `cdylib`; it does not use `wasm-bindgen`, `wasm-pack` or generated host imports. This keeps the
+Rust 1.85.0 toolchain and Cargo lock as the only compiler/version authorities and avoids Worklet-
+incompatible dynamic imports. A lifecycle-owned packaging step will wrap the release `.wasm` bytes
+in the deferred content-hashed Worklet module, so engine startup performs no application-content
+fetch. The Web production CSP narrowly adds `script-src 'wasm-unsafe-eval'`, which permits WASM
+compilation without permitting ordinary JavaScript `eval`; Desktop retains `script-src 'self'`.
+Production remains HTTPS/localhost only because `AudioWorklet.addModule()` is a secure-context API.
+
+Primary platform references used for this decision:
+
+- [Rust `wasm32-unknown-unknown` target](https://doc.rust-lang.org/stable/rustc/platform-support/wasm32-unknown-unknown.html);
+- [Web Worklet execution and module constraints](https://developer.mozilla.org/en-US/docs/Web/API/Worklet);
+- [AudioWorklet secure-context module loading](https://developer.mozilla.org/en-US/docs/Web/API/Worklet/addModule);
+- [CSP `wasm-unsafe-eval`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src).
+
 Stage A records and pins one reproducible binding strategy before engine implementation begins. The
 current Cargo lock already contains a transitive `wasm-bindgen` family, but that does not authorize a
 direct dependency or CLI. The selected library and generator versions must match exactly, support
@@ -283,6 +299,13 @@ version, object-store names, key shapes and migration behavior are constants cov
 non-native semantics. A fake “closed” acknowledgement is forbidden.
 
 ## Initial ceilings and performance evidence
+
+Stage A production baseline (2026-08-13) is 567989 total bytes: 416197 initial JavaScript bytes
+and 74605 deferred application bytes. Before runtime implementation, the policy freezes ceilings of
+425984 initial JavaScript bytes and 81920 deferred application bytes. Web runtime JavaScript,
+Worklet JavaScript and release WASM have independent initial ceilings of 196608, 65536 and 786432
+bytes respectively. Those new classes do not authorize increasing the initial or deferred UI
+ceilings; Stage F must tighten measured runtime headroom where practical.
 
 Stage A freezes exact numbers after the first measured spike. At minimum, the implementation owns
 separate ceilings for:

@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
+	applicationEngineRequestedCapabilityCodes,
+	evaluateEngineCapabilities,
 	engineProtocolLimits,
 	engineProtocolVersion,
 	EngineProtocolSession,
+	nativeHostCapabilityCodes,
 	validateEngineCommandEnvelope,
 	validateEngineEventEnvelope,
 	validateEngineHandshake
@@ -18,8 +21,24 @@ const compatibleHandshake = {
 } as const
 
 describe('engine protocol contracts', () => {
-	it('advances the live Desktop protocol contract to version 5', () => {
-		assert.equal(engineProtocolVersion, 5)
+	it('advances the shared engine protocol contract to version 6', () => {
+		assert.equal(engineProtocolVersion, 6)
+	})
+
+	it('requires the common engine surface and exactly one audible output', () => {
+		assert.equal(evaluateEngineCapabilities(nativeHostCapabilityCodes).compatible, true)
+		assert.equal(
+			evaluateEngineCapabilities(
+				applicationEngineRequestedCapabilityCodes.filter(
+					(capability) => !capability.startsWith('audio.')
+				)
+			).compatible,
+			false
+		)
+		assert.equal(
+			evaluateEngineCapabilities(applicationEngineRequestedCapabilityCodes).compatible,
+			false
+		)
 	})
 
 	it('rejects version mismatch before session creation', () => {

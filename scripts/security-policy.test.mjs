@@ -4,23 +4,26 @@ import { validateProductionHtml, validateSecuritySources } from './security-poli
 
 describe('production CSP policy', () => {
 	it('accepts strict transformed production HTML', () => {
-		const policy = [
-			"default-src 'self'",
-			"script-src 'self'",
-			"style-src 'self'",
-			"connect-src 'none'",
-			"object-src 'none'",
-			"base-uri 'none'",
-			"frame-ancestors 'none'",
-			"form-action 'none'"
-		].join('; ')
-		assert.deepEqual(
-			validateProductionHtml(
-				`<meta http-equiv="Content-Security-Policy" content="${policy}">`,
-				'web'
-			),
-			[]
-		)
+		const policy = (target) =>
+			[
+				"default-src 'self'",
+				target === 'web' ? "script-src 'self' 'wasm-unsafe-eval'" : "script-src 'self'",
+				"style-src 'self'",
+				"connect-src 'none'",
+				"object-src 'none'",
+				"base-uri 'none'",
+				"frame-ancestors 'none'",
+				"form-action 'none'"
+			].join('; ')
+		for (const target of ['desktop', 'web']) {
+			assert.deepEqual(
+				validateProductionHtml(
+					`<meta http-equiv="Content-Security-Policy" content="${policy(target)}">`,
+					target
+				),
+				[]
+			)
+		}
 	})
 
 	it('rejects unsafe production style execution', () => {

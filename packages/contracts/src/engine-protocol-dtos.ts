@@ -188,7 +188,7 @@ export interface EngineEventPayloadByType {
 		readonly backendState: 'starting' | 'ready' | 'stopped' | 'failed'
 		readonly blockFrames: number | null
 		readonly deviceState: 'available' | 'unavailable' | 'lost'
-		readonly mode: 'shared' | null
+		readonly mode: 'shared' | 'browser' | null
 		readonly outputMuted: boolean
 		readonly outputSignalObserved: boolean
 		readonly projectRevision: number | null

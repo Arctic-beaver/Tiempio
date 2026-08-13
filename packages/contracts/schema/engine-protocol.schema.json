@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 1,
-	"engineProtocolVersion": 5,
+	"engineProtocolVersion": 6,
 	"limits": {
 		"maxFrameBytes": 262144,
 		"maxPayloadBytes": 196608,
@@ -28,7 +28,7 @@
 		"render-plan.full",
 		"transport.basic",
 		"transport.loop",
-		"metronome.native",
+		"metronome.clock",
 		"synth.bass.deep",
 		"synth.catalog.v2",
 		"drums.procedural.v1",
@@ -38,14 +38,29 @@
 		"render.offline",
 		"supervision.heartbeat",
 		"audio.native.shared",
+		"audio.web.worklet",
 		"audio.devices"
 	],
+	"applicationCommonCapabilities": [
+		"protocol.typed-json",
+		"render-plan.full",
+		"transport.basic",
+		"transport.loop",
+		"metronome.clock",
+		"synth.bass.deep",
+		"synth.catalog.v2",
+		"drums.procedural.v1",
+		"audition.notes",
+		"preview.programs",
+		"diagnostics.health"
+	],
+	"audibleOutputCapabilities": ["audio.native.shared", "audio.web.worklet"],
 	"nativeHostCapabilities": [
 		"protocol.typed-json",
 		"render-plan.full",
 		"transport.basic",
 		"transport.loop",
-		"metronome.native",
+		"metronome.clock",
 		"synth.bass.deep",
 		"synth.catalog.v2",
 		"drums.procedural.v1",
@@ -55,6 +70,20 @@
 		"supervision.heartbeat",
 		"audio.native.shared",
 		"audio.devices"
+	],
+	"webWorkletCapabilities": [
+		"protocol.typed-json",
+		"render-plan.full",
+		"transport.basic",
+		"transport.loop",
+		"metronome.clock",
+		"synth.bass.deep",
+		"synth.catalog.v2",
+		"drums.procedural.v1",
+		"audition.notes",
+		"preview.programs",
+		"diagnostics.health",
+		"audio.web.worklet"
 	],
 	"commands": [
 		"handshake",

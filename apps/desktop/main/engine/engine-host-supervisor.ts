@@ -289,6 +289,7 @@ export class EngineHostSupervisor {
 			return Promise.resolve(
 				success(
 					Object.freeze({
+						audioConfiguration: null,
 						capabilities: nativeHostCapabilityCodes,
 						protocolVersion: engineProtocolVersion
 					})
@@ -303,6 +304,7 @@ export class EngineHostSupervisor {
 			.then(() =>
 				success(
 					Object.freeze({
+						audioConfiguration: null,
 						capabilities: nativeHostCapabilityCodes,
 						protocolVersion: engineProtocolVersion
 					})

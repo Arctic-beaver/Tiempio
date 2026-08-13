@@ -9,6 +9,7 @@ import {
 	type ApplicationError,
 	type ApplicationResult,
 	type EngineCapabilityCode,
+	type EngineConnection,
 	type EngineCommandPayloadByType,
 	type EngineCommandType,
 	type EngineProtocolFailure,
@@ -18,8 +19,7 @@ import {
 export type EngineClientState = 'disconnected' | 'connecting' | 'ready' | 'disconnecting'
 export type EngineClientCommandType = Exclude<EngineCommandType, 'handshake'>
 
-export interface EngineClientConnection {
-	readonly capabilities: readonly EngineCapabilityCode[]
+export type EngineClientConnection = EngineConnection & {
 	readonly protocolVersion: typeof engineProtocolVersion
 }
 
@@ -141,6 +141,7 @@ export class EngineClient {
 		return success(
 			Object.freeze({
 				protocolVersion: engineProtocolVersion,
+				audioConfiguration: connected.value.audioConfiguration,
 				capabilities: Object.freeze([...connected.value.capabilities])
 			})
 		)

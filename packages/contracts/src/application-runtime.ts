@@ -4,7 +4,7 @@ import type {
 	EngineCapabilityCode
 } from './engine-protocol.js'
 
-export const applicationRuntimeVersion = 2 as const
+export const applicationRuntimeVersion = 3 as const
 export type ApplicationRuntimeVersion = typeof applicationRuntimeVersion
 export type ApplicationTarget = 'desktop' | 'web'
 export type WindowChromeStyle = 'custom' | 'native' | 'none'
@@ -178,7 +178,7 @@ export interface AudioHealthSnapshot {
 	readonly backendState: AudioBackendState
 	readonly blockFrames: number | null
 	readonly deviceState: AudioDeviceState
-	readonly mode: 'shared' | null
+	readonly mode: 'shared' | 'browser' | null
 	readonly outputMuted: boolean
 	readonly outputSignalObserved: boolean
 	readonly projectRevision: number | null
@@ -187,6 +187,11 @@ export interface AudioHealthSnapshot {
 }
 
 export interface EngineConnection {
+	readonly audioConfiguration: {
+		readonly blockFrames: number
+		readonly channels: 2
+		readonly sampleRate: number
+	} | null
 	readonly capabilities: readonly EngineCapabilityCode[]
 	readonly protocolVersion: number
 }
