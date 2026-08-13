@@ -15,6 +15,8 @@
 		"apps/desktop/main/**/*.test.ts",
 		"apps/desktop/renderer/global.d.ts",
 		"apps/desktop/renderer/**/*.test.ts",
+		"apps/web/runtime/**/*.d.ts",
+		"apps/web/runtime/**/*.test.ts",
 		"packages/**/*.test.ts",
 		"packages/**/*.test.tsx"
 	]

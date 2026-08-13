@@ -24,6 +24,7 @@ async function compiledSourceTestOutputs() {
 	const patterns = [
 		'apps/desktop/main/**/*.test.ts',
 		'apps/desktop/renderer/**/*.test.ts',
+		'apps/web/runtime/**/*.test.ts',
 		'packages/**/*.test.ts',
 		'packages/**/*.test.tsx'
 	]
@@ -125,6 +126,11 @@ describe('closed lifecycle workflow catalog', () => {
 				'Web engine WebAssembly parity harness'
 			]
 		)
+	})
+
+	it('builds the release WebAssembly engine before the Web production artifact', () => {
+		const names = workflowSteps('build:web').map((step) => step.name)
+		assert.ok(names.indexOf('Web engine release build') < names.indexOf('Web production build'))
 	})
 
 	it('owns native build, audio and package stages without recursive workflows', () => {
