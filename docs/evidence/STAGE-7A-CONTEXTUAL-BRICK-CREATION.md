@@ -36,12 +36,12 @@ persistence, history and layer counts until the user explicitly accepts an engin
 All resource-intensive commands ran sequentially. Each lifecycle run was followed by an exact
 process/lock audit.
 
-| Gate | Result |
-| --- | --- |
-| `npm test` | PASS: 207 compiled contract/unit tests and 96 repository-policy tests |
-| `npm run lint` | PASS |
-| `npm run typecheck:web` | PASS |
-| `npm run check:visual-a11y` | PASS: shared UI policy, Web typecheck, production Web build and CSP |
+| Gate                        | Result                                                                |
+| --------------------------- | --------------------------------------------------------------------- |
+| `npm test`                  | PASS: 207 compiled contract/unit tests and 96 repository-policy tests |
+| `npm run lint`              | PASS                                                                  |
+| `npm run typecheck:web`     | PASS                                                                  |
+| `npm run check:visual-a11y` | PASS: shared UI policy, Web typecheck, production Web build and CSP   |
 
 Targeted coverage includes transaction invisibility and atomic history, foreign/stale/reused
 prepared transactions, the bounded draft state machine, protocol-safe identifiers, candidate-plan

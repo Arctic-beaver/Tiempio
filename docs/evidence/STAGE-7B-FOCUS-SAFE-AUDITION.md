@@ -43,12 +43,12 @@ source accepted at note-on.
 All resource-intensive commands ran sequentially through the repository lifecycle owner. Every run
 was followed by an exact process/lock audit.
 
-| Gate | Result |
-| --- | --- |
-| `npm test` | PASS: 213 compiled contract/unit tests and 96 repository-policy tests |
-| `npm run lint` | PASS |
-| `npm run typecheck:web` | PASS |
-| `npm run check:visual-a11y` | PASS: shared UI policy, Web typecheck, production Web build and CSP |
+| Gate                        | Result                                                                |
+| --------------------------- | --------------------------------------------------------------------- |
+| `npm test`                  | PASS: 213 compiled contract/unit tests and 96 repository-policy tests |
+| `npm run lint`              | PASS                                                                  |
+| `npm run typecheck:web`     | PASS                                                                  |
+| `npm run check:visual-a11y` | PASS: shared UI policy, Web typecheck, production Web build and CSP   |
 
 Focused coverage proves semantic target classification, unknown-input fail-closed behavior, range
 versus text ownership, explicit modal delegation, independent chords/repeat guards, focus-independent

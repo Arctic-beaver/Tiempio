@@ -21,14 +21,12 @@ export const emptyShellBundleBudgets = Object.freeze({
 	'desktop-renderer': Object.freeze({
 		root: 'dist/desktop/renderer',
 		maxBytes:
-			acceptedStage6BundleBudgets.desktopRenderer +
-			stage7FeatureGrowthBudgets.desktopRenderer
+			acceptedStage6BundleBudgets.desktopRenderer + stage7FeatureGrowthBudgets.desktopRenderer
 	}),
 	web: Object.freeze({
 		root: 'dist/web',
 		maxBytes:
-			acceptedStage6BundleBudgets.webShellOutput +
-			stage7FeatureGrowthBudgets.webShellOutput
+			acceptedStage6BundleBudgets.webShellOutput + stage7FeatureGrowthBudgets.webShellOutput
 	})
 })
 
@@ -183,12 +181,9 @@ export function evaluateWebArtifacts({ attribution, files, wasmBytes }) {
 			webArtifactBudgets.webRuntimeJavaScript,
 			runtimeChunks.map((chunk) => chunk.file)
 		),
-		measuredClass(
-			'workletJavaScript',
-			workletOverhead,
-			webArtifactBudgets.workletJavaScript,
-			[worklet.path]
-		),
+		measuredClass('workletJavaScript', workletOverhead, webArtifactBudgets.workletJavaScript, [
+			worklet.path
+		]),
 		measuredClass('wasmRelease', wasmBytes, webArtifactBudgets.wasmRelease),
 		measuredClass(
 			'shellOutput',
