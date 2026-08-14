@@ -30,11 +30,14 @@ import type {
 	SemanticSynthMacrosV2,
 	SoundFamily,
 	SynthMacroId,
-	SynthPresetId
+	SynthPresetId,
+	SynthInstrumentStateV2
 } from '../../../../project-core/src/index.js'
 import { PerformanceKeyboard } from '../../performance/PerformanceKeyboard.js'
+import type { LayersProjection, ProjectedLayerItem } from '../../project/projections/types.js'
 import { useApplicationRuntimeController } from '../../runtime/ApplicationRuntimeControllerContext.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
+import { EditorLayerList } from '../shared/EditorLayerList.js'
 import { soundDemoProgram } from './sound-demo-model.js'
 import { SoundWaveform } from './SoundWaveform.js'
 import { soundChooserViewModel, type SoundChooserViewModel } from './view-model.js'
@@ -72,25 +75,35 @@ const scaleTabId = 'sound-mapping-scale-tab'
 const scalePanelId = 'sound-mapping-scale-panel'
 
 export interface SoundChooserViewProperties {
+	readonly auditionInstrument: SynthInstrumentStateV2 | null
+	readonly commitPending?: boolean
 	readonly initialPerformance?: LayerPerformanceMapping
 	readonly layerId: string | null
+	readonly layers: LayersProjection
 	readonly model?: SoundChooserViewModel
 	readonly onBack: () => void
+	readonly onAddLayer: () => void
 	readonly onChoose: (performance: LayerPerformanceMapping) => void
 	readonly onCommitMacro: (macro: SynthMacroId, value: number) => void
 	readonly onSelectPreset: (presetId: SynthPresetId) => void
+	readonly onSelectLayer: (item: ProjectedLayerItem) => void
 	readonly selectedMacros: SemanticSynthMacrosV2
 	readonly selectedPresetId: SynthPresetId
 }
 
 export function SoundChooserView({
+	auditionInstrument,
+	commitPending = false,
 	initialPerformance = defaultPerformance,
 	layerId,
+	layers,
 	model = soundChooserViewModel,
 	onBack,
+	onAddLayer,
 	onChoose,
 	onCommitMacro,
 	onSelectPreset,
+	onSelectLayer,
 	selectedMacros,
 	selectedPresetId
 }: SoundChooserViewProperties): JSX.Element {
@@ -111,6 +124,8 @@ export function SoundChooserView({
 	const [key, setKey] = useState<ProjectKey>(() => ({ ...initialPerformance.key }))
 	const [octave, setOctave] = useState(initialPerformance.octave)
 	const [macroPreview, setMacroPreview] = useState<Partial<Record<SynthMacroId, number>>>({})
+	const [acceptedDraftInstrument, setAcceptedDraftInstrument] =
+		useState<SynthInstrumentStateV2 | null>(null)
 	const dockTabRefs = useRef(new Map<SoundMappingDockView, HTMLButtonElement>())
 	const activeFamily =
 		model.families.find((family) =>
@@ -134,6 +149,24 @@ export function SoundChooserView({
 	)
 	const soundDemoActive = preview.active && preview.kind === 'sound'
 	useEffect(() => {
+		if (auditionInstrument === null || layerId === null) return
+		let active = true
+		void controller
+			.setDraftAuditionLayer({ draftId: layerId, instrument: auditionInstrument })
+			.then((accepted) => {
+				if (active && accepted) setAcceptedDraftInstrument(auditionInstrument)
+			})
+		return () => {
+			active = false
+			controller.performanceInput.deactivate(performanceOwnerId)
+			void controller.setDraftAuditionLayer(null)
+		}
+	}, [auditionInstrument, controller, layerId])
+	const auditionLayerId =
+		auditionInstrument === null || acceptedDraftInstrument === auditionInstrument
+			? layerId
+			: null
+	useEffect(() => {
 		return () => {
 			if (controller.previewCoordinator.getSnapshot().kind === 'sound') {
 				controller.previewCoordinator.interrupt()
@@ -145,10 +178,10 @@ export function SoundChooserView({
 			controller.previewCoordinator.interrupt()
 			return
 		}
-		if (layerId !== null) {
+		if (auditionLayerId !== null) {
 			controller.previewCoordinator.start(
 				'sound',
-				layerId,
+				auditionLayerId,
 				soundDemoProgram(palette, octave, 0)
 			)
 		}
@@ -204,6 +237,12 @@ export function SoundChooserView({
 				subtitle={t('soundChooser.subtitle')}
 				title={t('soundChooser.title')}
 			/>
+			<EditorLayerList
+				instanceId="sound-chooser"
+				layers={layers}
+				onAddLayer={onAddLayer}
+				onSelectLayer={onSelectLayer}
+			/>
 			<div className="chooser-layout">
 				<aside className="chooser-categories">
 					<div className="chooser-kicker">{t('soundChooser.instrument')}</div>
@@ -240,6 +279,7 @@ export function SoundChooserView({
 						</div>
 						<button
 							className="primary-action sound-title__use"
+							disabled={commitPending}
 							onClick={choose}
 							type="button"
 						>
@@ -308,7 +348,7 @@ export function SoundChooserView({
 							<PerformanceKeyboard
 								keyboardCapture="document"
 								layout="compact"
-								layerId={layerId}
+								layerId={auditionLayerId}
 								octave={octave}
 								ownerId={performanceOwnerId}
 								palette={palette}

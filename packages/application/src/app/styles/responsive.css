@@ -1,6 +1,6 @@
 /* The prototype collapses state-local secondary panels at a 56.25rem app viewport. */
 @media (max-width: 56.25rem) {
-	.studio-shell[data-application-target="web"] {
+	.studio-shell[data-application-target='web'] {
 		width: calc(100% - 1rem);
 		height: calc(100dvh - 1rem);
 		margin: 0.5rem;
@@ -15,6 +15,10 @@
 	}
 
 	.project-space,
+	.sound-chooser-view {
+		grid-template-columns: 10rem minmax(0, 1fr);
+	}
+
 	.chooser-layout {
 		grid-template-columns: 10rem minmax(0, 1fr);
 	}
@@ -77,6 +81,7 @@
 	}
 
 	.project-space,
+	.sound-chooser-view,
 	.chooser-layout {
 		grid-template-columns: minmax(0, 1fr);
 	}

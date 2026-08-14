@@ -30,8 +30,13 @@ function LazyViewFallback(): JSX.Element {
 export function ActiveStudioView({ activeView }: ActiveStudioViewProperties): JSX.Element {
 	const { projections } = useProjectSession()
 	const home = useHomeActions()
+	const guardedView =
+		activeView === 'first-layer' && projections.layers.items.length > 0
+			? (projections.layers.items.find((item) => item.id === projections.layers.activeLayerId)
+					?.view ?? 'arrangement')
+			: activeView
 
-	if (activeView === 'home') {
+	if (guardedView === 'home') {
 		return (
 			<HomeView
 				model={projections.home}
@@ -42,12 +47,12 @@ export function ActiveStudioView({ activeView }: ActiveStudioViewProperties): JS
 	}
 	return (
 		<Suspense fallback={<LazyViewFallback />}>
-			{activeView === 'first-layer' ||
-			activeView === 'sound-chooser' ||
-			activeView === 'song-palette' ? (
-				<WorkflowSurface activeView={activeView} />
+			{guardedView === 'first-layer' ||
+			guardedView === 'sound-chooser' ||
+			guardedView === 'song-palette' ? (
+				<WorkflowSurface activeView={guardedView} />
 			) : (
-				<EditorSurface activeView={activeView} />
+				<EditorSurface activeView={guardedView} />
 			)}
 		</Suspense>
 	)
