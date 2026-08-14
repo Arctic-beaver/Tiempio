@@ -5,12 +5,15 @@ import type {
 	ProjectDocument,
 	ProjectCommand,
 	ProjectDispatchOptions,
-	ProjectSessionSnapshot
+	ProjectSessionSnapshot,
+	PreparedProjectTransaction
 } from '../../../project-core/src/index.js'
 import type { StudioProjectProjections } from './projectors.js'
 
 export interface ProjectSessionContextValue {
 	readonly createNewProject: (title: string) => void
+	readonly commitTransaction: (prepared: PreparedProjectTransaction) => ProjectSessionSnapshot
+	readonly discardTransaction: (prepared: PreparedProjectTransaction) => boolean
 	readonly dispatch: (
 		command: ProjectCommand,
 		options?: ProjectDispatchOptions
@@ -18,6 +21,7 @@ export interface ProjectSessionContextValue {
 	readonly endHistoryGroup: (historyGroup: string) => void
 	readonly getSnapshot: () => ProjectSessionSnapshot
 	readonly nextId: (scope: string) => string
+	readonly prepareTransaction: (commands: readonly ProjectCommand[]) => PreparedProjectTransaction
 	readonly projections: StudioProjectProjections
 	readonly redo: () => ProjectSessionSnapshot
 	readonly replaceProject: (project: ProjectDocument, handle: ProjectHandle) => void

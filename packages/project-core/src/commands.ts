@@ -20,6 +20,7 @@ import {
 	type ProjectKey,
 	type ProjectRole,
 	type ProjectSection,
+	type SemanticSynthMacrosV2,
 	type SynthInstrumentStateV2,
 	type SynthMacroId,
 	type SynthPresetId
@@ -54,6 +55,11 @@ export interface AddLayerCommand extends RevisionedProjectCommand {
 	readonly id: LayerId | string
 	readonly name: string
 	readonly role: ProjectRole
+	readonly synth?: {
+		readonly macros: SemanticSynthMacrosV2
+		readonly performance: LayerPerformanceMapping
+		readonly presetId: SynthPresetId
+	}
 	readonly type: 'layer.add'
 }
 
@@ -490,11 +496,26 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 			if (project.layers.some((layer) => layer.id === command.id)) {
 				fail('DUPLICATE_ID', `Layer ${command.id} already exists.`)
 			}
+			if (
+				command.synth !== undefined &&
+				(command.role === 'rhythm' || command.role === 'reference')
+			) {
+				fail('INCOMPATIBLE_TARGET', 'Synth configuration requires a pitched layer role.')
+			}
 			const layer = createLayer({
 				id: command.id,
 				name: command.name,
 				role: command.role,
-				...(command.assetId === undefined ? {} : { assetId: command.assetId })
+				...(command.assetId === undefined ? {} : { assetId: command.assetId }),
+				...(command.synth === undefined
+					? {}
+					: {
+							synth: {
+								presetId: command.synth.presetId,
+								macros: command.synth.macros,
+								performance: normalizePerformance(command.synth.performance)
+							}
+						})
 			})
 			return { ...project, layers: [...project.layers, layer] }
 		}

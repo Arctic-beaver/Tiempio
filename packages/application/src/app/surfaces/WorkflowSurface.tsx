@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { FirstLayerView } from '../../features/first-layer/FirstLayerView.js'
 import { useFirstLayerActions } from '../../features/first-layer/useFirstLayerActions.js'
+import { useLayerCreationActions } from '../../features/first-layer/useLayerCreationActions.js'
 import { SoundChooserView } from '../../features/sound-chooser/SoundChooserView.js'
 import { useSoundChooserActions } from '../../features/sound-chooser/useSoundChooserActions.js'
 import { SongPaletteSetupView } from '../../features/song-palette/SongPaletteSetupView.js'
@@ -14,11 +15,12 @@ export interface WorkflowSurfaceProperties {
 
 export default function WorkflowSurface({ activeView }: WorkflowSurfaceProperties): JSX.Element {
 	const firstLayer = useFirstLayerActions()
+	const creation = useLayerCreationActions()
 	const soundChooser = useSoundChooserActions()
 	const songPalette = useSongPaletteActions()
 	const { projections } = useProjectSession()
 	if (activeView === 'first-layer') {
-		return <FirstLayerView onChoose={firstLayer.chooseLayer} />
+		return <FirstLayerView onChoose={firstLayer.chooseLayer} onOpen={firstLayer.open} />
 	}
 	if (activeView === 'song-palette') {
 		return (
@@ -30,6 +32,8 @@ export default function WorkflowSurface({ activeView }: WorkflowSurfacePropertie
 	}
 	return (
 		<SoundChooserView
+			auditionInstrument={soundChooser.auditionInstrument}
+			commitPending={soundChooser.commitPending}
 			initialPerformance={{
 				key: {
 					tonic: projections.transport.palette.tonic,
@@ -37,11 +41,14 @@ export default function WorkflowSurface({ activeView }: WorkflowSurfacePropertie
 				},
 				octave: projections.transport.octave
 			}}
-			layerId={projections.pianoRoll.layerId}
+			layerId={soundChooser.layerId}
+			layers={projections.layers}
+			onAddLayer={creation.openOrFocus}
 			onBack={soundChooser.returnToLayerChoice}
 			onChoose={soundChooser.chooseSound}
 			onCommitMacro={soundChooser.commitMacro}
 			onSelectPreset={soundChooser.selectCharacter}
+			onSelectLayer={creation.selectExistingLayer}
 			selectedMacros={soundChooser.selectedMacros}
 			selectedPresetId={soundChooser.selectedPresetId}
 		/>

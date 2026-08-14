@@ -9,13 +9,18 @@ import {
 	type AudioHealthSnapshot,
 	type EngineCommandPayloadByType,
 	type EngineConnection,
-	type ProjectHandle
+	type EngineWireRenderPlan,
+	type ProjectHandle,
+	validateEngineWireRenderPlan
 } from '../../../contracts/src/index.js'
 import type { EngineClient, EngineClientCommandType } from '../../../engine-client/src/index.js'
 import {
 	compileEngineWireRenderPlan,
+	compileEngineWireSynthPatch,
 	compileProjectRenderPlan,
+	cloneAndFreeze,
 	type DrumInstrument,
+	type PreparedProjectTransaction,
 	type ProjectDocument,
 	type ProjectSession,
 	type ProjectSessionSnapshot
@@ -23,6 +28,7 @@ import {
 import {
 	type ApplicationController,
 	type ApplicationControllerSnapshot,
+	type DraftAuditionLayer,
 	type OpenedApplicationProject,
 	silentApplicationMeter
 } from './ApplicationController.js'
@@ -77,6 +83,53 @@ const drumAuditionPitches = Object.freeze({
 	perc: 56
 } as const satisfies Readonly<Record<DrumInstrument, number>>)
 
+const candidatePlanAcknowledgementTimeoutMs = 4_000
+
+interface PreactivatedProjectPlan {
+	readonly baseProject: ProjectDocument
+	readonly baseRevision: number
+	readonly project: ProjectDocument
+	readonly revision: number
+}
+
+interface PendingProjectPlanActivation extends PreactivatedProjectPlan {
+	readonly expectedPlanGeneration: number
+	readonly finish: (accepted: boolean, restore?: boolean) => void
+}
+
+function draftWirePlan(
+	plan: EngineWireRenderPlan,
+	draft: DraftAuditionLayer | null
+): EngineWireRenderPlan | null {
+	if (draft === null) return plan
+	if (
+		draft.draftId.length === 0 ||
+		draft.draftId.length > 64 ||
+		!/^draft\.layer:[A-Za-z0-9][A-Za-z0-9._:-]*$/u.test(draft.draftId) ||
+		plan.layers.some((layer) => layer.id === draft.draftId)
+	) {
+		return null
+	}
+	const candidate = cloneAndFreeze({
+		...plan,
+		layers: [
+			...plan.layers,
+			{
+				id: draft.draftId,
+				gain: 1,
+				pan: 0,
+				source: {
+					type: 'subtractive-synth' as const,
+					patch: compileEngineWireSynthPatch(draft.instrument.resolvedPatch)
+				},
+				events: []
+			}
+		]
+	})
+	const validation = validateEngineWireRenderPlan(candidate)
+	return validation.ok ? validation.value : null
+}
+
 export class ApplicationRuntimeController implements ApplicationController {
 	#client: EngineClient | null = null
 	readonly #listeners = new Set<() => void>()
@@ -88,10 +141,16 @@ export class ApplicationRuntimeController implements ApplicationController {
 	#disposed = false
 	#drumAuditionSequence = 0
 	#audioRetry: Promise<void> | null = null
+	#draftAuditionLayer: DraftAuditionLayer | null = null
+	readonly #ignoredPlanGenerations = new Set<number>()
 	#latestPlanGeneration = 0
 	#latestRequestedPlanRevision = -1
+	#latestRequestedPlanVariant = 0
+	#pendingProjectPlanActivation: PendingProjectPlanActivation | null = null
+	#preactivatedProjectPlan: PreactivatedProjectPlan | null = null
 	#publishedPlanGeneration = -1
 	#publishedPlanRevision = -1
+	#publishedPlanVariant = -1
 	#metronomeEnabled = false
 	#metronomeVolume = 0.65
 	#observedProjectRevision = -1
@@ -101,6 +160,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	#projectSession: ProjectSession
 	#projectUnsubscribe: (() => void) | null = null
 	#recoveryDrain: Promise<void> | null = null
+	#sentPlanGeneration = 0
 	#runtimeHealthUnsubscribe: (() => void) | null = null
 	#snapshot = freezeSnapshot({
 		acknowledgedProjectRevision: null,
@@ -163,8 +223,12 @@ export class ApplicationRuntimeController implements ApplicationController {
 	public bindProjectSession(session: ProjectSession, handle: ProjectHandle | null = null): void {
 		this.previewCoordinator.interrupt()
 		this.performanceInput.releaseAll()
+		this.#finishPendingProjectPlanActivation(false, false)
+		this.#preactivatedProjectPlan = null
+		this.#draftAuditionLayer = null
 		this.#projectUnsubscribe?.()
 		this.#projectGeneration += 1
+		this.#latestRequestedPlanVariant += 1
 		this.#projectSession = session
 		this.#currentHandle = handle
 		this.#latestRequestedPlanRevision = session.getSnapshot().revision
@@ -176,6 +240,97 @@ export class ApplicationRuntimeController implements ApplicationController {
 			else this.#scheduleRecovery(true)
 			this.#schedulePlanPublish()
 		}
+	}
+
+	public async setDraftAuditionLayer(layer: DraftAuditionLayer | null): Promise<boolean> {
+		if (this.#disposed) return false
+		if (
+			layer !== null &&
+			(layer.draftId.length === 0 ||
+				layer.draftId.length > 64 ||
+				!/^draft\.layer:[A-Za-z0-9][A-Za-z0-9._:-]*$/u.test(layer.draftId))
+		) {
+			return false
+		}
+		const owned =
+			layer === null
+				? null
+				: Object.freeze({
+						draftId: layer.draftId,
+						instrument: layer.instrument
+					})
+		if (
+			owned?.draftId === this.#draftAuditionLayer?.draftId &&
+			owned?.instrument === this.#draftAuditionLayer?.instrument
+		) {
+			return (
+				this.#publishedPlanGeneration === this.#projectGeneration &&
+				this.#publishedPlanRevision === this.#projectSession.getSnapshot().revision &&
+				this.#publishedPlanVariant === this.#latestRequestedPlanVariant
+			)
+		}
+		this.#finishPendingProjectPlanActivation(false, false)
+		this.#preactivatedProjectPlan = null
+		this.#draftAuditionLayer = owned
+		this.#latestRequestedPlanVariant += 1
+		const requestedVariant = this.#latestRequestedPlanVariant
+		await this.#publishLatestPlan()
+		return (
+			requestedVariant === this.#latestRequestedPlanVariant &&
+			this.#publishedPlanGeneration === this.#projectGeneration &&
+			this.#publishedPlanRevision === this.#projectSession.getSnapshot().revision &&
+			this.#publishedPlanVariant === requestedVariant
+		)
+	}
+
+	public async preactivateProject(prepared: PreparedProjectTransaction): Promise<boolean> {
+		if (this.#disposed || !this.#snapshot.available || this.#client?.state !== 'ready') {
+			return false
+		}
+		const baseSnapshot = this.#projectSession.getSnapshot()
+		if (
+			prepared.baseRevision !== baseSnapshot.revision ||
+			prepared.revision <= prepared.baseRevision
+		) {
+			return false
+		}
+		if (this.#planDrain !== null) await this.#planDrain
+		const current = this.#projectSession.getSnapshot()
+		if (
+			current.project !== baseSnapshot.project ||
+			current.revision !== prepared.baseRevision ||
+			this.#disposed
+		) {
+			return false
+		}
+		const compiled = compileProjectRenderPlan(
+			prepared.project,
+			prepared.revision,
+			prepared.revision
+		)
+		if (compiled.status !== 'ready') return false
+		const wire = compileEngineWireRenderPlan(compiled.plan)
+		if (wire.status !== 'ready') return false
+		this.previewCoordinator.interrupt()
+		this.performanceInput.deactivate('sound-chooser')
+		this.#finishPendingProjectPlanActivation(false, false)
+		this.#preactivatedProjectPlan = null
+		const activation = await this.#sendPlanForActivation(wire.plan, {
+			baseProject: current.project,
+			baseRevision: current.revision,
+			project: prepared.project,
+			revision: prepared.revision
+		})
+		return activation
+	}
+
+	public async restoreProjectPlan(): Promise<void> {
+		this.#finishPendingProjectPlanActivation(false, false)
+		this.#preactivatedProjectPlan = null
+		this.#draftAuditionLayer = null
+		this.#latestRequestedPlanRevision = this.#projectSession.getSnapshot().revision
+		this.#latestRequestedPlanVariant += 1
+		await this.#publishLatestPlan()
 	}
 
 	public openProject(): Promise<ApplicationResult<OpenedApplicationProject>> {
@@ -458,6 +613,9 @@ export class ApplicationRuntimeController implements ApplicationController {
 	async #initializeAudio(connection: EngineConnection): Promise<void> {
 		this.#publishedPlanGeneration = -1
 		this.#publishedPlanRevision = -1
+		this.#publishedPlanVariant = -1
+		this.#sentPlanGeneration = 0
+		this.#ignoredPlanGenerations.clear()
 		const configuration = connection.audioConfiguration ?? {
 			sampleRate: 48_000,
 			blockFrames: 512,
@@ -483,11 +641,36 @@ export class ApplicationRuntimeController implements ApplicationController {
 	#projectChanged(): void {
 		const snapshot = this.#projectSession.getSnapshot()
 		if (snapshot.revision !== this.#observedProjectRevision) {
+			const preactivated = this.#preactivatedProjectPlan
+			if (
+				preactivated !== null &&
+				preactivated.project === snapshot.project &&
+				preactivated.revision === snapshot.revision
+			) {
+				this.#preactivatedProjectPlan = null
+				this.#draftAuditionLayer = null
+				this.#observedProjectRevision = snapshot.revision
+				this.#latestRequestedPlanRevision = snapshot.revision
+				this.#latestPlanGeneration = this.#projectGeneration
+				this.#latestRequestedPlanVariant += 1
+				this.#publishedPlanGeneration = this.#projectGeneration
+				this.#publishedPlanRevision = snapshot.revision
+				this.#publishedPlanVariant = this.#latestRequestedPlanVariant
+				this.#publish({
+					...this.#snapshot,
+					acknowledgedProjectRevision: snapshot.revision
+				})
+				this.#scheduleRecovery(false)
+				return
+			}
+			this.#finishPendingProjectPlanActivation(false, false)
+			this.#preactivatedProjectPlan = null
 			this.previewCoordinator.interrupt()
 			this.performanceInput.releaseAll()
 			this.#observedProjectRevision = snapshot.revision
 			this.#latestRequestedPlanRevision = snapshot.revision
 			this.#latestPlanGeneration = this.#projectGeneration
+			this.#latestRequestedPlanVariant += 1
 			this.#schedulePlanPublish()
 		}
 		this.#scheduleRecovery(false)
@@ -501,7 +684,8 @@ export class ApplicationRuntimeController implements ApplicationController {
 				!this.#disposed &&
 				(this.#latestPlanGeneration !== this.#projectGeneration ||
 					this.#latestRequestedPlanRevision !==
-						this.#projectSession.getSnapshot().revision)
+						this.#projectSession.getSnapshot().revision ||
+					this.#publishedPlanVariant !== this.#latestRequestedPlanVariant)
 			) {
 				this.#schedulePlanPublish()
 			}
@@ -511,9 +695,11 @@ export class ApplicationRuntimeController implements ApplicationController {
 	async #drainPlans(): Promise<void> {
 		let publishedGeneration = -1
 		let publishedRevision = -1
+		let publishedVariant = -1
 		do {
 			publishedGeneration = this.#projectGeneration
 			publishedRevision = this.#latestRequestedPlanRevision
+			publishedVariant = this.#latestRequestedPlanVariant
 			const snapshot = this.#projectSession.getSnapshot()
 			if (snapshot.revision !== publishedRevision) continue
 			const compiled = compileProjectRenderPlan(
@@ -530,13 +716,22 @@ export class ApplicationRuntimeController implements ApplicationController {
 				this.#setDiagnostic(applicationError('ENGINE_UNAVAILABLE', wire.message))
 				return
 			}
-			const accepted = await this.#send('load-render-plan', { plan: wire.plan })
+			const plan = draftWirePlan(wire.plan, this.#draftAuditionLayer)
+			if (plan === null) {
+				this.#setDiagnostic(
+					applicationError('ENGINE_UNAVAILABLE', 'The draft audition plan is invalid.')
+				)
+				return
+			}
+			const accepted = await this.#sendPlan(plan)
 			if (!accepted) return
 			this.#publishedPlanGeneration = publishedGeneration
 			this.#publishedPlanRevision = publishedRevision
+			this.#publishedPlanVariant = publishedVariant
 		} while (
 			publishedGeneration !== this.#projectGeneration ||
-			publishedRevision !== this.#latestRequestedPlanRevision
+			publishedRevision !== this.#latestRequestedPlanRevision ||
+			publishedVariant !== this.#latestRequestedPlanVariant
 		)
 	}
 
@@ -547,9 +742,11 @@ export class ApplicationRuntimeController implements ApplicationController {
 		const revision = this.#projectSession.getSnapshot().revision
 		this.#latestRequestedPlanRevision = revision
 		this.#latestPlanGeneration = this.#projectGeneration
+		const variant = this.#latestRequestedPlanVariant
 		if (
 			this.#publishedPlanGeneration === this.#projectGeneration &&
-			this.#publishedPlanRevision === revision
+			this.#publishedPlanRevision === revision &&
+			this.#publishedPlanVariant === variant
 		) {
 			return
 		}
@@ -703,6 +900,20 @@ export class ApplicationRuntimeController implements ApplicationController {
 			return
 		}
 		if (event.type === 'render-plan-acknowledged') {
+			if (this.#ignoredPlanGenerations.delete(event.payload.planGeneration)) return
+			const pending = this.#pendingProjectPlanActivation
+			if (
+				pending !== null &&
+				event.payload.planGeneration === pending.expectedPlanGeneration &&
+				event.payload.projectRevision === pending.revision
+			) {
+				const current = this.#projectSession.getSnapshot()
+				pending.finish(
+					current.revision === pending.baseRevision &&
+						current.project === pending.baseProject
+				)
+				return
+			}
 			if (
 				event.payload.projectRevision < this.#latestRequestedPlanRevision ||
 				(this.#snapshot.acknowledgedProjectRevision !== null &&
@@ -755,6 +966,73 @@ export class ApplicationRuntimeController implements ApplicationController {
 		})
 	}
 
+	async #sendPlan(plan: EngineWireRenderPlan): Promise<boolean> {
+		const accepted = await this.#send('load-render-plan', { plan })
+		if (accepted) this.#sentPlanGeneration += 1
+		return accepted
+	}
+
+	async #sendPlanForActivation(
+		plan: EngineWireRenderPlan,
+		candidate: PreactivatedProjectPlan
+	): Promise<boolean> {
+		const expectedPlanGeneration = this.#sentPlanGeneration + 1
+		let settle: (accepted: boolean) => void = () => undefined
+		let pendingReference: PendingProjectPlanActivation | null = null
+		const result = new Promise<boolean>((resolve) => {
+			let settled = false
+			const timeout = globalThis.setTimeout(() => {
+				pendingReference?.finish(false)
+			}, candidatePlanAcknowledgementTimeoutMs)
+			settle = (accepted: boolean): void => {
+				if (settled) return
+				settled = true
+				globalThis.clearTimeout(timeout)
+				resolve(accepted)
+			}
+		})
+		const pending: PendingProjectPlanActivation = Object.freeze({
+			...candidate,
+			expectedPlanGeneration,
+			finish: (accepted: boolean, restore: boolean = !accepted): void => {
+				if (this.#pendingProjectPlanActivation !== pending) return
+				this.#pendingProjectPlanActivation = null
+				if (accepted) {
+					this.#preactivatedProjectPlan = candidate
+				} else {
+					if (this.#sentPlanGeneration >= expectedPlanGeneration) {
+						this.#ignorePlanGeneration(expectedPlanGeneration)
+					}
+					if (restore && !this.#disposed) {
+						this.#latestRequestedPlanRevision =
+							this.#projectSession.getSnapshot().revision
+						this.#latestRequestedPlanVariant += 1
+						this.#schedulePlanPublish()
+					}
+				}
+				settle(accepted)
+			}
+		})
+		pendingReference = pending
+		this.#pendingProjectPlanActivation = pending
+		const accepted = await this.#sendPlan(plan)
+		if (!accepted) pending.finish(false)
+		return result
+	}
+
+	#finishPendingProjectPlanActivation(accepted: boolean, restore = !accepted): void {
+		this.#pendingProjectPlanActivation?.finish(accepted, restore)
+	}
+
+	#ignorePlanGeneration(generation: number): void {
+		this.#ignoredPlanGenerations.add(generation)
+		while (this.#ignoredPlanGenerations.size > 8) {
+			const oldest = this.#ignoredPlanGenerations.values().next().value as number | undefined
+			if (oldest === undefined) break
+			this.#ignoredPlanGenerations.delete(oldest)
+		}
+	}
+
 	async #send<Type extends EngineClientCommandType>(
 		type: Type,
 		payload: EngineCommandPayloadByType[Type]
@@ -785,6 +1063,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	#releasePerformanceInputBound = (): void => {
+		this.previewCoordinator.interrupt()
 		this.performanceInput.releaseAll()
 	}
 

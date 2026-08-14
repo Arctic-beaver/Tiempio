@@ -2,6 +2,7 @@ import type { JSX, ReactNode } from 'react'
 import type { ApplicationRuntime } from '../../../contracts/src/index.js'
 import { OverlayBoundary } from '../../../design-system/src/index.js'
 import type { ProjectSession } from '../../../project-core/src/index.js'
+import { LayerCreationProvider } from '../features/first-layer/LayerCreationProvider.js'
 import { ProjectSessionProvider } from '../project/ProjectSessionProvider.js'
 import type { ApplicationController } from '../runtime/ApplicationController.js'
 import { ApplicationRuntimeControllerContext } from '../runtime/ApplicationRuntimeControllerContext.js'
@@ -32,7 +33,7 @@ export function ApplicationProviders({
 								controller.bindProjectSession(session, handle)
 							}
 						>
-							{children}
+							<LayerCreationProvider>{children}</LayerCreationProvider>
 						</ProjectSessionProvider>
 					</OverlayBoundary>
 				</PresentationSettingsProvider>

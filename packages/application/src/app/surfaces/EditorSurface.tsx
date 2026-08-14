@@ -6,6 +6,7 @@ import { ArrangementView } from '../../features/arrangement/ArrangementView.js'
 import { useArrangementActions } from '../../features/arrangement/useArrangementActions.js'
 import { DrumsView } from '../../features/drums/DrumsView.js'
 import { useDrumsActions } from '../../features/drums/useDrumsActions.js'
+import { useLayerCreationActions } from '../../features/first-layer/useLayerCreationActions.js'
 import { PianoRollView } from '../../features/piano-roll/PianoRollView.js'
 import { usePianoRollActions } from '../../features/piano-roll/usePianoRollActions.js'
 import { SoundSculptView } from '../../features/sound-sculpt/SoundSculptView.js'
@@ -31,13 +32,9 @@ export default function EditorSurface({ activeView }: EditorSurfaceProperties): 
 	const drums = useDrumsActions()
 	const pianoRoll = usePianoRollActions()
 	const soundSculpt = useSoundSculptActions()
-	const addLayer = (): void => {
-		execute(commandForView('first-layer'))
-	}
-	const selectLayer = (item: ProjectedLayerItem): void => {
-		projectSession.selectLayer(item.id)
-		execute(commandForView(item.view))
-	}
+	const creation = useLayerCreationActions()
+	const addLayer = creation.openOrFocus
+	const selectLayer = (item: ProjectedLayerItem): void => creation.selectExistingLayer(item)
 	if (activeView === 'piano-roll') {
 		return (
 			<PianoRollView
