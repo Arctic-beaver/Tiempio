@@ -1,8 +1,10 @@
 import { ArrowRight, AudioLines, CircleDot, Drum, Plus, Upload } from 'lucide-react'
 import type { JSX, ReactNode } from 'react'
+import { ScrollSurface } from '../../../../design-system/src/index.js'
 import { useLocalization, type LocalizationKey } from '../../../../localization/src/index.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
 import { TransportBar } from '../../shell/TransportBar.js'
+import { LayerCreationCard } from './LayerCreationCard.js'
 import {
 	firstLayerViewModel,
 	type FirstLayerViewModel,
@@ -46,11 +48,13 @@ const intentRows: readonly IntentRow[] = Object.freeze([
 export interface FirstLayerViewProperties {
 	readonly model?: FirstLayerViewModel
 	readonly onChoose: (role: LayerRoleViewModel['id']) => void
+	readonly onOpen: () => void
 }
 
 export function FirstLayerView({
 	model = firstLayerViewModel,
-	onChoose
+	onChoose,
+	onOpen
 }: FirstLayerViewProperties): JSX.Element {
 	const { t } = useLocalization()
 	return (
@@ -66,10 +70,13 @@ export function FirstLayerView({
 						<span>{t('layers.title')}</span>
 						<span>0</span>
 					</div>
-					<button className="add-layer" onClick={() => onChoose('bass')} type="button">
-						<Plus aria-hidden="true" />
-						{t('layers.add')}
-					</button>
+					<ScrollSurface className="layer-list__scroll">
+						<LayerCreationCard instanceId="empty" />
+						<button className="add-layer" data-layer-add onClick={onOpen} type="button">
+							<Plus aria-hidden="true" />
+							{t('layers.add')}
+						</button>
+					</ScrollSurface>
 				</aside>
 				<div className="canvas empty-canvas">
 					<div aria-hidden="true" className="phrase-head">

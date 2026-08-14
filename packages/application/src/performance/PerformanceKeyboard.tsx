@@ -105,6 +105,7 @@ export function PerformanceKeyboard({
 			{...surface}
 			aria-label={t('songPalette.keyboard')}
 			className={`performance-keyboard performance-keyboard--${presentation}`}
+			data-performance-surface="true"
 			data-layout={layout}
 			data-presentation={presentation}
 			onKeyDown={handleKeyDown}

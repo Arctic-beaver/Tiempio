@@ -64,6 +64,7 @@ export function ContextPanel(): JSX.Element {
 					max={100}
 					min={0}
 					onChange={setEnergyPreview}
+					onCancel={() => setEnergyPreview(null)}
 					onCommit={(value) => {
 						if (model.layerId !== null) {
 							const snapshot = getSnapshot()

@@ -18,7 +18,7 @@ import {
 	type RecoveryHandle
 } from '../../../contracts/src/index.js'
 import { performanceMapping } from '../../../music-theory/src/index.js'
-import { ProjectSession } from '../../../project-core/src/index.js'
+import { createSynthInstrument, ProjectSession } from '../../../project-core/src/index.js'
 import { EngineClient } from '../../../engine-client/src/index.js'
 import { createSeedProject } from '../project/seed-project.js'
 import { performanceSourceId } from '../performance/performance-input-session.js'
@@ -350,6 +350,8 @@ describe('ApplicationRuntimeController', () => {
 		const healthListeners = new Set<(health: AudioHealthSnapshot) => void>()
 		const closeListeners = new Set<() => void>()
 		const unavailableError = applicationError('OPERATION_UNAVAILABLE', 'Unavailable in test.')
+		let holdNextPlan = false
+		const heldPlan = { release: null as (() => void) | null }
 		let connects = 0
 		let disconnects = 0
 		const engine: EngineRuntime = Object.freeze({
@@ -370,6 +372,13 @@ describe('ApplicationRuntimeController', () => {
 			},
 			send: async (command: AnyEngineCommandEnvelope) => {
 				commands.push(command)
+				if (holdNextPlan && command.type === 'load-render-plan') {
+					holdNextPlan = false
+					await new Promise<void>((resolve) => {
+						heldPlan.release = resolve
+					})
+					heldPlan.release = null
+				}
 				return Object.freeze({
 					ok: true as const,
 					value: Object.freeze({ accepted: true as const })
@@ -664,7 +673,162 @@ describe('ApplicationRuntimeController', () => {
 			if (retriedPlan?.type === 'load-render-plan') {
 				assert.equal(retriedPlan.payload.plan.projectRevision, 1)
 			}
-			const plansBeforeAudition = commands.filter(
+			const draftPlanAccepted = await controller.setDraftAuditionLayer({
+				draftId: 'draft.layer:test',
+				instrument: createSynthInstrument('lead.glass', {
+					brightness: 0.8,
+					hardness: 0.4,
+					dirt: 0.1,
+					length: 0.6,
+					width: 0.7
+				})
+			})
+			assert.equal(draftPlanAccepted, true)
+			const draftPlan = commands.at(-1)
+			assert.equal(draftPlan?.type, 'load-render-plan')
+			if (draftPlan?.type === 'load-render-plan') {
+				const draftLayer = draftPlan.payload.plan.layers.find(
+					(layer) => layer.id === 'draft.layer:test'
+				)
+				assert.equal(draftPlan.payload.plan.projectRevision, 1)
+				assert.equal(draftLayer?.source.type, 'subtractive-synth')
+				assert.deepEqual(draftLayer?.events, [])
+			}
+			assert.equal(session.getSnapshot().revision, 1)
+			assert.equal(session.getSnapshot().dirty, true)
+
+			const prepared = session.prepareTransaction([
+				{
+					type: 'layer.add',
+					baseRevision: 1,
+					id: 'layer.created',
+					name: 'Created',
+					role: 'melody',
+					synth: {
+						presetId: 'lead.glass',
+						macros: createSynthInstrument('lead.glass').macros,
+						performance: { key: { tonic: 9, mode: 'minor' }, octave: 3 }
+					}
+				}
+			])
+			const preactivation = controller.preactivateProject(prepared)
+			await flush()
+			const candidatePlan = commands.at(-1)
+			assert.equal(candidatePlan?.type, 'load-render-plan')
+			if (candidatePlan?.type === 'load-render-plan') {
+				assert.equal(candidatePlan.payload.plan.projectRevision, 2)
+				assert.equal(
+					candidatePlan.payload.plan.layers.some(
+						(layer) => layer.id === 'draft.layer:test'
+					),
+					false
+				)
+				assert.equal(
+					candidatePlan.payload.plan.layers.some((layer) => layer.id === 'layer.created'),
+					true
+				)
+			}
+			for (const listener of eventListeners) {
+				listener({
+					protocolVersion: engineProtocolVersion,
+					sequence: 50,
+					type: 'render-plan-acknowledged',
+					payload: { planGeneration: 3, projectRevision: 2 }
+				})
+			}
+			assert.equal(await preactivation, true)
+			assert.equal(session.getSnapshot().revision, 1)
+			const plansBeforeCommit = commands.filter(
+				(command) => command.type === 'load-render-plan'
+			).length
+			session.commitTransaction(prepared)
+			await flush()
+			assert.equal(session.getSnapshot().revision, 2)
+			assert.equal(session.getSnapshot().project.layers.at(-1)?.id, 'layer.created')
+			assert.equal(controller.getSnapshot().acknowledgedProjectRevision, 2)
+			assert.equal(
+				commands.filter((command) => command.type === 'load-render-plan').length,
+				plansBeforeCommit
+			)
+			const createdLayer = session
+				.getSnapshot()
+				.project.layers.find((layer) => layer.id === 'layer.created')
+			if (createdLayer?.source.type !== 'synth') {
+				throw new Error('Created synth is required for audition preview coverage.')
+			}
+			const brightInstrument = createSynthInstrument(
+				createdLayer.source.instrument.presetId,
+				{ ...createdLayer.source.instrument.macros, brightness: 0.95 }
+			)
+			holdNextPlan = true
+			const previewPlan = controller.setAuditionInstrumentPreview({
+				layerId: createdLayer.id,
+				instrument: brightInstrument
+			})
+			await flush()
+			const previewLoad = commands.at(-1)
+			assert.equal(previewLoad?.type, 'load-render-plan')
+			if (previewLoad?.type === 'load-render-plan') {
+				const previewLayer = previewLoad.payload.plan.layers.find(
+					(layer) => layer.id === createdLayer.id
+				)
+				assert.equal(
+					previewLayer?.source.type === 'subtractive-synth'
+						? previewLayer.source.patch.filter.cutoffHz
+						: null,
+					brightInstrument.resolvedPatch.filter.cutoffHz
+				)
+			}
+			controller.performanceInput.activate(
+				'sound-chooser',
+				createdLayer.id,
+				performanceMapping(
+					{ tonic: 9, mode: 'minor' },
+					{ layout: 'compact', rotation: 0, tonicMidi: 45 }
+				)
+			)
+			const canceledSource = performanceSourceId('keyboard', 'KeyA')
+			const notesBeforeCanceledPlan = commands.filter(
+				(command) => command.type === 'note-on'
+			).length
+			controller.performanceInput.pressCode('sound-chooser', canceledSource, 'KeyA')
+			controller.performanceInput.releaseSource(canceledSource)
+			heldPlan.release?.()
+			assert.equal(await previewPlan, true)
+			await flush()
+			assert.equal(
+				commands.filter((command) => command.type === 'note-on').length,
+				notesBeforeCanceledPlan
+			)
+
+			const heldSource = performanceSourceId('keyboard', 'KeyS')
+			controller.performanceInput.pressCode('sound-chooser', heldSource, 'KeyS')
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'note-on')
+			const noteOffsBeforeMacro = commands.filter(
+				(command) => command.type === 'note-off'
+			).length
+			session.dispatch({
+				type: 'layer.macro.commit',
+				baseRevision: 2,
+				layerId: createdLayer.id,
+				macro: 'brightness',
+				value: 0.95
+			})
+			await flush()
+			await controller.setAuditionInstrumentPreview(null)
+			assert.deepEqual(
+				controller.performanceInput.getSnapshot().heldKeys.map(({ code }) => code),
+				['KeyS']
+			)
+			assert.equal(
+				commands.filter((command) => command.type === 'note-off').length,
+				noteOffsBeforeMacro
+			)
+			controller.performanceInput.releaseSource(heldSource)
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'note-off')
+			const plansBeforeDrum = commands.filter(
 				(command) => command.type === 'load-render-plan'
 			).length
 
@@ -673,7 +837,7 @@ describe('ApplicationRuntimeController', () => {
 			await flush()
 			assert.equal(
 				commands.filter((command) => command.type === 'load-render-plan').length,
-				plansBeforeAudition
+				plansBeforeDrum
 			)
 			const drumAudition = commands.at(-1)
 			assert.equal(drumAudition?.type, 'note-on')
@@ -683,6 +847,14 @@ describe('ApplicationRuntimeController', () => {
 				assert.equal(drumAudition.payload.velocity, 112)
 			}
 
+			controller.performanceInput.activate(
+				'sound-chooser',
+				'layer.created',
+				performanceMapping(
+					{ tonic: 9, mode: 'minor' },
+					{ layout: 'compact', rotation: 0, tonicMidi: 45 }
+				)
+			)
 			controller.performanceInput.pressCode(
 				'sound-chooser',
 				performanceSourceId('keyboard', 'KeyF'),

@@ -101,6 +101,9 @@ const compiledTestFiles = Object.freeze([
 	resolve('.test-out/packages/application/src/commands/shortcut-settings.test.js'),
 	resolve('.test-out/packages/application/src/features/piano-roll/note-editor-geometry.test.js'),
 	resolve('.test-out/packages/application/src/features/piano-roll/note-editor-keyboard.test.js'),
+	resolve(
+		'.test-out/packages/application/src/features/first-layer/layer-creation-coordinator.test.js'
+	),
 	resolve('.test-out/packages/application/src/features/song-palette/song-palette-model.test.js'),
 	resolve('.test-out/packages/application/src/features/sound-chooser/sound-demo-model.test.js'),
 	resolve('.test-out/packages/application/src/performance/performance-input-session.test.js'),
@@ -109,6 +112,7 @@ const compiledTestFiles = Object.freeze([
 	resolve('.test-out/packages/application/src/runtime/ApplicationRuntimeController.test.js'),
 	resolve('.test-out/packages/application/src/shell/transport-presentation.test.js'),
 	resolve('.test-out/packages/design-system/src/theme.test.js'),
+	resolve('.test-out/packages/design-system/src/semantic-slider-gesture.test.js'),
 	resolve('.test-out/packages/design-system/src/floating-overlay.test.js'),
 	resolve('.test-out/packages/localization/src/catalogs.test.js'),
 	resolve('.test-out/packages/music-theory/src/music-theory.test.js'),

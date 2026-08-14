@@ -21,8 +21,8 @@ and for comparison with the previously accepted arrangement.
 
 ## Capture matrix
 
-| State | Light reference | Dark reference |
-| --- | --- | --- |
+| State                     | Light reference                                                      | Dark reference                                                     |
+| ------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | 06 Linked bricks and song | [`light/06-linked-bricks-song.png`](light/06-linked-bricks-song.png) | [`dark/06-linked-bricks-song.png`](dark/06-linked-bricks-song.png) |
 
 ## Visible contract

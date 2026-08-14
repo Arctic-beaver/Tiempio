@@ -24,17 +24,21 @@ import {
 } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
 import { songPalette } from '../../../../music-theory/src/index.js'
-import type {
-	LayerPerformanceMapping,
-	ProjectKey,
-	SemanticSynthMacrosV2,
-	SoundFamily,
-	SynthMacroId,
-	SynthPresetId
+import {
+	createSynthInstrument,
+	type LayerPerformanceMapping,
+	type ProjectKey,
+	type SemanticSynthMacrosV2,
+	type SoundFamily,
+	type SynthMacroId,
+	type SynthPresetId,
+	type SynthInstrumentStateV2
 } from '../../../../project-core/src/index.js'
 import { PerformanceKeyboard } from '../../performance/PerformanceKeyboard.js'
+import type { LayersProjection, ProjectedLayerItem } from '../../project/projections/types.js'
 import { useApplicationRuntimeController } from '../../runtime/ApplicationRuntimeControllerContext.js'
 import { StudioTopBar } from '../../shell/StudioTopBar.js'
+import { EditorLayerList } from '../shared/EditorLayerList.js'
 import { soundDemoProgram } from './sound-demo-model.js'
 import { SoundWaveform } from './SoundWaveform.js'
 import { soundChooserViewModel, type SoundChooserViewModel } from './view-model.js'
@@ -72,25 +76,35 @@ const scaleTabId = 'sound-mapping-scale-tab'
 const scalePanelId = 'sound-mapping-scale-panel'
 
 export interface SoundChooserViewProperties {
+	readonly auditionInstrument: SynthInstrumentStateV2 | null
+	readonly commitPending?: boolean
 	readonly initialPerformance?: LayerPerformanceMapping
 	readonly layerId: string | null
+	readonly layers: LayersProjection
 	readonly model?: SoundChooserViewModel
 	readonly onBack: () => void
+	readonly onAddLayer: () => void
 	readonly onChoose: (performance: LayerPerformanceMapping) => void
 	readonly onCommitMacro: (macro: SynthMacroId, value: number) => void
 	readonly onSelectPreset: (presetId: SynthPresetId) => void
+	readonly onSelectLayer: (item: ProjectedLayerItem) => void
 	readonly selectedMacros: SemanticSynthMacrosV2
 	readonly selectedPresetId: SynthPresetId
 }
 
 export function SoundChooserView({
+	auditionInstrument,
+	commitPending = false,
 	initialPerformance = defaultPerformance,
 	layerId,
+	layers,
 	model = soundChooserViewModel,
 	onBack,
+	onAddLayer,
 	onChoose,
 	onCommitMacro,
 	onSelectPreset,
+	onSelectLayer,
 	selectedMacros,
 	selectedPresetId
 }: SoundChooserViewProperties): JSX.Element {
@@ -111,6 +125,8 @@ export function SoundChooserView({
 	const [key, setKey] = useState<ProjectKey>(() => ({ ...initialPerformance.key }))
 	const [octave, setOctave] = useState(initialPerformance.octave)
 	const [macroPreview, setMacroPreview] = useState<Partial<Record<SynthMacroId, number>>>({})
+	const [acceptedDraftInstrument, setAcceptedDraftInstrument] =
+		useState<SynthInstrumentStateV2 | null>(null)
 	const dockTabRefs = useRef(new Map<SoundMappingDockView, HTMLButtonElement>())
 	const activeFamily =
 		model.families.find((family) =>
@@ -133,6 +149,45 @@ export function SoundChooserView({
 		[key.mode]
 	)
 	const soundDemoActive = preview.active && preview.kind === 'sound'
+	const auditionPreviewInstrument = useMemo(() => {
+		if (!axes.some((axis) => macroPreview[axis.id] !== undefined)) return null
+		const macros = { ...selectedMacros }
+		for (const axis of axes) {
+			const next = macroPreview[axis.id]
+			if (next !== undefined) macros[axis.id] = next / 100
+		}
+		return createSynthInstrument(selectedPresetId, macros)
+	}, [macroPreview, selectedMacros, selectedPresetId])
+	useEffect(() => {
+		if (auditionInstrument === null || layerId === null) return
+		let active = true
+		void controller
+			.setDraftAuditionLayer({ draftId: layerId, instrument: auditionInstrument })
+			.then((accepted) => {
+				if (active && accepted) setAcceptedDraftInstrument(auditionInstrument)
+			})
+		return () => {
+			active = false
+			controller.performanceInput.deactivate(performanceOwnerId)
+			void controller.setDraftAuditionLayer(null)
+		}
+	}, [auditionInstrument, controller, layerId])
+	useEffect(() => {
+		void controller.setAuditionInstrumentPreview(
+			layerId === null || auditionPreviewInstrument === null
+				? null
+				: { layerId, instrument: auditionPreviewInstrument }
+		)
+	}, [auditionPreviewInstrument, controller, layerId])
+	useEffect(() => {
+		return () => {
+			void controller.setAuditionInstrumentPreview(null)
+		}
+	}, [controller])
+	const auditionLayerId =
+		auditionInstrument === null || acceptedDraftInstrument === auditionInstrument
+			? layerId
+			: null
 	useEffect(() => {
 		return () => {
 			if (controller.previewCoordinator.getSnapshot().kind === 'sound') {
@@ -140,15 +195,27 @@ export function SoundChooserView({
 			}
 		}
 	}, [controller])
+	useEffect(() => {
+		if (auditionInstrument === null) return
+		const handleEscape = (event: globalThis.KeyboardEvent): void => {
+			if (event.defaultPrevented || event.key !== 'Escape') return
+			const target = event.target as { closest?: (selector: string) => unknown } | null
+			if (target?.closest?.('dialog, [role="dialog"], [aria-modal="true"]') != null) return
+			event.preventDefault()
+			onBack()
+		}
+		document.addEventListener('keydown', handleEscape)
+		return () => document.removeEventListener('keydown', handleEscape)
+	}, [auditionInstrument, onBack])
 	const toggleSoundDemo = (): void => {
 		if (soundDemoActive) {
 			controller.previewCoordinator.interrupt()
 			return
 		}
-		if (layerId !== null) {
+		if (auditionLayerId !== null) {
 			controller.previewCoordinator.start(
 				'sound',
-				layerId,
+				auditionLayerId,
 				soundDemoProgram(palette, octave, 0)
 			)
 		}
@@ -204,6 +271,12 @@ export function SoundChooserView({
 				subtitle={t('soundChooser.subtitle')}
 				title={t('soundChooser.title')}
 			/>
+			<EditorLayerList
+				instanceId="sound-chooser"
+				layers={layers}
+				onAddLayer={onAddLayer}
+				onSelectLayer={onSelectLayer}
+			/>
 			<div className="chooser-layout">
 				<aside className="chooser-categories">
 					<div className="chooser-kicker">{t('soundChooser.instrument')}</div>
@@ -240,6 +313,7 @@ export function SoundChooserView({
 						</div>
 						<button
 							className="primary-action sound-title__use"
+							disabled={commitPending}
 							onClick={choose}
 							type="button"
 						>
@@ -308,7 +382,7 @@ export function SoundChooserView({
 							<PerformanceKeyboard
 								keyboardCapture="document"
 								layout="compact"
-								layerId={layerId}
+								layerId={auditionLayerId}
 								octave={octave}
 								ownerId={performanceOwnerId}
 								palette={palette}
@@ -480,8 +554,13 @@ export function SoundChooserView({
 											[axis.id]: nextValue
 										}))
 									}
+									onCancel={() => {
+										setMacroPreview((current) => ({
+											...current,
+											[axis.id]: undefined
+										}))
+									}}
 									onCommit={(nextValue) => {
-										releaseForMappingChange()
 										onCommitMacro(axis.id, nextValue / 100)
 										setMacroPreview((current) => ({
 											...current,

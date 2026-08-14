@@ -16,7 +16,8 @@ import {
 	type ProjectCommand,
 	type ProjectDocument,
 	type ProjectDispatchOptions,
-	type ProjectSessionSnapshot
+	type ProjectSessionSnapshot,
+	type PreparedProjectTransaction
 } from '../../../project-core/src/index.js'
 import { createSeedProject } from './seed-project.js'
 import { ProjectSessionContext, type ProjectSessionContextValue } from './ProjectSessionContext.js'
@@ -52,6 +53,20 @@ export function ProjectSessionProvider({
 	)
 	const endHistoryGroup = useCallback(
 		(historyGroup: string): void => session.endHistoryGroup(historyGroup),
+		[session]
+	)
+	const prepareTransaction = useCallback(
+		(commands: readonly ProjectCommand[]): PreparedProjectTransaction =>
+			session.prepareTransaction(commands),
+		[session]
+	)
+	const commitTransaction = useCallback(
+		(prepared: PreparedProjectTransaction): ProjectSessionSnapshot =>
+			session.commitTransaction(prepared),
+		[session]
+	)
+	const discardTransaction = useCallback(
+		(prepared: PreparedProjectTransaction): boolean => session.discardTransaction(prepared),
 		[session]
 	)
 	const undo = useCallback(
@@ -104,6 +119,9 @@ export function ProjectSessionProvider({
 			undo,
 			redo,
 			getSnapshot: session.getSnapshot,
+			prepareTransaction,
+			commitTransaction,
+			discardTransaction,
 			selectLayer: setSelectedLayerId,
 			createNewProject,
 			replaceProject,
@@ -111,9 +129,12 @@ export function ProjectSessionProvider({
 		}),
 		[
 			createNewProject,
+			commitTransaction,
+			discardTransaction,
 			dispatch,
 			endHistoryGroup,
 			nextId,
+			prepareTransaction,
 			projections,
 			redo,
 			replaceProject,

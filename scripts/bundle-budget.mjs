@@ -3,15 +3,37 @@ import { relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { requireLifecycleOwnership } from './lifecycle/ownership-guard.mjs'
 
+const acceptedStage6BundleBudgets = Object.freeze({
+	desktopRenderer: 622_592,
+	webInitialJavaScript: 425_984,
+	webShellOutput: 585_728
+})
+
+export const stage7FeatureGrowthBudgets = Object.freeze({
+	desktopRenderer: 32 * 1_024,
+	webInitialJavaScript: 24 * 1_024,
+	webShellOutput: 20 * 1_024
+})
+
 export const emptyShellBundleBudgets = Object.freeze({
 	'desktop-main': Object.freeze({ root: 'dist/desktop/main', maxBytes: 229_376 }),
 	'desktop-preload': Object.freeze({ root: 'dist/desktop/preload', maxBytes: 61_440 }),
-	'desktop-renderer': Object.freeze({ root: 'dist/desktop/renderer', maxBytes: 622_592 }),
-	web: Object.freeze({ root: 'dist/web', maxBytes: 585_728 })
+	'desktop-renderer': Object.freeze({
+		root: 'dist/desktop/renderer',
+		maxBytes:
+			acceptedStage6BundleBudgets.desktopRenderer + stage7FeatureGrowthBudgets.desktopRenderer
+	}),
+	web: Object.freeze({
+		root: 'dist/web',
+		maxBytes:
+			acceptedStage6BundleBudgets.webShellOutput + stage7FeatureGrowthBudgets.webShellOutput
+	})
 })
 
-export const webStage6ArtifactBudgets = Object.freeze({
-	initialJavaScript: 425_984,
+export const webArtifactBudgets = Object.freeze({
+	initialJavaScript:
+		acceptedStage6BundleBudgets.webInitialJavaScript +
+		stage7FeatureGrowthBudgets.webInitialJavaScript,
 	deferredApplication: 81_920,
 	webRuntimeJavaScript: 196_608,
 	workletJavaScript: 65_536,
@@ -111,9 +133,9 @@ function measuredClass(name, bytes, maxBytes, files = []) {
 	})
 }
 
-export function evaluateWebStage6Artifacts({ attribution, files, wasmBytes }) {
+export function evaluateWebArtifacts({ attribution, files, wasmBytes }) {
 	if (attribution.schemaVersion !== 2 || attribution.bundleClass !== 'web') {
-		throw new Error('Web Stage 6 budgets require current Web module attribution.')
+		throw new Error('Web artifact budgets require current Web module attribution.')
 	}
 	const chunks = attribution.chunks
 	const initialFiles = initialChunkFiles(chunks)
@@ -128,7 +150,7 @@ export function evaluateWebStage6Artifacts({ attribution, files, wasmBytes }) {
 	)
 	if (workletFiles.length !== 1) {
 		throw new Error(
-			`Web Stage 6 must emit exactly one content-hashed worklet; observed ${String(workletFiles.length)}.`
+			`Web build must emit exactly one content-hashed worklet; observed ${String(workletFiles.length)}.`
 		)
 	}
 	const [worklet] = workletFiles
@@ -144,28 +166,25 @@ export function evaluateWebStage6Artifacts({ attribution, files, wasmBytes }) {
 		measuredClass(
 			'initialJavaScript',
 			initialChunks.reduce((total, chunk) => total + chunk.bytes, 0),
-			webStage6ArtifactBudgets.initialJavaScript,
+			webArtifactBudgets.initialJavaScript,
 			initialChunks.map((chunk) => chunk.file)
 		),
 		measuredClass(
 			'deferredApplication',
 			deferredApplicationChunks.reduce((total, chunk) => total + chunk.bytes, 0),
-			webStage6ArtifactBudgets.deferredApplication,
+			webArtifactBudgets.deferredApplication,
 			deferredApplicationChunks.map((chunk) => chunk.file)
 		),
 		measuredClass(
 			'webRuntimeJavaScript',
 			runtimeChunks.reduce((total, chunk) => total + chunk.bytes, 0),
-			webStage6ArtifactBudgets.webRuntimeJavaScript,
+			webArtifactBudgets.webRuntimeJavaScript,
 			runtimeChunks.map((chunk) => chunk.file)
 		),
-		measuredClass(
-			'workletJavaScript',
-			workletOverhead,
-			webStage6ArtifactBudgets.workletJavaScript,
-			[worklet.path]
-		),
-		measuredClass('wasmRelease', wasmBytes, webStage6ArtifactBudgets.wasmRelease),
+		measuredClass('workletJavaScript', workletOverhead, webArtifactBudgets.workletJavaScript, [
+			worklet.path
+		]),
+		measuredClass('wasmRelease', wasmBytes, webArtifactBudgets.wasmRelease),
 		measuredClass(
 			'shellOutput',
 			shellFiles.reduce((total, file) => total + file.bytes, 0),
@@ -214,10 +233,10 @@ export function auditBundleBudgets({
 			'engine/target/wasm32-unknown-unknown/release/tiempio_engine_web_worklet.wasm'
 		)
 		if (!existsSync(attributionPath) || !existsSync(wasmPath)) {
-			throw new Error('Web Stage 6 attribution or release WASM is missing.')
+			throw new Error('Web attribution or release WASM is missing.')
 		}
 		results.push(
-			evaluateWebStage6Artifacts({
+			evaluateWebArtifacts({
 				attribution: JSON.parse(readFileSync(attributionPath, 'utf8')),
 				files,
 				wasmBytes: statSync(wasmPath).size

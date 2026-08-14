@@ -1,10 +1,11 @@
 import { AudioWaveform, Drum, Music2, Plus } from 'lucide-react'
 import type { JSX, ReactNode } from 'react'
-import { ScrollSurface } from '../../../design-system/src/index.js'
+import { IconButton, ScrollSurface } from '../../../design-system/src/index.js'
 import { useLocalization } from '../../../localization/src/index.js'
-import { CommandIconButton } from '../commands/CommandIconButton.js'
 import { useCommands } from '../commands/CommandContext.js'
 import { commandForView } from '../commands/command-registry.js'
+import { LayerCreationCard } from '../features/first-layer/LayerCreationCard.js'
+import { useLayerCreationActions } from '../features/first-layer/useLayerCreationActions.js'
 import { useProjectSession } from '../project/ProjectSessionContext.js'
 import type { ProjectedLayerItem } from '../project/projectors.js'
 
@@ -16,8 +17,9 @@ function layerIcon(layer: ProjectedLayerItem): ReactNode {
 
 export function LayersPanel(): JSX.Element {
 	const { t } = useLocalization()
-	const { commands, execute } = useCommands()
-	const { projections, selectLayer } = useProjectSession()
+	const { commands } = useCommands()
+	const { projections } = useProjectSession()
+	const creation = useLayerCreationActions()
 	const model = projections.layers
 	return (
 		<section aria-label={t('layers.title')} className="layers-panel">
@@ -26,12 +28,12 @@ export function LayersPanel(): JSX.Element {
 					<span>{String(model.items.length).padStart(2, '0')}</span>
 					<h2>{t('layers.title')}</h2>
 				</div>
-				<CommandIconButton
-					commandId="studio.first-layer"
+				<IconButton
+					data-layer-add
 					icon={<Plus />}
 					label={t('layers.add')}
+					onClick={creation.openOrFocus}
 					size="small"
-					tooltipPlacement="right"
 				/>
 			</header>
 			<ScrollSurface className="layers-panel__list">
@@ -43,11 +45,11 @@ export function LayersPanel(): JSX.Element {
 							aria-current={model.activeLayerId === layer.id ? 'page' : undefined}
 							className="layer-item"
 							data-color={layer.color}
+							data-layer-id={layer.id}
 							disabled={!command.available}
 							key={layer.id}
 							onClick={() => {
-								selectLayer(layer.id)
-								execute(commandId)
+								creation.selectExistingLayer(layer)
 							}}
 							type="button"
 						>
@@ -62,6 +64,7 @@ export function LayersPanel(): JSX.Element {
 						</button>
 					)
 				})}
+				<LayerCreationCard instanceId="drawer" />
 			</ScrollSurface>
 			<footer>
 				<span>{model.projectTitle}</span>

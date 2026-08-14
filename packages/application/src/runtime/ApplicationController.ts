@@ -8,7 +8,9 @@ import {
 import {
 	type DrumInstrument,
 	type ProjectDocument,
-	type ProjectSession
+	type PreparedProjectTransaction,
+	type ProjectSession,
+	type SynthInstrumentStateV2
 } from '../../../project-core/src/index.js'
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
 import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
@@ -33,6 +35,16 @@ export interface OpenedApplicationProject {
 	readonly project: ProjectDocument
 }
 
+export interface DraftAuditionLayer {
+	readonly draftId: string
+	readonly instrument: SynthInstrumentStateV2
+}
+
+export interface AuditionInstrumentPreview {
+	readonly instrument: SynthInstrumentStateV2
+	readonly layerId: string
+}
+
 export const silentApplicationMeter = Object.freeze<ApplicationMeterSnapshot>({
 	leftPeak: 0,
 	rightPeak: 0
@@ -45,6 +57,10 @@ export interface ApplicationController {
 	readonly subscribe: (listener: () => void) => () => void
 	auditionDrum(layerId: string, instrument: DrumInstrument): void
 	bindProjectSession(session: ProjectSession, handle?: ProjectHandle | null): void
+	preactivateProject(prepared: PreparedProjectTransaction): Promise<boolean>
+	restoreProjectPlan(): Promise<void>
+	setAuditionInstrumentPreview(preview: AuditionInstrumentPreview | null): Promise<boolean>
+	setDraftAuditionLayer(layer: DraftAuditionLayer | null): Promise<boolean>
 	openProject?(): Promise<ApplicationResult<OpenedApplicationProject>>
 	retryAudio(): Promise<void>
 	seek(tick: number): void
@@ -88,6 +104,10 @@ export function createUnavailableApplicationController(
 		subscribe: () => () => undefined,
 		auditionDrum: () => undefined,
 		bindProjectSession: () => undefined,
+		preactivateProject: async () => false,
+		restoreProjectPlan: async () => undefined,
+		setAuditionInstrumentPreview: async () => false,
+		setDraftAuditionLayer: async () => false,
 		retryAudio: async () => undefined,
 		seek: () => undefined,
 		setLoop: () => undefined,
