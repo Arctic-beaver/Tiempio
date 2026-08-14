@@ -1,14 +1,9 @@
 :root {
 	font-family:
-		Inter,
-		ui-sans-serif,
-		-apple-system,
-		BlinkMacSystemFont,
-		'Segoe UI',
-		sans-serif;
+		Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 	font-synthesis: none;
 	text-rendering: optimizeLegibility;
-	--ti-font-display: Georgia, 'Times New Roman', serif;
+	--ti-font-display: Georgia, "Times New Roman", serif;
 	--ti-space-1: 0.25rem;
 	--ti-space-2: 0.5rem;
 	--ti-space-3: 0.75rem;
@@ -41,7 +36,7 @@
 }
 
 :root,
-:root[data-theme='light'] {
+:root[data-theme="light"] {
 	--ti-page: #d8d4cd;
 	--ti-canvas: #f2efe9;
 	--ti-surface-1: #faf8f3;
@@ -61,7 +56,7 @@
 	--ti-scroll-thumb-active: #5f5a54;
 }
 
-:root[data-theme='dark'] {
+:root[data-theme="dark"] {
 	--ti-page: #d8d4cd;
 	--ti-canvas: #1f2024;
 	--ti-surface-1: #27282e;
@@ -167,36 +162,36 @@ button {
 		transform var(--ti-duration-fast) var(--ti-ease-out);
 }
 
-.ti-icon-button:not(:disabled):not([aria-disabled='true']):hover,
-.ti-text-button:not(:disabled):not([aria-disabled='true']):hover,
-.ti-popover__trigger:not(:disabled):not([aria-disabled='true']):hover,
-.ti-select__trigger:not(:disabled):not([aria-disabled='true']):hover {
+.ti-icon-button:not(:disabled):not([aria-disabled="true"]):hover,
+.ti-text-button:not(:disabled):not([aria-disabled="true"]):hover,
+.ti-popover__trigger:not(:disabled):not([aria-disabled="true"]):hover,
+.ti-select__trigger:not(:disabled):not([aria-disabled="true"]):hover {
 	background: var(--ti-surface-2);
 	color: var(--ti-text);
 }
 
-.ti-icon-button:not(:disabled):not([aria-disabled='true']):active,
-.ti-text-button:not(:disabled):not([aria-disabled='true']):active,
-.ti-popover__trigger:not(:disabled):not([aria-disabled='true']):active,
-.ti-select__trigger:not(:disabled):not([aria-disabled='true']):active {
+.ti-icon-button:not(:disabled):not([aria-disabled="true"]):active,
+.ti-text-button:not(:disabled):not([aria-disabled="true"]):active,
+.ti-popover__trigger:not(:disabled):not([aria-disabled="true"]):active,
+.ti-select__trigger:not(:disabled):not([aria-disabled="true"]):active {
 	transform: translateY(0.06rem);
 }
 
 .ti-icon-button:disabled,
-.ti-icon-button[aria-disabled='true'],
+.ti-icon-button[aria-disabled="true"],
 .ti-text-button:disabled,
-.ti-text-button[aria-disabled='true'],
+.ti-text-button[aria-disabled="true"],
 .ti-popover__trigger:disabled,
-.ti-popover__trigger[aria-disabled='true'],
+.ti-popover__trigger[aria-disabled="true"],
 .ti-select__trigger:disabled,
-.ti-select__trigger[aria-disabled='true'] {
+.ti-select__trigger[aria-disabled="true"] {
 	cursor: not-allowed;
 	opacity: 0.46;
 	transform: none;
 }
 
 .ti-control--accent,
-.ti-control--neutral[data-selected='true'] {
+.ti-control--neutral[data-selected="true"] {
 	background: var(--ti-accent-soft);
 	color: var(--ti-accent-ink);
 }
@@ -282,47 +277,47 @@ button {
 	transform: translate(0);
 }
 
-.ti-tooltip[data-placement='bottom'] .ti-tooltip__content {
+.ti-tooltip[data-placement="bottom"] .ti-tooltip__content {
 	top: calc(100% + var(--ti-space-2));
 	left: 50%;
 	transform: translate(-50%, -0.2rem);
 }
 
-.ti-tooltip[data-placement='bottom']:hover .ti-tooltip__content,
-.ti-tooltip[data-placement='bottom']:focus-within .ti-tooltip__content {
+.ti-tooltip[data-placement="bottom"]:hover .ti-tooltip__content,
+.ti-tooltip[data-placement="bottom"]:focus-within .ti-tooltip__content {
 	transform: translate(-50%, 0);
 }
 
-.ti-tooltip[data-placement='top'] .ti-tooltip__content {
+.ti-tooltip[data-placement="top"] .ti-tooltip__content {
 	right: 50%;
 	bottom: calc(100% + var(--ti-space-2));
 	transform: translate(50%, 0.2rem);
 }
 
-.ti-tooltip[data-placement='top']:hover .ti-tooltip__content,
-.ti-tooltip[data-placement='top']:focus-within .ti-tooltip__content {
+.ti-tooltip[data-placement="top"]:hover .ti-tooltip__content,
+.ti-tooltip[data-placement="top"]:focus-within .ti-tooltip__content {
 	transform: translate(50%, 0);
 }
 
-.ti-tooltip[data-placement='right'] .ti-tooltip__content {
+.ti-tooltip[data-placement="right"] .ti-tooltip__content {
 	top: 50%;
 	left: calc(100% + var(--ti-space-2));
 	transform: translate(-0.2rem, -50%);
 }
 
-.ti-tooltip[data-placement='right']:hover .ti-tooltip__content,
-.ti-tooltip[data-placement='right']:focus-within .ti-tooltip__content {
+.ti-tooltip[data-placement="right"]:hover .ti-tooltip__content,
+.ti-tooltip[data-placement="right"]:focus-within .ti-tooltip__content {
 	transform: translate(0, -50%);
 }
 
-.ti-tooltip[data-placement='left'] .ti-tooltip__content {
+.ti-tooltip[data-placement="left"] .ti-tooltip__content {
 	top: 50%;
 	right: calc(100% + var(--ti-space-2));
 	transform: translate(0.2rem, -50%);
 }
 
-.ti-tooltip[data-placement='left']:hover .ti-tooltip__content,
-.ti-tooltip[data-placement='left']:focus-within .ti-tooltip__content {
+.ti-tooltip[data-placement="left"]:hover .ti-tooltip__content,
+.ti-tooltip[data-placement="left"]:focus-within .ti-tooltip__content {
 	transform: translate(0, -50%);
 }
 
@@ -416,15 +411,15 @@ button {
 	text-align: left;
 }
 
-.ti-select__option[data-active='true'] {
+.ti-select__option[data-active="true"] {
 	background: var(--ti-surface-2);
 }
 
-.ti-select__option[aria-selected='true'] {
+.ti-select__option[aria-selected="true"] {
 	color: var(--ti-accent-strong);
 }
 
-.ti-select__option[aria-disabled='true'] {
+.ti-select__option[aria-disabled="true"] {
 	cursor: not-allowed;
 	opacity: 0.45;
 }
@@ -448,7 +443,7 @@ button {
 	opacity: 0;
 }
 
-.ti-select__option[aria-selected='true'] .ti-select__check {
+.ti-select__option[aria-selected="true"] .ti-select__check {
 	opacity: 1;
 }
 
@@ -470,7 +465,7 @@ button {
 	font-variant-numeric: tabular-nums;
 }
 
-.ti-slider input[type='range'] {
+.ti-slider input[type="range"] {
 	width: 100%;
 	height: 1.25rem;
 	margin: 0;
@@ -478,13 +473,13 @@ button {
 	cursor: pointer;
 }
 
-.ti-slider input[type='range']:focus-visible {
+.ti-slider input[type="range"]:focus-visible {
 	border-radius: var(--ti-radius-sm);
 	box-shadow: var(--ti-focus-ring);
 	outline: 0;
 }
 
-.ti-slider input[type='range']:disabled {
+.ti-slider input[type="range"]:disabled {
 	cursor: not-allowed;
 	opacity: 0.45;
 }
@@ -515,7 +510,7 @@ button {
 }
 
 @media (forced-colors: active) {
-	.ti-slider input[type='range']:focus-visible {
+	.ti-slider input[type="range"]:focus-visible {
 		box-shadow: none;
 		outline: 0.16rem solid Highlight;
 		outline-offset: 0.16rem;
