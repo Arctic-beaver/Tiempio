@@ -2,9 +2,12 @@
 
 ## Result
 
-**Recorded:** 2026-08-14  
-**Integration branch:** `feature/stage-7`  
-**Stage branches:** `fix/contextual-add-brick`, then `fix/sound-chooser-focus-audition`  
+**Recorded:** 2026-08-14
+
+**Integration branch:** `feature/stage-7`
+
+**Stage branches:** `fix/contextual-add-brick`, then `fix/sound-chooser-focus-audition`
+
 **Status:** Stage 7A and Stage 7B are complete, integrated in the required order and verified for
 the explicitly authorized merge into `main`.
 
