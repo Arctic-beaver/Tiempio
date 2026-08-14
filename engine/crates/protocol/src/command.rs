@@ -497,8 +497,8 @@ mod tests {
             &serde_json::json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 3,
-                "patchModelVersion": 2,
+                "renderPlanVersion": 5,
+                "patchModelVersion": 4,
                 "capabilities": ["protocol.typed-json", "render-plan.full"]
             }),
         );
@@ -515,7 +515,7 @@ mod tests {
         );
 
         let source = serde_json::json!({
-            "planVersion": 3,
+            "planVersion": 5,
             "projectId": "project.fixture",
             "projectRevision": 1,
             "ticksPerQuarter": 960,

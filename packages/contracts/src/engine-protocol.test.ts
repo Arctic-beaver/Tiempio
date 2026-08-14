@@ -15,14 +15,14 @@ import {
 const compatibleHandshake = {
 	protocolVersion: engineProtocolVersion,
 	peer: 'application',
-	renderPlanVersion: 3,
-	patchModelVersion: 2,
+	renderPlanVersion: 5,
+	patchModelVersion: 4,
 	capabilities: ['protocol.typed-json']
 } as const
 
 describe('engine protocol contracts', () => {
-	it('advances the shared engine protocol contract to version 6', () => {
-		assert.equal(engineProtocolVersion, 6)
+	it('exposes the current shared engine protocol contract', () => {
+		assert.equal(engineProtocolVersion, 8)
 	})
 
 	it('requires the common engine surface and exactly one audible output', () => {

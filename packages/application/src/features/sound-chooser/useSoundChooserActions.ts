@@ -3,10 +3,10 @@ import {
 	synthPresetDefinition,
 	createSynthInstrument,
 	type LayerPerformanceMapping,
-	type SemanticSynthMacrosV2,
+	type SemanticSynthMacros,
 	type SynthMacroId,
 	type SynthPresetId,
-	type SynthInstrumentStateV2
+	type SynthInstrumentState
 } from '../../../../project-core/src/index.js'
 import { useCommands } from '../../commands/CommandContext.js'
 import { commandForView } from '../../commands/command-registry.js'
@@ -15,14 +15,14 @@ import { useLayerCreation } from '../first-layer/LayerCreationContext.js'
 import { useLayerCreationActions } from '../first-layer/useLayerCreationActions.js'
 
 export function useSoundChooserActions(): {
-	readonly auditionInstrument: SynthInstrumentStateV2 | null
+	readonly auditionInstrument: SynthInstrumentState | null
 	readonly chooseSound: (performance: LayerPerformanceMapping) => void
 	readonly commitPending: boolean
 	readonly layerId: string | null
 	readonly commitMacro: (macro: SynthMacroId, value: number) => void
 	readonly returnToLayerChoice: () => void
 	readonly selectCharacter: (presetId: SynthPresetId) => void
-	readonly selectedMacros: SemanticSynthMacrosV2
+	readonly selectedMacros: SemanticSynthMacros
 	readonly selectedPresetId: SynthPresetId
 } {
 	const { execute } = useCommands()

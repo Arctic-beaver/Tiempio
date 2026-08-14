@@ -1,0 +1,56 @@
+{
+	"schemaVersion": 1,
+	"generatorRevision": 1,
+	"seed": 839105,
+	"sampleCount": 64,
+	"dimensions": [
+		{
+			"id": "oscillatorBlend",
+			"minimum": 0,
+			"maximum": 1,
+			"scale": "linear"
+		},
+		{
+			"id": "pulseWidth",
+			"minimum": 0.1,
+			"maximum": 0.9,
+			"scale": "linear"
+		},
+		{
+			"id": "filterCutoffHz",
+			"minimum": 80,
+			"maximum": 18000,
+			"scale": "logarithmic"
+		},
+		{
+			"id": "filterResonance",
+			"minimum": 0.1,
+			"maximum": 0.95,
+			"scale": "linear"
+		},
+		{
+			"id": "drive",
+			"minimum": 0,
+			"maximum": 1,
+			"scale": "linear"
+		},
+		{
+			"id": "envelopeCurve",
+			"minimum": 0.25,
+			"maximum": 4,
+			"scale": "logarithmic"
+		},
+		{
+			"id": "stereoWidth",
+			"minimum": 0,
+			"maximum": 1,
+			"scale": "linear"
+		},
+		{
+			"id": "spaceMix",
+			"minimum": 0,
+			"maximum": 0.35,
+			"scale": "linear"
+		}
+	]
+}

@@ -135,13 +135,13 @@ profile:
   `native_audio_available` Boolean;
 - use target-neutral diagnostic copy and stable action metadata. The shared controller must not
   report that a Web engine is missing a “native” capability;
-- version and regenerate TypeScript/Rust protocol bindings whenever capability vocabulary or
+- update and regenerate TypeScript/Rust protocol bindings whenever capability vocabulary or
   semantics change.
 
 The preferred capability name for the Web output path is `audio.web.worklet`. If the existing
 `metronome.native` name cannot truthfully describe the now-shared sample-clock implementation, Stage
-A replaces it with a target-neutral versioned capability and migrates Desktop and fixtures in the
-same protocol change.
+A replaces it with one target-neutral capability and updates Desktop and fixtures in the same
+protocol change.
 
 ### User activation and audio lifecycle
 
@@ -255,8 +255,8 @@ Operation semantics are fixed as follows:
 - `create` creates only an in-memory opaque handle;
 - `open` uses the File System Access picker when supported and falls back to a bounded file-input
   snapshot without pretending that the fallback is writable;
-- `load` returns exact supported/unsupported compatibility, a bounded fingerprint and truthful
-  `saveAllowed` state;
+- `load` returns the current bounded snapshot and fingerprint; write authority is derived only from
+  the active browser handle and its current permission;
 - `persist` writes only through an existing handle whose current `queryPermission({ mode:
   'readwrite' })` result is already `granted`; it never prompts implicitly;
 - `persistAs` may invoke a save picker from a valid user action and bind the selected handle only
@@ -274,8 +274,8 @@ Operation semantics are fixed as follows:
 
 ### IndexedDB settings and recovery
 
-One versioned Tiempio database owns separate settings and recovery stores. Database name, schema
-version, object-store names, key shapes and migration behavior are constants covered by tests.
+One current Tiempio database shape owns separate settings and recovery stores. Database name,
+object-store names and key shapes are constants covered by tests; no earlier database shape is read.
 
 - Settings reuse the existing validated `SettingsSnapshot` version and return defaults only for a
   genuinely absent record.
@@ -285,7 +285,7 @@ version, object-store names, key shapes and migration behavior are constants cov
   data enters IndexedDB.
 - Recovery writes are latest-revision-wins; an older completion cannot replace or acknowledge a
   newer project revision.
-- Corrupt, future-version or excessive records fail closed and are not silently rewritten.
+- Corrupt, non-current or excessive records fail closed and are not silently rewritten.
 - Quota, blocked upgrade, denied/private-mode storage, abort and transaction errors map to stable
   `STORAGE_UNAVAILABLE`, `STORAGE_QUOTA_EXCEEDED` or project-format errors.
 - Storage failure does not disable the in-memory project or audio runtime.
@@ -411,19 +411,19 @@ sound or duplicate contexts.
 
 - Extract and regression-test the shared pure physical ZIP codec without moving platform I/O into
   shared application code.
-- Implement the opaque Web project registry, picker/input feature detection, bounded snapshot load
-  and unsupported-version preservation.
+- Implement the opaque Web project registry, picker/input feature detection and strict bounded
+  current-snapshot load.
 - Implement permission-checked serialized direct write, save-picker binding, fingerprint conflict
   detection and post-close verification.
 - Implement Download-copy object URL lifecycle and the exact `download-requested` outcome.
-- Implement versioned IndexedDB settings and recovery with bounded upgrades, transactions and
-  stable error mapping.
+- Implement current-only IndexedDB settings and recovery with bounded transactions and stable
+  error mapping.
 - Add deterministic fakes for granted/prompt/denied/revoked permissions, concurrent writes, external
   change, canceled picker, missing APIs, corrupt ZIP, quota, blocked database and aborted transaction.
 - Add real-browser persistence checks for the APIs available in the selected acceptance browsers.
 
-**Stage exit:** runtime tests round-trip a minimal current project, preserve unsupported bytes,
-distinguish direct persistence from Download and keep the application usable when every optional
+**Stage exit:** runtime tests round-trip a minimal current project, reject every non-current
+manifest, distinguish direct persistence from Download and keep the application usable when every optional
 storage feature fails.
 
 ### Stage E — Web composition and prototype-preserving integration
@@ -592,7 +592,7 @@ explicit and the clean integration branch is ready for user review without merge
 ### Persistence and degradation
 
 - A bounded current `.tiempio` snapshot opens and round-trips without musical loss.
-- Unsupported future project bytes remain preserved and non-destructively read-only.
+- A non-current project fails `open` and is never registered or retained for Download.
 - Direct write occurs only with current granted permission and never claims Desktop atomicity.
 - Download returns `download-requested` and does not acknowledge Save, clear dirty state or discard
   recovery.

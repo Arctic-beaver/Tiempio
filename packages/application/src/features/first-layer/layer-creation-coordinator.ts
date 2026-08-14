@@ -5,7 +5,7 @@ import {
 	type LayerId,
 	type LayerPerformanceMapping,
 	type ProjectId,
-	type SemanticSynthMacrosV2,
+	type SemanticSynthMacros,
 	type SynthMacroId,
 	type SynthPresetId
 } from '../../../../project-core/src/index.js'
@@ -27,7 +27,7 @@ export interface LayerCreationDraft {
 	readonly performance: LayerPerformanceMapping | null
 	readonly projectId: ProjectId
 	readonly role: LayerRoleViewModel['id'] | null
-	readonly semanticMacros: SemanticSynthMacrosV2 | null
+	readonly semanticMacros: SemanticSynthMacros | null
 	readonly step: LayerCreationStep
 	readonly suspended: boolean
 	readonly synthPresetId: SynthPresetId | null
@@ -277,7 +277,7 @@ export class LayerCreationCoordinator {
 
 	#requireSynthDraft(): LayerCreationDraft & {
 		readonly performance: LayerPerformanceMapping
-		readonly semanticMacros: SemanticSynthMacrosV2
+		readonly semanticMacros: SemanticSynthMacros
 		readonly synthPresetId: SynthPresetId
 	} {
 		const draft = this.#requireDraft()
@@ -292,7 +292,7 @@ export class LayerCreationCoordinator {
 		}
 		return draft as LayerCreationDraft & {
 			readonly performance: LayerPerformanceMapping
-			readonly semanticMacros: SemanticSynthMacrosV2
+			readonly semanticMacros: SemanticSynthMacros
 			readonly synthPresetId: SynthPresetId
 		}
 	}

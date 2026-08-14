@@ -41,8 +41,8 @@ fn request() -> Result<OfflineRenderRequest, Error> {
         "payload": {
             "protocolVersion": ENGINE_PROTOCOL_VERSION,
             "peer": "application",
-            "renderPlanVersion": 3,
-            "patchModelVersion": 2,
+            "renderPlanVersion": 5,
+            "patchModelVersion": 4,
             "capabilities": ["protocol.typed-json", "render.offline"],
         },
     }))

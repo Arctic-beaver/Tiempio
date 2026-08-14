@@ -3,121 +3,206 @@
 		{
 			"id": "bass.deep",
 			"patch": {
-				"patchModelVersion": 2,
+				"patchModelVersion": 4,
 				"oscillator": {
 					"waveform": "saw",
-					"detuneCents": -7.56,
-					"subLevel": 0.813696,
-					"noiseLevel": 0.0192,
-					"pulseWidth": 0.4784
+					"detuneCents": 0,
+					"subLevel": 0.78,
+					"noiseLevel": 0,
+					"pulseWidth": 0.5,
+					"secondary": {
+						"waveform": "saw",
+						"semitoneOffset": 0,
+						"detuneCents": 0,
+						"level": 0
+					}
 				},
-				"filter": { "cutoffHz": 146.072, "resonance": 0.3112, "envelopeAmount": 0.3696 },
+				"filter": {
+					"cutoffHz": 190,
+					"resonance": 0.22,
+					"envelopeAmount": 0.42,
+					"keyTracking": 0.32
+				},
 				"amplifier": {
-					"attackMs": 23.5584,
-					"decayMs": 271.48,
-					"sustain": 0.61132,
-					"releaseMs": 493.6
+					"attackMs": 24,
+					"decayMs": 220,
+					"sustain": 0.62,
+					"releaseMs": 400
 				},
-				"movement": { "rateHz": 0, "depth": 0.0096 },
-				"drive": 0.1096,
-				"stereoWidth": 0.2064,
-				"outputGain": 0.688
+				"movement": { "rateHz": 0, "depth": 0 },
+				"expression": {
+					"amplitudeAmount": 0.9,
+					"attackScale": 0.45,
+					"filterOctaves": 1.25,
+					"velocityCurve": 0.82
+				},
+				"drive": 0.04,
+				"stereoWidth": 0.16,
+				"outputGain": 0.7
 			}
 		},
 		{
 			"id": "lead.glass",
 			"patch": {
-				"patchModelVersion": 2,
+				"patchModelVersion": 4,
 				"oscillator": {
 					"waveform": "triangle",
-					"detuneCents": 2.16,
-					"subLevel": 0.152064,
-					"noiseLevel": 0.0032,
-					"pulseWidth": 0.4964
+					"detuneCents": 0,
+					"subLevel": 0.18,
+					"noiseLevel": 0,
+					"pulseWidth": 0.5,
+					"secondary": {
+						"waveform": "sine",
+						"semitoneOffset": 12,
+						"detuneCents": 6,
+						"level": 0.2
+					}
 				},
-				"filter": { "cutoffHz": 9220.64, "resonance": 0.4552, "envelopeAmount": 0.4116 },
+				"filter": {
+					"cutoffHz": 5200,
+					"resonance": 0.34,
+					"envelopeAmount": 0.42,
+					"keyTracking": 0.55
+				},
 				"amplifier": {
-					"attackMs": 7.3088,
-					"decayMs": 196.504,
-					"sustain": 0.554776,
-					"releaseMs": 321.552
+					"attackMs": 8,
+					"decayMs": 220,
+					"sustain": 0.62,
+					"releaseMs": 360
 				},
-				"movement": { "rateHz": 0.392, "depth": 0.1544 },
-				"drive": 0.0516,
-				"stereoWidth": 0.5196,
-				"outputGain": 0.598
+				"movement": { "rateHz": 0.35, "depth": 0.08 },
+				"expression": {
+					"amplitudeAmount": 0.88,
+					"attackScale": 0.55,
+					"filterOctaves": 1.6,
+					"velocityCurve": 0.8
+				},
+				"drive": 0.04,
+				"stereoWidth": 0.16,
+				"outputGain": 0.6
 			}
 		},
 		{
 			"id": "pad.soft",
 			"patch": {
-				"patchModelVersion": 2,
+				"patchModelVersion": 4,
 				"oscillator": {
 					"waveform": "sine",
-					"detuneCents": 5.76,
-					"subLevel": 0.187776,
-					"noiseLevel": 0.0016,
-					"pulseWidth": 0.428
+					"detuneCents": 0,
+					"subLevel": 0.18,
+					"noiseLevel": 0,
+					"pulseWidth": 0.5,
+					"secondary": {
+						"waveform": "triangle",
+						"semitoneOffset": 12,
+						"detuneCents": 5,
+						"level": 0.12
+					}
 				},
-				"filter": { "cutoffHz": 845.68, "resonance": 0.244, "envelopeAmount": 0.252 },
+				"filter": {
+					"cutoffHz": 1100,
+					"resonance": 0.22,
+					"envelopeAmount": 0.42,
+					"keyTracking": 0.38
+				},
 				"amplifier": {
-					"attackMs": 492.24,
-					"decayMs": 340.208,
-					"sustain": 0.919856,
-					"releaseMs": 2783.52
+					"attackMs": 420,
+					"decayMs": 220,
+					"sustain": 0.86,
+					"releaseMs": 1800
 				},
-				"movement": { "rateHz": 0.132, "depth": 0.1484 },
-				"drive": 0.0458,
-				"stereoWidth": 0.6356,
-				"outputGain": 0.579
+				"movement": { "rateHz": 0.1, "depth": 0.05 },
+				"expression": {
+					"amplitudeAmount": 0.82,
+					"attackScale": 0.7,
+					"filterOctaves": 1.1,
+					"velocityCurve": 0.85
+				},
+				"drive": 0.04,
+				"stereoWidth": 0.16,
+				"outputGain": 0.58
 			}
 		},
 		{
 			"id": "pluck.glass",
 			"patch": {
-				"patchModelVersion": 2,
+				"patchModelVersion": 4,
 				"oscillator": {
 					"waveform": "triangle",
-					"detuneCents": -0.72,
-					"subLevel": 0.14976,
-					"noiseLevel": 0.0032,
-					"pulseWidth": 0.5396
+					"detuneCents": 0,
+					"subLevel": 0.18,
+					"noiseLevel": 0,
+					"pulseWidth": 0.5,
+					"secondary": {
+						"waveform": "sine",
+						"semitoneOffset": 12,
+						"detuneCents": 0,
+						"level": 0.24
+					}
 				},
-				"filter": { "cutoffHz": 14336.4, "resonance": 0.6528, "envelopeAmount": 0.5124 },
+				"filter": {
+					"cutoffHz": 7800,
+					"resonance": 0.48,
+					"envelopeAmount": 0.42,
+					"keyTracking": 0.65
+				},
 				"amplifier": {
-					"attackMs": 0.7504,
-					"decayMs": 61.56,
-					"sustain": 0.015312,
-					"releaseMs": 32.832
+					"attackMs": 1,
+					"decayMs": 150,
+					"sustain": 0.02,
+					"releaseMs": 80
 				},
-				"movement": { "rateHz": 0, "depth": 0.0552 },
-				"drive": 0.0516,
-				"stereoWidth": 0.4268,
-				"outputGain": 0.618
+				"movement": { "rateHz": 0, "depth": 0 },
+				"expression": {
+					"amplitudeAmount": 0.92,
+					"attackScale": 0.35,
+					"filterOctaves": 1.8,
+					"velocityCurve": 0.75
+				},
+				"drive": 0.04,
+				"stereoWidth": 0.16,
+				"outputGain": 0.62
 			}
 		},
 		{
 			"id": "texture.grain",
 			"patch": {
-				"patchModelVersion": 2,
+				"patchModelVersion": 4,
 				"oscillator": {
 					"waveform": "saw",
-					"detuneCents": 6.48,
-					"subLevel": 0.168192,
-					"noiseLevel": 0.3432,
-					"pulseWidth": 0.4892
+					"detuneCents": 0,
+					"subLevel": 0.18,
+					"noiseLevel": 0.26,
+					"pulseWidth": 0.5,
+					"secondary": {
+						"waveform": "square",
+						"semitoneOffset": 12,
+						"detuneCents": 9,
+						"level": 0.14
+					}
 				},
-				"filter": { "cutoffHz": 3299, "resonance": 0.3256, "envelopeAmount": 0.3948 },
+				"filter": {
+					"cutoffHz": 2500,
+					"resonance": 0.22,
+					"envelopeAmount": 0.42,
+					"keyTracking": 0.28
+				},
 				"amplifier": {
-					"attackMs": 20.6976,
-					"decayMs": 215.248,
-					"sustain": 0.568912,
-					"releaseMs": 665.312
+					"attackMs": 22,
+					"decayMs": 220,
+					"sustain": 0.62,
+					"releaseMs": 680
 				},
-				"movement": { "rateHz": 10.2, "depth": 0.3232 },
-				"drive": 0.4816,
-				"stereoWidth": 0.6588,
-				"outputGain": 0.348
+				"movement": { "rateHz": 7.5, "depth": 0.22 },
+				"expression": {
+					"amplitudeAmount": 0.78,
+					"attackScale": 0.65,
+					"filterOctaves": 0.9,
+					"velocityCurve": 0.9
+				},
+				"drive": 0.18,
+				"stereoWidth": 0.16,
+				"outputGain": 0.4
 			}
 		}
 	]

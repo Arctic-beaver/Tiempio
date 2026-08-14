@@ -53,14 +53,11 @@ export interface WebProjectsRuntimeDependencies {
 interface MutableWebProjectRecord {
 	readonly handle: ProjectHandle
 	readonly recoveryIdentity: string
-	compatibility: 'supported' | 'unsupported'
 	entries: readonly LogicalArchiveEntry[]
 	fingerprint: string | null
-	formatSaveAllowed: boolean
 	lastPersistedRevision: number | null
 	manifestBytes: Uint8Array | null
 	queue: Promise<void>
-	sourceArchiveBytes: Uint8Array | null
 	sourceHandle: WebProjectFileHandle | null
 }
 
@@ -205,14 +202,11 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 		initial: Partial<
 			Pick<
 				MutableWebProjectRecord,
-				| 'compatibility'
 				| 'entries'
 				| 'fingerprint'
-				| 'formatSaveAllowed'
 				| 'lastPersistedRevision'
 				| 'manifestBytes'
 				| 'recoveryIdentity'
-				| 'sourceArchiveBytes'
 				| 'sourceHandle'
 			>
 		> = {}
@@ -225,20 +219,14 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 		const record: MutableWebProjectRecord = {
 			handle,
 			recoveryIdentity,
-			compatibility: initial.compatibility ?? 'supported',
 			entries: Object.freeze((initial.entries ?? []).map(ownedEntry)),
 			fingerprint: initial.fingerprint ?? null,
-			formatSaveAllowed: initial.formatSaveAllowed ?? true,
 			lastPersistedRevision: initial.lastPersistedRevision ?? null,
 			manifestBytes:
 				initial.manifestBytes === undefined || initial.manifestBytes === null
 					? null
 					: new Uint8Array(initial.manifestBytes),
 			queue: Promise.resolve(),
-			sourceArchiveBytes:
-				initial.sourceArchiveBytes === undefined || initial.sourceArchiveBytes === null
-					? null
-					: new Uint8Array(initial.sourceArchiveBytes),
 			sourceHandle: initial.sourceHandle ?? null
 		}
 		this.#records.set(handle, record)
@@ -359,22 +347,16 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 			if (logical.status === 'invalid') {
 				throw new WebPersistenceError('PROJECT_INVALID', logical.error.message)
 			}
-			const manifestBytes =
-				logical.status === 'loaded'
-					? logical.entries.find(
-							(entry) => entry.path.toLocaleLowerCase('en-US') === projectManifestPath
-						)?.bytes
-					: logical.originalManifestBytes
+			const manifestBytes = logical.entries.find(
+				(entry) => entry.path.toLocaleLowerCase('en-US') === projectManifestPath
+			)?.bytes
 			if (manifestBytes === undefined) {
 				throw new WebPersistenceError('PROJECT_INVALID', 'The project manifest is missing.')
 			}
 			const record = this.#createRecord({
-				compatibility: logical.status === 'loaded' ? 'supported' : 'unsupported',
 				entries: logical.entries,
 				fingerprint: await this.#dependencies.fingerprint(archiveBytes),
-				formatSaveAllowed: logical.saveAllowed,
 				manifestBytes,
-				sourceArchiveBytes: opened.archiveBytes,
 				sourceHandle: selection.handle
 			})
 			return Object.freeze({ ok: true as const, value: record.handle })
@@ -395,16 +377,10 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 					'The in-memory project has no snapshot yet.'
 				)
 			}
-			const directWriteAllowed =
-				record.sourceHandle !== null &&
-				record.formatSaveAllowed &&
-				(await this.#permission(record.sourceHandle)) === 'granted'
 			return Object.freeze({
 				ok: true as const,
 				value: Object.freeze({
-					compatibility: record.compatibility,
 					fingerprint: record.fingerprint,
-					saveAllowed: directWriteAllowed,
 					snapshot: Object.freeze({
 						revision: record.lastPersistedRevision ?? 0,
 						bytes: new Uint8Array(record.manifestBytes)
@@ -450,9 +426,6 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 		record: MutableWebProjectRecord,
 		snapshot: ProjectSnapshotEnvelope
 	): Promise<{ readonly bytes: Uint8Array; readonly codec: PhysicalArchiveCodec | null }> {
-		if (!record.formatSaveAllowed && record.sourceArchiveBytes !== null) {
-			return Object.freeze({ bytes: new Uint8Array(record.sourceArchiveBytes), codec: null })
-		}
 		const validated = this.#validatedSnapshot(snapshot)
 		const archive = await this.#buildArchive(record, validated)
 		return Object.freeze({ bytes: archive.bytes, codec: archive.codec })
@@ -468,12 +441,6 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 		let codec: PhysicalArchiveCodec | null = null
 		let writable: Awaited<ReturnType<WebProjectFileHandle['createWritable']>> | null = null
 		try {
-			if (!record.formatSaveAllowed) {
-				throw new WebPersistenceError(
-					'PROJECT_READ_ONLY',
-					'This project version is read-only.'
-				)
-			}
 			const permission = await this.#permission(handle)
 			if (permission !== 'granted') {
 				throw new WebPersistenceError(
@@ -528,11 +495,8 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 				record.sourceHandle = handle
 				record.fingerprint = fingerprint
 				record.lastPersistedRevision = snapshot.revision
-				record.compatibility = 'supported'
-				record.formatSaveAllowed = true
 				record.entries = archive.entries.map(ownedEntry)
 				record.manifestBytes = new Uint8Array(snapshot.bytes)
-				record.sourceArchiveBytes = new Uint8Array(verifiedBytes)
 				void this.#dependencies.storage
 					.discardRecovery(recoveryHandle(record.recoveryIdentity), snapshot.revision)
 					.catch(() => undefined)
@@ -597,12 +561,6 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 		let record: MutableWebProjectRecord
 		try {
 			record = this.#record(handle)
-			if (!record.formatSaveAllowed) {
-				throw new WebPersistenceError(
-					'PROJECT_READ_ONLY',
-					'This project version is read-only.'
-				)
-			}
 		} catch (error) {
 			return failedPersistence(snapshot.revision, error)
 		}
@@ -690,9 +648,7 @@ export class WebProjectsRuntime implements ProjectsRuntime {
 		try {
 			const recovery = restored.value.recovery
 			const record = this.#createRecord({
-				compatibility: recovery.status === 'loaded' ? 'supported' : 'unsupported',
 				entries: Object.freeze([manifestEntry(recovery.manifestBytes)]),
-				formatSaveAllowed: recovery.status === 'loaded',
 				lastPersistedRevision: recovery.revision,
 				manifestBytes: recovery.manifestBytes,
 				recoveryIdentity: restored.value.identity

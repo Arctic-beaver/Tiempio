@@ -307,48 +307,32 @@ describe('Desktop native persistence', () => {
 		}
 	})
 
-	it('opens future projects read-only and Save Copy preserves their exact archive bytes', async () => {
+	it('rejects a non-current project at the open boundary', async () => {
 		const root = await temporaryDirectory()
 		try {
-			const source = join(root, 'future.tiempio')
-			const copy = join(root, 'future-copy.tiempio')
-			const futureManifest = encodeCanonicalJson({
-				...createProject({ projectId: 'project.future', title: 'Future' }),
-				schemaVersion: 999
+			const source = join(root, 'non-current.tiempio')
+			const nonCurrentManifest = encodeCanonicalJson({
+				...createProject({ projectId: 'project.non-current', title: 'Non-current' }),
+				schemaVersion: Number.MAX_SAFE_INTEGER
 			})
 			const archive = encodePhysicalProjectArchive([
 				{
 					path: 'project.json',
-					bytes: futureManifest,
-					declaredBytes: futureManifest.byteLength,
-					compressedBytes: futureManifest.byteLength
+					bytes: nonCurrentManifest,
+					declaredBytes: nonCurrentManifest.byteLength,
+					compressedBytes: nonCurrentManifest.byteLength
 				}
 			])
 			await writeFile(source, archive)
 			const dialogs = new FakeDialogs()
 			dialogs.openSelections.push(source)
-			dialogs.saveSelections.push({ path: copy, overwriteConfirmed: true })
 			const projects = new ProjectPersistenceService(
 				dialogs,
 				new RecoveryStore(join(root, 'recovery'))
 			)
 			const opened = await projects.open()
-			assert.equal(opened.ok, true)
-			if (!opened.ok) return
-			const loaded = await projects.load(opened.value)
-			assert.equal(loaded.ok, true)
-			if (!loaded.ok) return
-			assert.equal(loaded.value.compatibility, 'unsupported')
-			assert.equal(loaded.value.saveAllowed, false)
-			const snapshot = { revision: 2, bytes: futureManifest }
-			const persist = await projects.persist(opened.value, snapshot)
-			assert.equal(persist.status, 'failed')
-			if (persist.status === 'failed') assert.equal(persist.error.code, 'PROJECT_READ_ONLY')
-			assert.deepEqual(await projects.saveCopy(opened.value, snapshot), {
-				status: 'copy-written',
-				revision: 2
-			})
-			assert.deepEqual(new Uint8Array(await readFile(copy)), archive)
+			assert.equal(opened.ok, false)
+			if (!opened.ok) assert.equal(opened.error.code, 'PROJECT_INVALID')
 		} finally {
 			await rm(root, { recursive: true, force: true })
 		}

@@ -91,9 +91,7 @@ describe('createWebRuntime', () => {
 			load: async () =>
 				success(
 					Object.freeze({
-						compatibility: 'supported' as const,
 						fingerprint: null,
-						saveAllowed: false,
 						snapshot: Object.freeze({ revision: 0, bytes: new Uint8Array() })
 					})
 				),

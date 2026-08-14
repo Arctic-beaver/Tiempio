@@ -251,10 +251,10 @@ fn next_noise(state: &mut u64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tiempio_engine_core::{DrumVoicePatchV2, VoiceIdentity};
+    use tiempio_engine_core::{DrumVoicePatch, VoiceIdentity};
 
-    fn patch(algorithm: DrumAlgorithm) -> DrumVoicePatchV2 {
-        DrumVoicePatchV2 {
+    fn patch(algorithm: DrumAlgorithm) -> DrumVoicePatch {
+        DrumVoicePatch {
             algorithm,
             pitch_hz: 70.0,
             tone: 0.5,

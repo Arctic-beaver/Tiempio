@@ -20,8 +20,8 @@ import {
 	type ProjectKey,
 	type ProjectRole,
 	type ProjectSection,
-	type SemanticSynthMacrosV2,
-	type SynthInstrumentStateV2,
+	type SemanticSynthMacros,
+	type SynthInstrumentState,
 	type SynthMacroId,
 	type SynthPresetId
 } from './model.js'
@@ -56,7 +56,7 @@ export interface AddLayerCommand extends RevisionedProjectCommand {
 	readonly name: string
 	readonly role: ProjectRole
 	readonly synth?: {
-		readonly macros: SemanticSynthMacrosV2
+		readonly macros: SemanticSynthMacros
 		readonly performance: LayerPerformanceMapping
 		readonly presetId: SynthPresetId
 	}
@@ -923,7 +923,7 @@ export function reduceProjectCommand(
 }
 
 export type MacroPreviewResult =
-	| { readonly instrument: SynthInstrumentStateV2; readonly status: 'ready' }
+	| { readonly instrument: SynthInstrumentState; readonly status: 'ready' }
 	| { readonly failure: ProjectCommandFailure; readonly status: 'rejected' }
 
 export function previewBassMacro(

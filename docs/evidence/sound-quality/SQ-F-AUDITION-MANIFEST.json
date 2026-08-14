@@ -1,0 +1,1717 @@
+{
+  "analyzerRevision": 3,
+  "assetCount": 27,
+  "assets": [
+    {
+      "blindId": "SQF-A01",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 1.0658141036401503e-14,
+          "measuredKWeightedLevelDb": -23.27831781387641,
+          "path": "artifacts/sq-f-audition/SQF-A01-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "799bbadb55915bec93426a6a570ec94ab208034416d818d4446a92112519b576",
+          "targetKWeightedLevelDb": -23.27831781387642,
+          "truePeakDbtp": -11.58042781182141
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 2.1316282072803006e-14,
+          "measuredKWeightedLevelDb": -20.998130240899656,
+          "path": "artifacts/sq-f-audition/SQF-A01-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "cf3ed4d6d2e21ab433a9c5a30db4b301015ebc9d73875541d2f7fd41b147e37b",
+          "targetKWeightedLevelDb": -20.998130240899677,
+          "truePeakDbtp": -7.440702916440392
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 2.842170943040401e-14,
+          "measuredKWeightedLevelDb": -19.640615275334,
+          "path": "artifacts/sq-f-audition/SQF-A01-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "2b4d1fd464eabf7c2921a89a540811fd560080102e2dfad18b8aad25777132a2",
+          "targetKWeightedLevelDb": -19.640615275334028,
+          "truePeakDbtp": -5.817903245023894
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 1.7763568394002505e-14,
+          "measuredKWeightedLevelDb": -20.37609118646683,
+          "path": "artifacts/sq-f-audition/SQF-A01-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "61864dcde9e95a63ea59ef611a969b3ab0c43402d9927b7180836aa670d5a6f4",
+          "targetKWeightedLevelDb": -20.376091186466848,
+          "truePeakDbtp": -5.773740014869317
+        }
+      ],
+      "family": "bass"
+    },
+    {
+      "blindId": "SQF-A02",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -24.233641037167178,
+          "path": "artifacts/sq-f-audition/SQF-A02-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "2695662e0e58add909eb58bf28ae4a1e709cf0056b8bf70c2784697f9d1dd4d8",
+          "targetKWeightedLevelDb": -24.233641037167178,
+          "truePeakDbtp": -14.369435985742482
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 7.105427357601002e-15,
+          "measuredKWeightedLevelDb": -22.17332537598997,
+          "path": "artifacts/sq-f-audition/SQF-A02-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "b304f043090a8d36258e0cd5c9859118f7e4438658dda9738cffc9f4539e8fbd",
+          "targetKWeightedLevelDb": -22.17332537598998,
+          "truePeakDbtp": -9.153845402789567
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 2.1316282072803006e-14,
+          "measuredKWeightedLevelDb": -21.272941231473002,
+          "path": "artifacts/sq-f-audition/SQF-A02-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "ebbb6da89022444c629320e18f5df9c3a2fa3fa460a53ddb571484fcc0c046b7",
+          "targetKWeightedLevelDb": -21.27294123147298,
+          "truePeakDbtp": -7.749492628123095
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 4.263256414560601e-14,
+          "measuredKWeightedLevelDb": -21.012455535300735,
+          "path": "artifacts/sq-f-audition/SQF-A02-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "2926d4e7f3c48ca18c838b1df0f133f06828b4a27652ff0d85682bb64be4648d",
+          "targetKWeightedLevelDb": -21.012455535300692,
+          "truePeakDbtp": -5.433114477094896
+        }
+      ],
+      "family": "texture"
+    },
+    {
+      "blindId": "SQF-A03",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 8.526512829121202e-14,
+          "measuredKWeightedLevelDb": -22.2313913092611,
+          "path": "artifacts/sq-f-audition/SQF-A03-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "178c9d47d3dc9558b84657265a09297f36649be9d4ef8e9f249a9071d12e8b0e",
+          "targetKWeightedLevelDb": -22.231391309261014,
+          "truePeakDbtp": -15.911589895997809
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 1.4210854715202004e-14,
+          "measuredKWeightedLevelDb": -20.83678715883061,
+          "path": "artifacts/sq-f-audition/SQF-A03-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "e61001a65de535848701052d917ad4576bd7cec889de7eefdea77dc99ad1ea8f",
+          "targetKWeightedLevelDb": -20.836787158830596,
+          "truePeakDbtp": -9.910885441866018
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 7.815970093361102e-14,
+          "measuredKWeightedLevelDb": -20.84509392307937,
+          "path": "artifacts/sq-f-audition/SQF-A03-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "b8c2ab13ada99b74954a794d93ef076890b6a0b51524478302659503a17a6400",
+          "targetKWeightedLevelDb": -20.845093923079293,
+          "truePeakDbtp": -9.185631084281448
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 2.0250467969162855e-13,
+          "measuredKWeightedLevelDb": -20.250102410356206,
+          "path": "artifacts/sq-f-audition/SQF-A03-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "bfb9c5ec1baa51eecdeb565692f8a0f921e21241292dd61ac4e9e017f5606d33",
+          "targetKWeightedLevelDb": -20.25010241035641,
+          "truePeakDbtp": -6.682292418158501
+        }
+      ],
+      "family": "lead"
+    },
+    {
+      "blindId": "SQF-A04",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 7.105427357601002e-15,
+          "measuredKWeightedLevelDb": -33.74090205478375,
+          "path": "artifacts/sq-f-audition/SQF-A04-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "230e2b3b38ca48f36ae8f29bbef845cf22e8c23a55c0616e89530aa46b539d02",
+          "targetKWeightedLevelDb": -33.740902054783746,
+          "truePeakDbtp": -10.553673895306446
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 7.105427357601002e-14,
+          "measuredKWeightedLevelDb": -22.486734907757604,
+          "path": "artifacts/sq-f-audition/SQF-A04-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "2e687fe8bf71b341ae9b5213442b4344c38b5736f57fd04813148020cb2cb8c5",
+          "targetKWeightedLevelDb": -22.486734907757533,
+          "truePeakDbtp": -9.2739152910749
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 1.813889475954511e-6,
+          "measuredKWeightedLevelDb": -23.17270454646495,
+          "path": "artifacts/sq-f-audition/SQF-A04-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "bb8e317bcfeb422f33b6fa598098c546dc5b6ebd31b0a7ec8a2b26fb4a74d3af",
+          "targetKWeightedLevelDb": -23.172706360354425,
+          "truePeakDbtp": -2.202515946529903
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 7.815970093361102e-14,
+          "measuredKWeightedLevelDb": -21.200201182525802,
+          "path": "artifacts/sq-f-audition/SQF-A04-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "24af5407a1ca65172796605bfba13a061891eaea724bfa275186163ffa6c8d61",
+          "targetKWeightedLevelDb": -21.200201182525724,
+          "truePeakDbtp": -5.100349005094693
+        }
+      ],
+      "family": "pluck"
+    },
+    {
+      "blindId": "SQF-A05",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 4.121147867408581e-13,
+          "measuredKWeightedLevelDb": -22.2313913092606,
+          "path": "artifacts/sq-f-audition/SQF-A05-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "a708082011f714d2defddf32d42ee3860deab960a7685c0a1fc94b5db5fc502d",
+          "targetKWeightedLevelDb": -22.231391309261014,
+          "truePeakDbtp": -13.048270903526733
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 8.171241461241152e-14,
+          "measuredKWeightedLevelDb": -20.836787158830678,
+          "path": "artifacts/sq-f-audition/SQF-A05-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "68575bb298cd3c8efeebbe9f3b642606dbe4d03e2d2ab9e369d7505f5a233d74",
+          "targetKWeightedLevelDb": -20.836787158830596,
+          "truePeakDbtp": -8.841344859185211
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 7.105427357601002e-14,
+          "measuredKWeightedLevelDb": -20.845093923079222,
+          "path": "artifacts/sq-f-audition/SQF-A05-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "bb77232df689beff2bf55a22a3fd1d6d71b79d5b44257adfe692d734dd5bee67",
+          "targetKWeightedLevelDb": -20.845093923079293,
+          "truePeakDbtp": -7.647107065987471
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 1.0658141036401503e-14,
+          "measuredKWeightedLevelDb": -20.25010241035642,
+          "path": "artifacts/sq-f-audition/SQF-A05-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "3ef7701cdffd88fe33205e50047e129c8d0bdeac78cfe814960fc615a5f3c524",
+          "targetKWeightedLevelDb": -20.25010241035641,
+          "truePeakDbtp": -5.5205289231293095
+        }
+      ],
+      "family": "lead"
+    },
+    {
+      "blindId": "SQF-A06",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 4.618527782440651e-14,
+          "measuredKWeightedLevelDb": -23.278317813876374,
+          "path": "artifacts/sq-f-audition/SQF-A06-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "b09bc5aa39ca10475bb2a499ee9d825bb00ffe84c6b8a0e8601ff79329398877",
+          "targetKWeightedLevelDb": -23.27831781387642,
+          "truePeakDbtp": -11.798713753672905
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 3.552713678800501e-15,
+          "measuredKWeightedLevelDb": -20.998130240899673,
+          "path": "artifacts/sq-f-audition/SQF-A06-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "926e783e9b3eaa3f31d4527eca5ed25f2ea2039f2d458cc6d1aac73f6d978bb2",
+          "targetKWeightedLevelDb": -20.998130240899677,
+          "truePeakDbtp": -7.455421280925051
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 1.0658141036401503e-13,
+          "measuredKWeightedLevelDb": -19.64061527533392,
+          "path": "artifacts/sq-f-audition/SQF-A06-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "d4b83cfbffa2d268bc09b2111b3a583dcb5a540589946fe0baf9331f6e8be4ad",
+          "targetKWeightedLevelDb": -19.640615275334028,
+          "truePeakDbtp": -6.831390926189588
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 2.4868995751603507e-14,
+          "measuredKWeightedLevelDb": -20.376091186466823,
+          "path": "artifacts/sq-f-audition/SQF-A06-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "f41e18b2383b0740294e75f619167d60439bf22265816e82dad5be1f2c894a4d",
+          "targetKWeightedLevelDb": -20.376091186466848,
+          "truePeakDbtp": -5.91581717045176
+        }
+      ],
+      "family": "bass"
+    },
+    {
+      "blindId": "SQF-A07",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 4.263256414560601e-14,
+          "measuredKWeightedLevelDb": -23.278317813876377,
+          "path": "artifacts/sq-f-audition/SQF-A07-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "df39d704a3e6c3112f17c23fa9ddff5318c2a91d9d944b7fed8a71864373d569",
+          "targetKWeightedLevelDb": -23.27831781387642,
+          "truePeakDbtp": -14.094860488962311
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 1.4210854715202004e-14,
+          "measuredKWeightedLevelDb": -20.99813024089969,
+          "path": "artifacts/sq-f-audition/SQF-A07-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "37895cdffe10939b3ad2c346a65ee9b232363855c364e4d3a5d2760625aaedc7",
+          "targetKWeightedLevelDb": -20.998130240899677,
+          "truePeakDbtp": -9.104338202704527
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 8.881784197001252e-14,
+          "measuredKWeightedLevelDb": -19.640615275334117,
+          "path": "artifacts/sq-f-audition/SQF-A07-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "a6f51f568d2580b8d0c4fe63309c994c69387ef6b1b30a17e9baa222d39970fd",
+          "targetKWeightedLevelDb": -19.640615275334028,
+          "truePeakDbtp": -8.381037735128468
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 1.4210854715202004e-14,
+          "measuredKWeightedLevelDb": -20.376091186466862,
+          "path": "artifacts/sq-f-audition/SQF-A07-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "abfd86f1e85410638679decfb1df0e4b54c38625167c6f2f513b8d3e164a16ec",
+          "targetKWeightedLevelDb": -20.376091186466848,
+          "truePeakDbtp": -6.199394156632712
+        }
+      ],
+      "family": "bass"
+    },
+    {
+      "blindId": "SQF-A08",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 3.197442310920451e-14,
+          "measuredKWeightedLevelDb": -22.23139130926098,
+          "path": "artifacts/sq-f-audition/SQF-A08-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "c4b911001f1945408832a72e480195753870e8d3257f57b7ed390089cc035928",
+          "targetKWeightedLevelDb": -22.231391309261014,
+          "truePeakDbtp": -14.428415743679775
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 3.907985046680551e-14,
+          "measuredKWeightedLevelDb": -20.836787158830635,
+          "path": "artifacts/sq-f-audition/SQF-A08-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "24de40ce6bf78879c3b7eb2f2791d1a16dbf7f882560d23dc72ecc66deaa15dc",
+          "targetKWeightedLevelDb": -20.836787158830596,
+          "truePeakDbtp": -8.05395465011156
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 9.237055564881302e-14,
+          "measuredKWeightedLevelDb": -20.8450939230792,
+          "path": "artifacts/sq-f-audition/SQF-A08-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "fb769540c4c85684d1add25d146b42c2000cb730fdda2d495d4f20a1861f799d",
+          "targetKWeightedLevelDb": -20.845093923079293,
+          "truePeakDbtp": -8.949178111762956
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 2.4868995751603507e-14,
+          "measuredKWeightedLevelDb": -20.250102410356433,
+          "path": "artifacts/sq-f-audition/SQF-A08-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "2ec25620054118396631e1018928ee6db875cb5be19766b239b12976a3e85141",
+          "targetKWeightedLevelDb": -20.25010241035641,
+          "truePeakDbtp": -6.0153211321733675
+        }
+      ],
+      "family": "lead"
+    },
+    {
+      "blindId": "SQF-A09",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 2.842170943040401e-14,
+          "measuredKWeightedLevelDb": -24.233641037167207,
+          "path": "artifacts/sq-f-audition/SQF-A09-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "5e76638cc92aae2544906937a1101a9fe4da7dfd1464ee56add0e767194064f5",
+          "targetKWeightedLevelDb": -24.233641037167178,
+          "truePeakDbtp": -19.413984918673037
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 7.105427357601002e-15,
+          "measuredKWeightedLevelDb": -22.17332537598997,
+          "path": "artifacts/sq-f-audition/SQF-A09-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "24e30fda1601a500f238a0d4614ca740ba578cc65b01fee293791982ab7b1c02",
+          "targetKWeightedLevelDb": -22.17332537598998,
+          "truePeakDbtp": -11.288023059743722
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 6.039613253960852e-14,
+          "measuredKWeightedLevelDb": -21.27294123147304,
+          "path": "artifacts/sq-f-audition/SQF-A09-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "c9b4fcfd9cc2b595b5e5b338bbbae686c3a095003341855dd73186fe49583147",
+          "targetKWeightedLevelDb": -21.27294123147298,
+          "truePeakDbtp": -11.390472470604509
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 5.684341886080802e-14,
+          "measuredKWeightedLevelDb": -21.01245553530075,
+          "path": "artifacts/sq-f-audition/SQF-A09-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "7ce1b555d69d2edd5590b54462bb140ed3255b0f72b52ab38e5960a220cc95c1",
+          "targetKWeightedLevelDb": -21.012455535300692,
+          "truePeakDbtp": -5.924146351048476
+        }
+      ],
+      "family": "texture"
+    },
+    {
+      "blindId": "SQF-A10",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 6.394884621840902e-14,
+          "measuredKWeightedLevelDb": -33.74090205478381,
+          "path": "artifacts/sq-f-audition/SQF-A10-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "28591d568383a85907bcbfc2f51cdddaf0f8c1dc66d6b6c642faca4230c201d1",
+          "targetKWeightedLevelDb": -33.740902054783746,
+          "truePeakDbtp": -11.37059785867309
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 9.947598300641403e-14,
+          "measuredKWeightedLevelDb": -22.486734907757434,
+          "path": "artifacts/sq-f-audition/SQF-A10-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "8bfcddfc262d75668ebd2b5f839594269bd2ef396d5fd2dfd10abc0ee7475f96",
+          "targetKWeightedLevelDb": -22.486734907757533,
+          "truePeakDbtp": -10.10619024263963
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 1.5987211554602254e-13,
+          "measuredKWeightedLevelDb": -23.172706360354265,
+          "path": "artifacts/sq-f-audition/SQF-A10-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "f800673fe55da4ba0159c2c0a56f6709b455a6a39fabbe226e7aa0903ed7ef4d",
+          "targetKWeightedLevelDb": -23.172706360354425,
+          "truePeakDbtp": -2.809870810053259
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 2.842170943040401e-14,
+          "measuredKWeightedLevelDb": -21.200201182525696,
+          "path": "artifacts/sq-f-audition/SQF-A10-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "c95cb18061001b97cae137c657cb6b902dea07d6dff29818147c7b31154b5995",
+          "targetKWeightedLevelDb": -21.200201182525724,
+          "truePeakDbtp": -5.463859462490694
+        }
+      ],
+      "family": "pluck"
+    },
+    {
+      "blindId": "SQF-A11",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 1.4210854715202004e-14,
+          "measuredKWeightedLevelDb": -24.233641037167192,
+          "path": "artifacts/sq-f-audition/SQF-A11-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "62926e33272c55b1debd63d6823278eed40a5efc6bf12cf984881cdf943de894",
+          "targetKWeightedLevelDb": -24.233641037167178,
+          "truePeakDbtp": -15.696053900257871
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 8.881784197001252e-14,
+          "measuredKWeightedLevelDb": -22.173325375990068,
+          "path": "artifacts/sq-f-audition/SQF-A11-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "9651881018d798bafbebd7dd57d0a4bb98e00a39a14147a14aac33ec75eafd27",
+          "targetKWeightedLevelDb": -22.17332537598998,
+          "truePeakDbtp": -10.981995617113771
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 2.842170943040401e-14,
+          "measuredKWeightedLevelDb": -21.27294123147301,
+          "path": "artifacts/sq-f-audition/SQF-A11-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "faa183188e60376cce380a99130672dd441e6db6c295c636bb27d993e0a42cf7",
+          "targetKWeightedLevelDb": -21.27294123147298,
+          "truePeakDbtp": -9.760939400288562
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 1.7763568394002505e-14,
+          "measuredKWeightedLevelDb": -21.01245553530071,
+          "path": "artifacts/sq-f-audition/SQF-A11-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "050d3e179045021d13650d5fc75e5485bd4e0343b39863b148579759e5221c8a",
+          "targetKWeightedLevelDb": -21.012455535300692,
+          "truePeakDbtp": -5.796934304296778
+        }
+      ],
+      "family": "texture"
+    },
+    {
+      "blindId": "SQF-A12",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 7.460698725481052e-14,
+          "measuredKWeightedLevelDb": -23.278317813876345,
+          "path": "artifacts/sq-f-audition/SQF-A12-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "6297be91ff9be3e0fb2033c59a49ef44470ae0d6ed48903d20a0698ad6564c7e",
+          "targetKWeightedLevelDb": -23.27831781387642,
+          "truePeakDbtp": -12.895029871699698
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 3.552713678800501e-14,
+          "measuredKWeightedLevelDb": -20.998130240899712,
+          "path": "artifacts/sq-f-audition/SQF-A12-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "65d65b7878d4bd2d70f2f933178be59a80369426ffc9377fc31f31980f848656",
+          "targetKWeightedLevelDb": -20.998130240899677,
+          "truePeakDbtp": -8.245119956338163
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 4.973799150320701e-14,
+          "measuredKWeightedLevelDb": -19.640615275334078,
+          "path": "artifacts/sq-f-audition/SQF-A12-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "b62093918cc3b481fa6bce3da6b6feca19277638471d93a8dafcef2a4edbb652",
+          "targetKWeightedLevelDb": -19.640615275334028,
+          "truePeakDbtp": -7.619121638602002
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 1.2434497875801753e-13,
+          "measuredKWeightedLevelDb": -20.376091186466724,
+          "path": "artifacts/sq-f-audition/SQF-A12-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "4accf536de0db88737b3aa6180383a444c8135cf920429bffccab3673a456859",
+          "targetKWeightedLevelDb": -20.376091186466848,
+          "truePeakDbtp": -6.062197488045111
+        }
+      ],
+      "family": "bass"
+    },
+    {
+      "blindId": "SQF-A13",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 4.618527782440651e-14,
+          "measuredKWeightedLevelDb": -23.278317813876374,
+          "path": "artifacts/sq-f-audition/SQF-A13-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "53a3834e307f89048d83eb446129c9423e669a48694b78a83136166a25078c52",
+          "targetKWeightedLevelDb": -23.27831781387642,
+          "truePeakDbtp": -12.460816870683658
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 2.4868995751603507e-14,
+          "measuredKWeightedLevelDb": -20.998130240899652,
+          "path": "artifacts/sq-f-audition/SQF-A13-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "58a1cfe8e1910dab1b044512c6e76465df3d0a7455156eb9d9cb51eade73735b",
+          "targetKWeightedLevelDb": -20.998130240899677,
+          "truePeakDbtp": -8.309291891344461
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 1.0302869668521453e-13,
+          "measuredKWeightedLevelDb": -19.640615275333925,
+          "path": "artifacts/sq-f-audition/SQF-A13-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "7dba88491cdfe07032352b810d37bb9c020cdfc7cacb4dbbf5224c1030815e5c",
+          "targetKWeightedLevelDb": -19.640615275334028,
+          "truePeakDbtp": -6.042340516785113
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 2.842170943040401e-14,
+          "measuredKWeightedLevelDb": -20.376091186466876,
+          "path": "artifacts/sq-f-audition/SQF-A13-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "33f9b9b1db098dfe1439726d85176083444a60156319888e5ed0118ced8d7d55",
+          "targetKWeightedLevelDb": -20.376091186466848,
+          "truePeakDbtp": -6.075990702769807
+        }
+      ],
+      "family": "bass"
+    },
+    {
+      "blindId": "SQF-A14",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 2.4868995751603507e-14,
+          "measuredKWeightedLevelDb": -21.200574927296792,
+          "path": "artifacts/sq-f-audition/SQF-A14-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "68e83ea7b0ce1915efc2d054e9ae955b7db3887329603d961bad1083857dfca4",
+          "targetKWeightedLevelDb": -21.200574927296767,
+          "truePeakDbtp": -15.05790461451037
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 2.4868995751603507e-14,
+          "measuredKWeightedLevelDb": -17.508613115564795,
+          "path": "artifacts/sq-f-audition/SQF-A14-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "b7a9c1920ad1192a930a0c6e9d8d309a29e6db8bbfc4c60aebf86a9cb8594636",
+          "targetKWeightedLevelDb": -17.50861311556482,
+          "truePeakDbtp": -3.3089316669745177
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -13.523017533437805,
+          "path": "artifacts/sq-f-audition/SQF-A14-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "3cfa85a1bc831fa63868ae3297b5567fe215eec1ab02a78dcb640d09ed3cb8a5",
+          "targetKWeightedLevelDb": -13.523017533437805,
+          "truePeakDbtp": -1.4448406760248076
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 2.4868995751603507e-14,
+          "measuredKWeightedLevelDb": -18.016553808481703,
+          "path": "artifacts/sq-f-audition/SQF-A14-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "3c14d4308bff49561b59cbf11efe714570f8078c0fe6506fac5e9a97093c86d1",
+          "targetKWeightedLevelDb": -18.016553808481728,
+          "truePeakDbtp": -4.136865744762902
+        }
+      ],
+      "family": "pad"
+    },
+    {
+      "blindId": "SQF-A15",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 2.842170943040401e-14,
+          "measuredKWeightedLevelDb": -21.20057492729674,
+          "path": "artifacts/sq-f-audition/SQF-A15-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "617cd879c8b73cb16ee47901141bfebbbbd1b47d70aa91d7f6a77154ca9c8115",
+          "targetKWeightedLevelDb": -21.200574927296767,
+          "truePeakDbtp": -12.206913095373054
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 8.171241461241152e-14,
+          "measuredKWeightedLevelDb": -17.50861311556474,
+          "path": "artifacts/sq-f-audition/SQF-A15-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "a17a8af1460b072af9a9b73c833af4fbae3059e9064afde35043c3161a604286",
+          "targetKWeightedLevelDb": -17.50861311556482,
+          "truePeakDbtp": -3.2253878506922136
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 0.00006906524642680267,
+          "measuredKWeightedLevelDb": -13.522948468191379,
+          "path": "artifacts/sq-f-audition/SQF-A15-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "6c86978552031075f9bd1f078991a734411808ec0966f2ef66192b7d5d61997a",
+          "targetKWeightedLevelDb": -13.523017533437805,
+          "truePeakDbtp": -1.1914824823564691
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 3.552713678800501e-14,
+          "measuredKWeightedLevelDb": -18.016553808481692,
+          "path": "artifacts/sq-f-audition/SQF-A15-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "fab42c100e8364523ae63e2266628f805370d4d66fc33b210d33c513d3b8c1e1",
+          "targetKWeightedLevelDb": -18.016553808481728,
+          "truePeakDbtp": -3.752786988023023
+        }
+      ],
+      "family": "pad"
+    },
+    {
+      "blindId": "SQF-A16",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -24.233641037167178,
+          "path": "artifacts/sq-f-audition/SQF-A16-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "d032e056f7d0f3a78d347889b733161abe3ec46722d5b8363c6c066296068f50",
+          "targetKWeightedLevelDb": -24.233641037167178,
+          "truePeakDbtp": -14.298077365884483
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 5.3290705182007514e-14,
+          "measuredKWeightedLevelDb": -22.173325375989926,
+          "path": "artifacts/sq-f-audition/SQF-A16-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "4a680cd2b2bbaf057ab1a5fa97469c3d61397648b35df2ad66d05fc1e5984b8e",
+          "targetKWeightedLevelDb": -22.17332537598998,
+          "truePeakDbtp": -10.468825545651224
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -21.27294123147298,
+          "path": "artifacts/sq-f-audition/SQF-A16-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "53b4ef10c029819b24e052fa65a32188ae21151f2aca4f3430b5306bd8677a94",
+          "targetKWeightedLevelDb": -21.27294123147298,
+          "truePeakDbtp": -8.897542934706742
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 4.263256414560601e-14,
+          "measuredKWeightedLevelDb": -21.01245553530065,
+          "path": "artifacts/sq-f-audition/SQF-A16-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "16b182fbe3784fdc3994840691454ec51379e726278ab68738aacc8505f9d7b9",
+          "targetKWeightedLevelDb": -21.012455535300692,
+          "truePeakDbtp": -5.738392119950246
+        }
+      ],
+      "family": "texture"
+    },
+    {
+      "blindId": "SQF-A17",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 1.0658141036401503e-14,
+          "measuredKWeightedLevelDb": -23.27831781387643,
+          "path": "artifacts/sq-f-audition/SQF-A17-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "b27c5ab9bc39eef61a7fdc6fe5dc3e3184d3eea19544aa6f90c3f0c512832102",
+          "targetKWeightedLevelDb": -23.27831781387642,
+          "truePeakDbtp": -11.564514698453689
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 5.3290705182007514e-14,
+          "measuredKWeightedLevelDb": -20.998130240899624,
+          "path": "artifacts/sq-f-audition/SQF-A17-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "90b22634981047f6af68450d0ef7291663dabe8922fe6610959d01ac6a4965d1",
+          "targetKWeightedLevelDb": -20.998130240899677,
+          "truePeakDbtp": -8.536359575351733
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 3.552713678800501e-14,
+          "measuredKWeightedLevelDb": -19.640615275333992,
+          "path": "artifacts/sq-f-audition/SQF-A17-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "6ff6eff41838e6c7e00731343d189e56c690815fb6256c2f358a5d499336c643",
+          "targetKWeightedLevelDb": -19.640615275334028,
+          "truePeakDbtp": -6.097589512593094
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 1.2079226507921703e-13,
+          "measuredKWeightedLevelDb": -20.376091186466727,
+          "path": "artifacts/sq-f-audition/SQF-A17-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "172ba7ac104fae4da91dc3f2de5a84c3f5eeaea46b89944f8b76170060bd1af1",
+          "targetKWeightedLevelDb": -20.376091186466848,
+          "truePeakDbtp": -5.29795800516191
+        }
+      ],
+      "family": "bass"
+    },
+    {
+      "blindId": "SQF-A18",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 4.263256414560601e-14,
+          "measuredKWeightedLevelDb": -22.23139130926097,
+          "path": "artifacts/sq-f-audition/SQF-A18-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "98861210ae9ed05c33e4ef4fce5d99784fceda837b0398763e640957ab064173",
+          "targetKWeightedLevelDb": -22.231391309261014,
+          "truePeakDbtp": -13.543002931517442
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 1.7763568394002505e-14,
+          "measuredKWeightedLevelDb": -20.836787158830578,
+          "path": "artifacts/sq-f-audition/SQF-A18-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "f75245445e751dbe1f23fa552a005842e87e02bc7c7ae8cf2d4855f0aff026bc",
+          "targetKWeightedLevelDb": -20.836787158830596,
+          "truePeakDbtp": -7.925908298254906
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 3.552713678800501e-14,
+          "measuredKWeightedLevelDb": -20.84509392307933,
+          "path": "artifacts/sq-f-audition/SQF-A18-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "34fc7be8d1c2fc367dd97b44125588ae31392b415c5f36150b9c6d38e74333d1",
+          "targetKWeightedLevelDb": -20.845093923079293,
+          "truePeakDbtp": -7.17213902459514
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 2.4868995751603507e-14,
+          "measuredKWeightedLevelDb": -20.250102410356384,
+          "path": "artifacts/sq-f-audition/SQF-A18-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "6f830051331f26232f462816decf3df8b6b4207a63a64fc7d3895d1847e2bf63",
+          "targetKWeightedLevelDb": -20.25010241035641,
+          "truePeakDbtp": -5.862063143098939
+        }
+      ],
+      "family": "lead"
+    },
+    {
+      "blindId": "SQF-A19",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 6.039613253960852e-14,
+          "measuredKWeightedLevelDb": -21.200574927296827,
+          "path": "artifacts/sq-f-audition/SQF-A19-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "84dd19b1d619aa2b232a776ed38cfc6736d1c4ef73e12d8d1b73a1111660a4f5",
+          "targetKWeightedLevelDb": -21.200574927296767,
+          "truePeakDbtp": -14.3776736579922
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -17.50861311556482,
+          "path": "artifacts/sq-f-audition/SQF-A19-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "3aa400f7ff2e5b126c88a4f7610206846c786dcfdb68e523fa323390e289243c",
+          "targetKWeightedLevelDb": -17.50861311556482,
+          "truePeakDbtp": -4.158676837030568
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 2.191940799534109e-6,
+          "measuredKWeightedLevelDb": -13.523019725378605,
+          "path": "artifacts/sq-f-audition/SQF-A19-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "71c4dcef5d0db51bcafcec53377d7765673cc8ddd1fcd79ff732627a2acaeec4",
+          "targetKWeightedLevelDb": -13.523017533437805,
+          "truePeakDbtp": -1.3863910793525478
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -18.016553808481728,
+          "path": "artifacts/sq-f-audition/SQF-A19-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "0b9d1e623ddf18e313d68325f9104ee8058b08ee36cbdf5b7628134a1ef1e785",
+          "targetKWeightedLevelDb": -18.016553808481728,
+          "truePeakDbtp": -3.5525532303524265
+        }
+      ],
+      "family": "pad"
+    },
+    {
+      "blindId": "SQF-A20",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 1.4210854715202004e-14,
+          "measuredKWeightedLevelDb": -24.233641037167192,
+          "path": "artifacts/sq-f-audition/SQF-A20-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "27f5ad11a138820cf2353bb2df8898067da75cba1d5070983dc49fef1102e212",
+          "targetKWeightedLevelDb": -24.233641037167178,
+          "truePeakDbtp": -15.32972169926985
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -22.17332537598998,
+          "path": "artifacts/sq-f-audition/SQF-A20-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "6fa4ec6ff64ea6aeacafad48ee9724a95d9c06600cd43d816af6772215f1519e",
+          "targetKWeightedLevelDb": -22.17332537598998,
+          "truePeakDbtp": -10.905689018914046
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 3.907985046680551e-14,
+          "measuredKWeightedLevelDb": -21.27294123147302,
+          "path": "artifacts/sq-f-audition/SQF-A20-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "a414eccfad8a06fcfa45c0b76bed22051cc646341e6489b9dc3538140008ec58",
+          "targetKWeightedLevelDb": -21.27294123147298,
+          "truePeakDbtp": -8.454420249169136
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -21.012455535300692,
+          "path": "artifacts/sq-f-audition/SQF-A20-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "8409862ce67ec5080248e8b2d192aae04368a347184039bf5b7bf35ac1b2dec2",
+          "targetKWeightedLevelDb": -21.012455535300692,
+          "truePeakDbtp": -5.473466583744855
+        }
+      ],
+      "family": "texture"
+    },
+    {
+      "blindId": "SQF-A21",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 9.237055564881302e-14,
+          "measuredKWeightedLevelDb": -21.200574927296675,
+          "path": "artifacts/sq-f-audition/SQF-A21-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "6988ce28d6300b5ead14b1bff90217d6437b9f83865deb7d91030cd5d1cb1c93",
+          "targetKWeightedLevelDb": -21.200574927296767,
+          "truePeakDbtp": -16.20287393810661
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 3.552713678800501e-15,
+          "measuredKWeightedLevelDb": -17.508613115564824,
+          "path": "artifacts/sq-f-audition/SQF-A21-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "038aab1cc1080a9559e8361730d9171f1703d4015f8f86035b962b297ae0cc3f",
+          "targetKWeightedLevelDb": -17.50861311556482,
+          "truePeakDbtp": -4.25876989110409
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 2.0688353750131228e-6,
+          "measuredKWeightedLevelDb": -13.52301960227318,
+          "path": "artifacts/sq-f-audition/SQF-A21-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "35f88a56e9fd83047519d31656691849100cc038addcf43587e2f0463d00c687",
+          "targetKWeightedLevelDb": -13.523017533437805,
+          "truePeakDbtp": -1.526176716183866
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 1.4210854715202004e-14,
+          "measuredKWeightedLevelDb": -18.016553808481714,
+          "path": "artifacts/sq-f-audition/SQF-A21-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "4c8cc2495ab073b3b296cef1af40f4a905a132c80a040826dd8ad751d9cc982d",
+          "targetKWeightedLevelDb": -18.016553808481728,
+          "truePeakDbtp": -2.9973246714267177
+        }
+      ],
+      "family": "pad"
+    },
+    {
+      "blindId": "SQF-A22",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -22.231391309261014,
+          "path": "artifacts/sq-f-audition/SQF-A22-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "87548e953ebd3a04e9b7d5223e7d12a204d7c5b1163f117d54b2e8d09de82d58",
+          "targetKWeightedLevelDb": -22.231391309261014,
+          "truePeakDbtp": -12.98301483670162
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 3.197442310920451e-14,
+          "measuredKWeightedLevelDb": -20.836787158830628,
+          "path": "artifacts/sq-f-audition/SQF-A22-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "6c684583df826a218392be44ed01b3459453ce0195b3790ee9b283e170508d83",
+          "targetKWeightedLevelDb": -20.836787158830596,
+          "truePeakDbtp": -8.022119393304333
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -20.845093923079293,
+          "path": "artifacts/sq-f-audition/SQF-A22-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "3902dfa0b41df0bfd824e5d557a96ed5ab6d1500e76b9b69930f106c4e8ce157",
+          "targetKWeightedLevelDb": -20.845093923079293,
+          "truePeakDbtp": -7.271460632280781
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 1.1368683772161603e-13,
+          "measuredKWeightedLevelDb": -20.250102410356522,
+          "path": "artifacts/sq-f-audition/SQF-A22-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "d106e998e641837bd07ae1d6762053eecf5df899672dfa98a88bd8194f2e0e6f",
+          "targetKWeightedLevelDb": -20.25010241035641,
+          "truePeakDbtp": -5.58391528208306
+        }
+      ],
+      "family": "lead"
+    },
+    {
+      "blindId": "SQF-A23",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -21.200574927296767,
+          "path": "artifacts/sq-f-audition/SQF-A23-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "d7f79fee39df066325be4c4423064ca2e9b23184adb686dc19ca67cc3f40ee00",
+          "targetKWeightedLevelDb": -21.200574927296767,
+          "truePeakDbtp": -12.39775408059256
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 2.1316282072803006e-14,
+          "measuredKWeightedLevelDb": -17.5086131155648,
+          "path": "artifacts/sq-f-audition/SQF-A23-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "02dc4668d73b7f0a50efe2ec33a882a6920e848a8c8f063171a59b5e0fe56880",
+          "targetKWeightedLevelDb": -17.50861311556482,
+          "truePeakDbtp": -3.2132177618007463
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 0.000010103853020027032,
+          "measuredKWeightedLevelDb": -13.523007429584785,
+          "path": "artifacts/sq-f-audition/SQF-A23-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "31721661daa1b9909c9df462839a785e13ade3ac464cc524f9729136030f7b37",
+          "targetKWeightedLevelDb": -13.523017533437805,
+          "truePeakDbtp": -1.2940466301668117
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 4.263256414560601e-14,
+          "measuredKWeightedLevelDb": -18.01655380848177,
+          "path": "artifacts/sq-f-audition/SQF-A23-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "6fabdd03ea8705320c24790e2d5f0911e6c792d7ef4007e387a3160f5358b87b",
+          "targetKWeightedLevelDb": -18.016553808481728,
+          "truePeakDbtp": -2.492915257017469
+        }
+      ],
+      "family": "pad"
+    },
+    {
+      "blindId": "SQF-A24",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 1.0658141036401503e-14,
+          "measuredKWeightedLevelDb": -22.231391309261003,
+          "path": "artifacts/sq-f-audition/SQF-A24-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "98c30f21f5ac6e49394f7b6539687e655e841b47da610263b02e1198b1bd6d8b",
+          "targetKWeightedLevelDb": -22.231391309261014,
+          "truePeakDbtp": -10.54382419179593
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 5.3290705182007514e-14,
+          "measuredKWeightedLevelDb": -20.83678715883065,
+          "path": "artifacts/sq-f-audition/SQF-A24-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "1538e54b89904386b71cd6e7733dcb7e0a44e42b396f56b83e25b27ae0d3398a",
+          "targetKWeightedLevelDb": -20.836787158830596,
+          "truePeakDbtp": -6.238767985234044
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 7.105427357601002e-15,
+          "measuredKWeightedLevelDb": -20.8450939230793,
+          "path": "artifacts/sq-f-audition/SQF-A24-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "3a5f470865e1ba018459ec00301151b0c7fb0e28c2f0cf4e126a80b31c8066d2",
+          "targetKWeightedLevelDb": -20.845093923079293,
+          "truePeakDbtp": -5.435029323539144
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 4.263256414560601e-14,
+          "measuredKWeightedLevelDb": -20.25010241035645,
+          "path": "artifacts/sq-f-audition/SQF-A24-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "d864d73e32b990a69677bb9811ba2deefb5ff5c3a6fb547c84aa1365f06776c9",
+          "targetKWeightedLevelDb": -20.25010241035641,
+          "truePeakDbtp": -5.246169924803662
+        }
+      ],
+      "family": "lead"
+    },
+    {
+      "blindId": "SQF-A25",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 6.394884621840902e-14,
+          "measuredKWeightedLevelDb": -33.74090205478368,
+          "path": "artifacts/sq-f-audition/SQF-A25-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "8bd70f5cf42716d534ff617723f616db9e7ef0647f0957a52a531a9596c839cc",
+          "targetKWeightedLevelDb": -33.740902054783746,
+          "truePeakDbtp": -18.024826064718184
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 1.4210854715202004e-14,
+          "measuredKWeightedLevelDb": -22.48673490775752,
+          "path": "artifacts/sq-f-audition/SQF-A25-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "771879ce7a07c6c7b33e42a6ec98044d7ddb4f711c020926a390e53d66625cff",
+          "targetKWeightedLevelDb": -22.486734907757533,
+          "truePeakDbtp": -12.744513985315944
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 6.039613253960852e-14,
+          "measuredKWeightedLevelDb": -23.172706360354365,
+          "path": "artifacts/sq-f-audition/SQF-A25-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "2f0dbce398cc9698759a1594553dcf1d01be60e4f823ed28f3e2661f08b3cde0",
+          "targetKWeightedLevelDb": -23.172706360354425,
+          "truePeakDbtp": -5.788353580726472
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 5.3290705182007514e-14,
+          "measuredKWeightedLevelDb": -21.200201182525777,
+          "path": "artifacts/sq-f-audition/SQF-A25-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "d2689108b40d1ff4b4b7cdf8b92ad4cd51f5ae46c67e0ce6cedc77b20c3fe3c5",
+          "targetKWeightedLevelDb": -21.200201182525724,
+          "truePeakDbtp": -6.697427812741807
+        }
+      ],
+      "family": "pluck"
+    },
+    {
+      "blindId": "SQF-A26",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 1.6342482922482304e-13,
+          "measuredKWeightedLevelDb": -33.74090205478391,
+          "path": "artifacts/sq-f-audition/SQF-A26-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "7f68fd3cda16303f1f93910844c6d8026fdbf3b531c06a54f0eb06386f04bfa0",
+          "targetKWeightedLevelDb": -33.740902054783746,
+          "truePeakDbtp": -10.092324923261693
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 1.0658141036401503e-13,
+          "measuredKWeightedLevelDb": -22.486734907757427,
+          "path": "artifacts/sq-f-audition/SQF-A26-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "a8f1a016a2e374123e40afcb1210e0ca716dea97b83887d59a5d69be7c2edaf2",
+          "targetKWeightedLevelDb": -22.486734907757533,
+          "truePeakDbtp": -8.93776876276782
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0001701630563992751,
+          "measuredKWeightedLevelDb": -23.172536197298026,
+          "path": "artifacts/sq-f-audition/SQF-A26-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "898400602639f8d375b1385207284e2e97fdfa122e015ccc10061e1b87833690",
+          "targetKWeightedLevelDb": -23.172706360354425,
+          "truePeakDbtp": -1.2915772387777167
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 4.618527782440651e-14,
+          "measuredKWeightedLevelDb": -21.200201182525678,
+          "path": "artifacts/sq-f-audition/SQF-A26-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "12815345b2014020d7af4bd44223ba8a4a5d23d9602e71a0544dc6fa55dcff43",
+          "targetKWeightedLevelDb": -21.200201182525724,
+          "truePeakDbtp": -5.107012834866956
+        }
+      ],
+      "family": "pluck"
+    },
+    {
+      "blindId": "SQF-A27",
+      "contexts": [
+        {
+          "context": "isolated-note",
+          "frameCount": 384000,
+          "matchErrorDb": 1.1013412404281553e-13,
+          "measuredKWeightedLevelDb": -22.231391309260903,
+          "path": "artifacts/sq-f-audition/SQF-A27-isolated-note.wav",
+          "sampleRate": 48000,
+          "sha256": "32073359676ae6a9df283f7b58aa78a019d2ef922297571bdcd540787cd8f1d8",
+          "targetKWeightedLevelDb": -22.231391309261014,
+          "truePeakDbtp": -10.692502784440556
+        },
+        {
+          "context": "role-phrase",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -20.836787158830596,
+          "path": "artifacts/sq-f-audition/SQF-A27-role-phrase.wav",
+          "sampleRate": 48000,
+          "sha256": "5f3b92e323af547e257990e50e47a317bfa798d7228302ff6401aa4c8e674779",
+          "targetKWeightedLevelDb": -20.836787158830596,
+          "truePeakDbtp": -7.720064371127941
+        },
+        {
+          "context": "polyphony",
+          "frameCount": 384000,
+          "matchErrorDb": 3.907985046680551e-14,
+          "measuredKWeightedLevelDb": -20.845093923079332,
+          "path": "artifacts/sq-f-audition/SQF-A27-polyphony.wav",
+          "sampleRate": 48000,
+          "sha256": "f584dfc690cd91564b5c7791ba1bad2e6b58429782e4d31145f1c7e75693d89f",
+          "targetKWeightedLevelDb": -20.845093923079293,
+          "truePeakDbtp": -4.817266863617496
+        },
+        {
+          "context": "protected-drum-mix",
+          "frameCount": 384000,
+          "matchErrorDb": 0.0,
+          "measuredKWeightedLevelDb": -20.25010241035641,
+          "path": "artifacts/sq-f-audition/SQF-A27-protected-drum-mix.wav",
+          "sampleRate": 48000,
+          "sha256": "dd3496536a58ffc5e138b43ced959b3355c4ab194ea5c1f057a51a7b7dc0ef3b",
+          "targetKWeightedLevelDb": -20.25010241035641,
+          "truePeakDbtp": -4.515536051193049
+        }
+      ],
+      "family": "lead"
+    }
+  ],
+  "audioFileCount": 108,
+  "decision": "No preference or catalog-freeze claim is valid until both panels provide valid observations.",
+  "levelMatchToleranceDb": 0.25,
+  "minimumValidListenersPerPanel": 16,
+  "packageRevision": 1,
+  "panels": [
+    "trained-critical",
+    "target-creator"
+  ],
+  "responseDataPresent": false,
+  "status": "awaiting-human-observations",
+  "trials": [
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "bass",
+      "leftBlindId": "SQF-A01",
+      "rightBlindId": "SQF-A06",
+      "trialId": "SQF-T01"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "bass",
+      "leftBlindId": "SQF-A01",
+      "rightBlindId": "SQF-A17",
+      "trialId": "SQF-T02"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "texture",
+      "leftBlindId": "SQF-A02",
+      "rightBlindId": "SQF-A09",
+      "trialId": "SQF-T03"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "texture",
+      "leftBlindId": "SQF-A02",
+      "rightBlindId": "SQF-A16",
+      "trialId": "SQF-T04"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "texture",
+      "leftBlindId": "SQF-A02",
+      "rightBlindId": "SQF-A20",
+      "trialId": "SQF-T05"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "lead",
+      "leftBlindId": "SQF-A03",
+      "rightBlindId": "SQF-A05",
+      "trialId": "SQF-T06"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "lead",
+      "leftBlindId": "SQF-A03",
+      "rightBlindId": "SQF-A27",
+      "trialId": "SQF-T07"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "pluck",
+      "leftBlindId": "SQF-A04",
+      "rightBlindId": "SQF-A10",
+      "trialId": "SQF-T08"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "pluck",
+      "leftBlindId": "SQF-A04",
+      "rightBlindId": "SQF-A26",
+      "trialId": "SQF-T09"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "lead",
+      "leftBlindId": "SQF-A05",
+      "rightBlindId": "SQF-A08",
+      "trialId": "SQF-T10"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "bass",
+      "leftBlindId": "SQF-A06",
+      "rightBlindId": "SQF-A07",
+      "trialId": "SQF-T11"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "bass",
+      "leftBlindId": "SQF-A06",
+      "rightBlindId": "SQF-A12",
+      "trialId": "SQF-T12"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "bass",
+      "leftBlindId": "SQF-A07",
+      "rightBlindId": "SQF-A12",
+      "trialId": "SQF-T13"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "lead",
+      "leftBlindId": "SQF-A08",
+      "rightBlindId": "SQF-A18",
+      "trialId": "SQF-T14"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "texture",
+      "leftBlindId": "SQF-A09",
+      "rightBlindId": "SQF-A11",
+      "trialId": "SQF-T15"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "pluck",
+      "leftBlindId": "SQF-A10",
+      "rightBlindId": "SQF-A25",
+      "trialId": "SQF-T16"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "texture",
+      "leftBlindId": "SQF-A11",
+      "rightBlindId": "SQF-A16",
+      "trialId": "SQF-T17"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "bass",
+      "leftBlindId": "SQF-A12",
+      "rightBlindId": "SQF-A13",
+      "trialId": "SQF-T18"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "bass",
+      "leftBlindId": "SQF-A13",
+      "rightBlindId": "SQF-A17",
+      "trialId": "SQF-T19"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "pad",
+      "leftBlindId": "SQF-A14",
+      "rightBlindId": "SQF-A15",
+      "trialId": "SQF-T20"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "pad",
+      "leftBlindId": "SQF-A14",
+      "rightBlindId": "SQF-A23",
+      "trialId": "SQF-T21"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "pad",
+      "leftBlindId": "SQF-A15",
+      "rightBlindId": "SQF-A19",
+      "trialId": "SQF-T22"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "texture",
+      "leftBlindId": "SQF-A16",
+      "rightBlindId": "SQF-A20",
+      "trialId": "SQF-T23"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "lead",
+      "leftBlindId": "SQF-A18",
+      "rightBlindId": "SQF-A22",
+      "trialId": "SQF-T24"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "pad",
+      "leftBlindId": "SQF-A19",
+      "rightBlindId": "SQF-A21",
+      "trialId": "SQF-T25"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "pad",
+      "leftBlindId": "SQF-A21",
+      "rightBlindId": "SQF-A23",
+      "trialId": "SQF-T26"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "lead",
+      "leftBlindId": "SQF-A22",
+      "rightBlindId": "SQF-A24",
+      "trialId": "SQF-T27"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "lead",
+      "leftBlindId": "SQF-A24",
+      "rightBlindId": "SQF-A27",
+      "trialId": "SQF-T28"
+    },
+    {
+      "contexts": [
+        "isolated-note",
+        "role-phrase",
+        "polyphony",
+        "protected-drum-mix"
+      ],
+      "family": "pluck",
+      "leftBlindId": "SQF-A25",
+      "rightBlindId": "SQF-A26",
+      "trialId": "SQF-T29"
+    }
+  ]
+}

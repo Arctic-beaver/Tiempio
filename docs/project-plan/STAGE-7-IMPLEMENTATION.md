@@ -14,7 +14,7 @@ behavior and acceptance authority remain in:
 Combined implementation and verification evidence is recorded in
 [`../evidence/STAGE-7.md`](../evidence/STAGE-7.md).
 
-Stage 7A completes and is verified before Stage 7B begins. No recording, V4 source/instance model,
+Stage 7A completes and is verified before Stage 7B begins. No recording, source/instance model,
 linked-brick scheduling, starter-catalog expansion or repository-hosted automation is in scope.
 
 ## Architecture audit

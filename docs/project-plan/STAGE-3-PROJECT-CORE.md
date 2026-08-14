@@ -34,11 +34,11 @@ render plan are Tiempio-owned.
 
 ## Architecture boundaries
 
-- `packages/project-core` owns opaque musical IDs, the versioned project model,
-  resolved instrument state, validation, migrations, semantic commands,
+- `packages/project-core` owns opaque musical IDs, the current project model,
+  resolved instrument state, strict validation, semantic commands,
   `ProjectSession`, undo/redo and render-plan compilation.
 - `packages/project-format` owns canonical manifest bytes, bounded logical
-  archive validation, unsupported-future-version preservation and checksummed
+  archive validation and checksummed
   recovery envelopes. It depends on the public `project-core` boundary and has
   no platform or React dependency.
 - `packages/application` owns the React provider and view projections. It may
@@ -50,10 +50,10 @@ render plan are Tiempio-owned.
 - The engine receives only a validated, revision-bound render plan. It never
   receives React state, archive bytes or an unvalidated project object.
 
-## Version and bound decisions
+## Current model and bound decisions
 
-- Project schema, patch model, macro mapping, render plan and recovery envelope
-  start at version `1` and evolve independently.
+- Project schema, patch model, macro mapping, render plan and recovery envelope expose exactly one
+  current shape and change only through an atomic repository-wide cutover.
 - Musical time uses non-negative safe integers at 960 ticks per quarter. A
   project contains a bounded timeline, layer count, clip count, event count and
   title/name/ID length.
@@ -65,14 +65,13 @@ render plan are Tiempio-owned.
 - The first synth source stores preset identity/revision, macro mapping/version
   and a fully resolved Bass patch. The resolved patch is authoritative for
   reproduction after catalog changes.
-- Unsupported future project or patch versions are returned as a read-only
-  result with an owned copy of the original bytes. They are never normalized
-  into a saveable current document.
+- Data that does not match the current project or patch contract is invalid and rejected without
+  opening a session or retaining an alternate representation.
 - The logical archive admits only canonical relative entry paths, one
   `project.json`, bounded entry count, bounded declared/decompressed bytes and
   bounded compression ratio metadata. Stage 5/6 adapters will supply actual ZIP
   streams.
-- Recovery uses a canonical manifest payload and a versioned CRC32 integrity
+- Recovery uses a canonical current-manifest payload and a CRC32 integrity
   checksum. It is corruption detection, not an authenticity or security
   boundary.
 
@@ -127,9 +126,8 @@ mute/solo/gain, tempo/key/loop, section creation and MIDI/drum clip placement.
   preset catalog boundary.
 - Add current-schema validation, duplicate/reference/cycle checks and explicit
   bounds.
-- Add the documented legacy-v0 to v1 migration and unsupported-future-version
-  result.
-- Add fixtures for valid, invalid, migrated and catalog-independent projects.
+- Reject every non-current shape as invalid without conversion or byte retention.
+- Add fixtures for valid, invalid and catalog-independent current projects.
 
 ### Stage B — Commands, session, format and render plan
 
@@ -172,8 +170,7 @@ mute/solo/gain, tempo/key/loop, section creation and MIDI/drum clip placement.
   a newer revision.
 - Undo capacity is bounded and cannot retain an unbounded project history.
 - Preset catalog updates cannot alter an already resolved saved patch.
-- Unknown future schema or patch versions preserve exact original bytes and
-  explicitly block destructive Save.
+- Any schema or patch mismatch fails before a project session or save target is created.
 - Archive traversal, duplicate normalized paths, excessive entry counts,
   declared-size overflow and suspicious compression ratios fail before entry
   payload decoding.
@@ -188,7 +185,7 @@ integration branch.
 
 The combined task branch must pass:
 
-- current schema, migration and unsupported-version fixtures;
+- current-schema round-trip and strict mismatch fixtures;
 - malformed model and logical-archive corpus tests;
 - repeated canonical manifest and recovery-envelope round trips;
 - exhaustive bounded semantic command sequences where practical;
@@ -212,8 +209,7 @@ The combined task branch must pass:
 - Revision, persisted revision, dirty state, recovery state and undo/redo are
   deterministic and bounded.
 - A minimal project and recovery record round-trip canonically.
-- Unsupported future versions preserve original bytes and cannot be saved as a
-  current project.
+- Only the current project shape can be opened, recovered or saved.
 - The resolved Bass patch survives preset catalog changes in fixtures.
 - The render plan is deterministic, revision-bound and excludes reference
   layers from export by data.

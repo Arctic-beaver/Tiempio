@@ -19,7 +19,7 @@ describe('engine protocol generation', () => {
 		const schema = parseEngineProtocolSchema(
 			JSON.stringify({
 				schemaVersion: 1,
-				engineProtocolVersion: 7,
+				engineProtocolVersion: 8,
 				limits: {
 					maxFrameBytes: 2,
 					maxPayloadBytes: 1,
@@ -52,10 +52,10 @@ describe('engine protocol generation', () => {
 				diagnosticCodes: ['protocol.invalid']
 			})
 		)
-		assert.match(renderTypescriptBinding(schema), /engineProtocolVersion = 7/u)
+		assert.match(renderTypescriptBinding(schema), /engineProtocolVersion = 8/u)
 		assert.match(renderTypescriptBinding(schema), /nativeHostCapabilityCodes/u)
 		assert.match(renderTypescriptBinding(schema), /webWorkletCapabilityCodes/u)
-		assert.match(renderRustBinding(schema), /ENGINE_PROTOCOL_VERSION: u32 = 7/u)
+		assert.match(renderRustBinding(schema), /ENGINE_PROTOCOL_VERSION: u32 = 8/u)
 		assert.match(renderRustBinding(schema), /NATIVE_HOST_CAPABILITY_CODES/u)
 		assert.match(renderRustBinding(schema), /WEB_WORKLET_CAPABILITY_CODES/u)
 		assert.match(renderRustBinding(schema), /pub max_meter_points: usize/u)

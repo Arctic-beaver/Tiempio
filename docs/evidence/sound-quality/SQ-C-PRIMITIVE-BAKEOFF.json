@@ -1,0 +1,188 @@
+{
+  "analyzerRevision": 3,
+  "candidate": "sq-c-primitives",
+  "captureFrames": 8192,
+  "coherentFftFrames": 2048,
+  "gates": {
+    "maximumCandidateAliasDb": -18.0,
+    "maximumDcOffset": 0.002,
+    "maximumDiscontinuityRatio": 1.05,
+    "maximumRmsRatio": 1.25,
+    "maximumSamplePeak": 1.0,
+    "maximumTruePeak": 1.35,
+    "minimumAliasImprovementDb": 3.0,
+    "minimumRmsRatio": 0.75
+  },
+  "reference": "offline-only-naive-and-memoryless-controls",
+  "result": "pass",
+  "rows": [
+    {
+      "aliasImprovementDb": 18.10282834943164,
+      "candidate": {
+        "capturedFrames": 8192,
+        "dcOffsetLeft": 3.3827107781547738e-18,
+        "dcOffsetRight": 3.3827107781547738e-18,
+        "harmonicAliasRatioDb": -30.857579650268324,
+        "maximumSampleDiscontinuity": 1.4999733603282008,
+        "rms": 0.9354839433726334,
+        "samplePeak": 1.0,
+        "truePeak": 1.12730714431263
+      },
+      "fundamentalHz": 2950.048828125,
+      "probe": "square",
+      "reference": {
+        "capturedFrames": 8192,
+        "dcOffsetLeft": 0.0,
+        "dcOffsetRight": 0.0,
+        "harmonicAliasRatioDb": -12.754751300836686,
+        "maximumSampleDiscontinuity": 2.0,
+        "rms": 1.0,
+        "samplePeak": 1.0,
+        "truePeak": 1.261340343950066
+      },
+      "result": "pass",
+      "sampleRate": 44100
+    },
+    {
+      "aliasImprovementDb": 8.09009073532652,
+      "candidate": {
+        "capturedFrames": 8192,
+        "dcOffsetLeft": -0.00012883587487907592,
+        "dcOffsetRight": -0.00012883587487907592,
+        "harmonicAliasRatioDb": -43.15425844549546,
+        "maximumSampleDiscontinuity": 0.93310546875,
+        "rms": 0.5846958046126671,
+        "samplePeak": 0.94913775906331,
+        "truePeak": 0.9853947019080362
+      },
+      "fundamentalHz": 2950.048828125,
+      "probe": "triangle",
+      "reference": {
+        "capturedFrames": 8192,
+        "dcOffsetLeft": 0.0,
+        "dcOffsetRight": 0.0,
+        "harmonicAliasRatioDb": -35.06416771016894,
+        "maximumSampleDiscontinuity": 1.0,
+        "rms": 0.5773508197934865,
+        "samplePeak": 1.0,
+        "truePeak": 1.0711892567594063
+      },
+      "result": "pass",
+      "sampleRate": 44100
+    },
+    {
+      "aliasImprovementDb": 15.138188110437287,
+      "candidate": {
+        "capturedFrames": 8192,
+        "dcOffsetLeft": 0.000049319490766496554,
+        "dcOffsetRight": 0.000049319490766496554,
+        "harmonicAliasRatioDb": -29.885159542018137,
+        "maximumSampleDiscontinuity": 1.1867475076712497,
+        "rms": 0.7602599418406067,
+        "samplePeak": 0.9418596612140885,
+        "truePeak": 0.9982625901164703
+      },
+      "fundamentalHz": 5534.033203125,
+      "probe": "saturation",
+      "reference": {
+        "capturedFrames": 8192,
+        "dcOffsetLeft": 8.456776945386934e-19,
+        "dcOffsetRight": 8.456776945386934e-19,
+        "harmonicAliasRatioDb": -14.74697143158085,
+        "maximumSampleDiscontinuity": 1.9660992917314264,
+        "rms": 0.9466332514154197,
+        "samplePeak": 0.9999922922842959,
+        "truePeak": 1.2967100799168065
+      },
+      "result": "pass",
+      "sampleRate": 44100
+    },
+    {
+      "aliasImprovementDb": 18.10282834943164,
+      "candidate": {
+        "capturedFrames": 8192,
+        "dcOffsetLeft": 3.3827107781547738e-18,
+        "dcOffsetRight": 3.3827107781547738e-18,
+        "harmonicAliasRatioDb": -30.857579650268324,
+        "maximumSampleDiscontinuity": 1.4999733603282008,
+        "rms": 0.9354839433726334,
+        "samplePeak": 1.0,
+        "truePeak": 1.12730714431263
+      },
+      "fundamentalHz": 3210.9375,
+      "probe": "square",
+      "reference": {
+        "capturedFrames": 8192,
+        "dcOffsetLeft": 0.0,
+        "dcOffsetRight": 0.0,
+        "harmonicAliasRatioDb": -12.754751300836686,
+        "maximumSampleDiscontinuity": 2.0,
+        "rms": 1.0,
+        "samplePeak": 1.0,
+        "truePeak": 1.261340343950066
+      },
+      "result": "pass",
+      "sampleRate": 48000
+    },
+    {
+      "aliasImprovementDb": 8.09009073532652,
+      "candidate": {
+        "capturedFrames": 8192,
+        "dcOffsetLeft": -0.00012883587487907592,
+        "dcOffsetRight": -0.00012883587487907592,
+        "harmonicAliasRatioDb": -43.15425844549546,
+        "maximumSampleDiscontinuity": 0.93310546875,
+        "rms": 0.5846958046126671,
+        "samplePeak": 0.94913775906331,
+        "truePeak": 0.9853947019080362
+      },
+      "fundamentalHz": 3210.9375,
+      "probe": "triangle",
+      "reference": {
+        "capturedFrames": 8192,
+        "dcOffsetLeft": 0.0,
+        "dcOffsetRight": 0.0,
+        "harmonicAliasRatioDb": -35.06416771016894,
+        "maximumSampleDiscontinuity": 1.0,
+        "rms": 0.5773508197934865,
+        "samplePeak": 1.0,
+        "truePeak": 1.0711892567594063
+      },
+      "result": "pass",
+      "sampleRate": 48000
+    },
+    {
+      "aliasImprovementDb": 15.138188110437287,
+      "candidate": {
+        "capturedFrames": 8192,
+        "dcOffsetLeft": 0.000049319490766496554,
+        "dcOffsetRight": 0.000049319490766496554,
+        "harmonicAliasRatioDb": -29.885159542018137,
+        "maximumSampleDiscontinuity": 1.1867475076712497,
+        "rms": 0.7602599418406067,
+        "samplePeak": 0.9418596612140885,
+        "truePeak": 0.9982625901164703
+      },
+      "fundamentalHz": 6023.4375,
+      "probe": "saturation",
+      "reference": {
+        "capturedFrames": 8192,
+        "dcOffsetLeft": 8.456776945386934e-19,
+        "dcOffsetRight": 8.456776945386934e-19,
+        "harmonicAliasRatioDb": -14.74697143158085,
+        "maximumSampleDiscontinuity": 1.9660992917314264,
+        "rms": 0.9466332514154197,
+        "samplePeak": 0.9999922922842959,
+        "truePeak": 1.2967100799168065
+      },
+      "result": "pass",
+      "sampleRate": 48000
+    }
+  ],
+  "sampleRates": [
+    44100,
+    48000
+  ],
+  "schemaVersion": 1,
+  "warmupFrames": 2048
+}

@@ -65,7 +65,7 @@ AudioWorklet/WASM, Web persistence и расширение сохранения 
 
 ### Модель синтезатора
 
-- Старый `BassInstrumentStateV1` мигрирует в общий versioned `SynthInstrumentStateV2`.
+- Текущая модель инструмента представлена единым `SynthInstrumentState`.
 - Семейства: `bass | lead | pad | pluck | texture`.
 - Общие semantic macros остаются нормализованными `0..1`:
   `brightness`, `hardness`, `dirt`, `length`, `width`.
@@ -128,8 +128,7 @@ AudioWorklet/WASM, Web persistence и расширение сохранения 
 
 - все 27 synth preset IDs имеют ровно один family и валидный resolved patch;
 - крайние значения каждой semantic axis дают конечные bounded параметры;
-- старый schema-v2 Bass/Deep мигрирует без изменения нот, clips, sections и transport;
-- старый drum source мигрирует в Clean Pulse;
+- current-only loader rejects non-current synth and drum documents without rewriting them;
 - character/macro/pattern/density/voice/swing команды поддерживают no-op, stale revision и Undo/Redo.
 
 ## Этап B — общий нативный движок
@@ -215,7 +214,7 @@ AudioWorklet/WASM, Web persistence и расширение сохранения 
 
 ## Риски и edge cases
 
-- изменение project schema может повредить существующие файлы без отдельной v2→v3 миграции;
+- несогласованное изменение project schema может повредить текущие файлы;
 - preset ID и family должны валидироваться вместе, иначе UI и DSP будут противоречить друг другу;
 - plan publication асинхронен: preview нельзя начинать старым патчем после смены характера;
 - audition без явного layer ID ошибочно использует первый synth layer;

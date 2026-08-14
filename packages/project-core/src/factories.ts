@@ -27,7 +27,7 @@ import {
 	type ProjectRole,
 	type ProjectSection,
 	type SectionId,
-	type SemanticSynthMacrosV2,
+	type SemanticSynthMacros,
 	type LayerPerformanceMapping,
 	type SynthPresetId
 } from './model.js'
@@ -69,7 +69,7 @@ export interface CreateLayerInput {
 	readonly presetId?: SynthPresetId
 	readonly role: ProjectRole
 	readonly synth?: {
-		readonly macros: SemanticSynthMacrosV2
+		readonly macros: SemanticSynthMacros
 		readonly performance: LayerPerformanceMapping
 		readonly presetId: SynthPresetId
 	}

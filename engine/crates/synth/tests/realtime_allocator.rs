@@ -2,36 +2,50 @@ use allocation_counter::measure;
 use tiempio_engine_core::{
     EngineKernel, InstrumentLayerPlan, LayerSource, LoopRegion, MeterPoint, MidiNoteEvent,
     PATCH_MODEL_VERSION, PreparedPlan, RENDER_PLAN_VERSION, RenderPlan, RenderPlanRevision,
-    SynthAmplifierPatchV2, SynthFilterPatchV2, SynthMovementPatchV2, SynthOscillatorPatchV2,
-    SynthPatchV2, SynthWaveform, TICKS_PER_QUARTER, TempoPoint,
+    SynthAmplifierPatch, SynthExpressionPatch, SynthFilterPatch, SynthMovementPatch,
+    SynthOscillatorPatch, SynthPatch, SynthSecondaryOscillatorPatch, SynthWaveform,
+    TICKS_PER_QUARTER, TempoPoint,
 };
 use tiempio_engine_dsp::{DspConfiguration, StereoFrame};
 use tiempio_engine_synth::BassVoicePool;
 
-fn patch() -> SynthPatchV2 {
-    SynthPatchV2 {
+fn patch() -> SynthPatch {
+    SynthPatch {
         patch_model_version: PATCH_MODEL_VERSION,
-        oscillator: SynthOscillatorPatchV2 {
+        oscillator: SynthOscillatorPatch {
             waveform: SynthWaveform::Saw,
             detune_cents: -3.0,
             sub_level: 0.75,
             noise_level: 0.02,
             pulse_width: 0.5,
+            secondary: SynthSecondaryOscillatorPatch {
+                waveform: SynthWaveform::Sine,
+                semitone_offset: 12,
+                detune_cents: 4.0,
+                level: 0.18,
+            },
         },
-        filter: SynthFilterPatchV2 {
+        filter: SynthFilterPatch {
             cutoff_hz: 340.0,
             envelope_amount: 0.42,
+            key_tracking: 0.45,
             resonance: 0.34,
         },
-        amplifier: SynthAmplifierPatchV2 {
+        amplifier: SynthAmplifierPatch {
             attack_ms: 2.0,
             decay_ms: 30.0,
             release_ms: 40.0,
             sustain: 0.7,
         },
-        movement: SynthMovementPatchV2 {
+        movement: SynthMovementPatch {
             rate_hz: 0.2,
             depth: 0.1,
+        },
+        expression: SynthExpressionPatch {
+            amplitude_amount: 0.9,
+            attack_scale: 0.5,
+            filter_octaves: 1.5,
+            velocity_curve: 0.8,
         },
         drive: 0.08,
         stereo_width: 0.03,

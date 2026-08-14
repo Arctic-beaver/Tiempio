@@ -113,9 +113,7 @@ export interface ProjectSnapshotEnvelope {
 }
 
 export interface ProjectLoadEnvelope {
-	readonly compatibility: 'supported' | 'unsupported'
 	readonly fingerprint: string | null
-	readonly saveAllowed: boolean
 	readonly snapshot: ProjectSnapshotEnvelope
 }
 

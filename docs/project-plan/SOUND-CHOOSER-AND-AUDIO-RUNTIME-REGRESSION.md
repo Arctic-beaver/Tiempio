@@ -6,7 +6,7 @@
 Он не относится к Stage 6 и не меняет сохранение проектов или Web runtime.
 
 Текущий Windows-артефакт свежий и содержит ожидаемый native-host. Причина аудио-регрессии найдена
-в контракте возможностей: renderer требует `synth.catalog.v2` и `drums.procedural.v1`, а
+в контракте возможностей: renderer требует `synth.catalog` и `drums.procedural`, а
 `EngineHostSupervisor` возвращает устаревший список без этих двух возможностей. Приложение поэтому
 само отвергает успешно запущенный native-host и отключает его.
 
@@ -31,7 +31,7 @@ Chooser в `docs/tiempio_ux_prototype.html`. `Use sound` должна наход
 
 - При старте приложения supervisor и renderer используют один согласованный список реально
   поддерживаемых возможностей native-host.
-- `synth.catalog.v2` и `drums.procedural.v1` участвуют и в объявлении desktop-соединения, и в
+- `synth.catalog` и `drums.procedural` участвуют и в объявлении desktop-соединения, и в
   handshake с native-host.
 - Успешный запуск доходит до `ready`, после чего настраивается shared audio, загружается актуальный
   render plan и запускается аудиопоток.
@@ -126,7 +126,7 @@ Chooser в `docs/tiempio_ux_prototype.html`. `Use sound` должна наход
 ## Definition of done
 
 - Свежая Windows-сборка больше не отвергает native-host из-за отсутствующих
-  `synth.catalog.v2`/`drums.procedural.v1` и достигает `Shared audio`.
+  `synth.catalog`/`drums.procedural` и достигает `Shared audio`.
 - Retry восстанавливает аудио либо честно завершает попытку, но не зависает на `Connecting audio`.
 - `Use sound` находится наверху справа от заголовка выбранного звука и отсутствует в нижней зоне.
 - Нижняя зона визуально повторяет ритм прототипа: семь свободных клавиш, компактный `Keys / Scale`,

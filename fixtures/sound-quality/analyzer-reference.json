@@ -1,0 +1,23 @@
+{
+	"schemaVersion": 1,
+	"sampleRate": 48000,
+	"frameCount": 8192,
+	"cleanSine": {
+		"frequencyHz": 468.75,
+		"amplitude": 0.5,
+		"maximumPitchErrorCents": 8,
+		"maximumAliasRatioDb": -50,
+		"minimumTruePeak": 0.49,
+		"maximumTruePeak": 0.51
+	},
+	"inharmonicDefect": {
+		"frequencyHz": 7312.5,
+		"amplitude": 0.25,
+		"minimumAliasRatioDb": -15
+	},
+	"antiPhase": {
+		"amplitude": 0.1,
+		"maximumCorrelation": -0.999,
+		"maximumMonoFoldLossDb": -100
+	}
+}

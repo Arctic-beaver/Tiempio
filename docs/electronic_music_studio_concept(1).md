@@ -108,7 +108,7 @@ Procedural generation используется прежде всего как **
 
 > **Машина генерирует много → человек отбирает и полирует лучшее → пользователь получает маленькую качественную палитру.**
 
-В V1 procedural generation не обязательно показывать пользователю.
+Procedural generation не обязательно показывать пользователю.
 
 ## 4. Drum Synth
 
@@ -228,7 +228,7 @@ Audio генерируется во время playback, а при экспор�
 - потенциально pitch;
 - потенциально tempo/time stretching.
 
-В будущем может появиться **Turn into instrument**, превращающий пользовательский sample в playable instrument. Для V1 это необязательно.
+В будущем может появиться **Turn into instrument**, превращающий пользовательский sample в playable instrument. Для текущего MVP это необязательно.
 
 # UX Philosophy
 

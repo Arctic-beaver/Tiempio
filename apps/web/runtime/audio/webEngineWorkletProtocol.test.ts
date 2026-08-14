@@ -26,7 +26,7 @@ describe('Web engine worklet protocol', () => {
 				kind: 'ready',
 				generation: 1,
 				abiVersion: webEngineAbiVersion,
-				protocolVersion: 6,
+				protocolVersion: 8,
 				sampleRate: 44_100,
 				blockFrames: 128
 			}),
@@ -66,7 +66,7 @@ describe('Web engine worklet protocol', () => {
 				kind: 'ready',
 				generation: 1,
 				abiVersion: webEngineAbiVersion + 1,
-				protocolVersion: 6,
+				protocolVersion: 8,
 				sampleRate: 48_000,
 				blockFrames: 128
 			}),

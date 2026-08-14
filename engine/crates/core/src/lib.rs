@@ -15,8 +15,8 @@ pub use scheduler::{
 };
 pub use tempo::{TempoError, TempoSegment, TempoTimeline};
 
-pub const RENDER_PLAN_VERSION: u32 = 3;
-pub const PATCH_MODEL_VERSION: u32 = 2;
+pub const RENDER_PLAN_VERSION: u32 = 5;
+pub const PATCH_MODEL_VERSION: u32 = 4;
 pub const TICKS_PER_QUARTER: u32 = 960;
 pub const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 pub const MAX_ENGINE_LAYERS: usize = 32;
@@ -73,23 +73,33 @@ pub enum SynthWaveform {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SynthOscillatorPatchV2 {
+pub struct SynthOscillatorPatch {
     pub waveform: SynthWaveform,
     pub detune_cents: f64,
     pub sub_level: f64,
     pub noise_level: f64,
     pub pulse_width: f64,
+    pub secondary: SynthSecondaryOscillatorPatch,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SynthFilterPatchV2 {
+pub struct SynthSecondaryOscillatorPatch {
+    pub waveform: SynthWaveform,
+    pub semitone_offset: i32,
+    pub detune_cents: f64,
+    pub level: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SynthFilterPatch {
     pub cutoff_hz: f64,
     pub envelope_amount: f64,
+    pub key_tracking: f64,
     pub resonance: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SynthAmplifierPatchV2 {
+pub struct SynthAmplifierPatch {
     pub attack_ms: f64,
     pub decay_ms: f64,
     pub release_ms: f64,
@@ -97,18 +107,27 @@ pub struct SynthAmplifierPatchV2 {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SynthMovementPatchV2 {
+pub struct SynthMovementPatch {
     pub rate_hz: f64,
     pub depth: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SynthPatchV2 {
+pub struct SynthExpressionPatch {
+    pub amplitude_amount: f64,
+    pub attack_scale: f64,
+    pub filter_octaves: f64,
+    pub velocity_curve: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SynthPatch {
     pub patch_model_version: u32,
-    pub oscillator: SynthOscillatorPatchV2,
-    pub filter: SynthFilterPatchV2,
-    pub amplifier: SynthAmplifierPatchV2,
-    pub movement: SynthMovementPatchV2,
+    pub oscillator: SynthOscillatorPatch,
+    pub filter: SynthFilterPatch,
+    pub amplifier: SynthAmplifierPatch,
+    pub movement: SynthMovementPatch,
+    pub expression: SynthExpressionPatch,
     pub drive: f64,
     pub stereo_width: f64,
     pub output_gain: f64,
@@ -133,7 +152,7 @@ pub enum DrumAlgorithm {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct DrumVoicePatchV2 {
+pub struct DrumVoicePatch {
     pub algorithm: DrumAlgorithm,
     pub pitch_hz: f64,
     pub tone: f64,
@@ -144,18 +163,18 @@ pub struct DrumVoicePatchV2 {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct DrumKitPatchV2 {
+pub struct DrumKitPatch {
     pub patch_model_version: u32,
-    pub kick: DrumVoicePatchV2,
-    pub clap: DrumVoicePatchV2,
-    pub closed_hat: DrumVoicePatchV2,
-    pub open_hat: DrumVoicePatchV2,
-    pub perc: DrumVoicePatchV2,
+    pub kick: DrumVoicePatch,
+    pub clap: DrumVoicePatch,
+    pub closed_hat: DrumVoicePatch,
+    pub open_hat: DrumVoicePatch,
+    pub perc: DrumVoicePatch,
 }
 
-impl DrumKitPatchV2 {
+impl DrumKitPatch {
     #[must_use]
-    pub const fn voice(&self, instrument: DrumInstrument) -> &DrumVoicePatchV2 {
+    pub const fn voice(&self, instrument: DrumInstrument) -> &DrumVoicePatch {
         match instrument {
             DrumInstrument::Kick => &self.kick,
             DrumInstrument::Clap => &self.clap,
@@ -187,11 +206,11 @@ pub struct DrumHitEvent {
 #[derive(Clone, Debug, PartialEq)]
 pub enum LayerSource {
     Synth {
-        patch: SynthPatchV2,
+        patch: SynthPatch,
         events: Vec<MidiNoteEvent>,
     },
     Drums {
-        patch: DrumKitPatchV2,
+        patch: DrumKitPatch,
         events: Vec<DrumHitEvent>,
     },
 }
@@ -266,7 +285,30 @@ fn finite_range(value: f64, minimum: f64, maximum: f64) -> bool {
     value.is_finite() && value >= minimum && value <= maximum
 }
 
-fn validate_synth_patch(patch: &SynthPatchV2, location: &str) -> Result<(), PlanValidationFailure> {
+fn validate_secondary_oscillator(
+    oscillator: &SynthSecondaryOscillatorPatch,
+    location: &str,
+) -> Result<(), PlanValidationFailure> {
+    if !(-24..=24).contains(&oscillator.semitone_offset) {
+        return Err(failure(
+            PlanValidationCode::InvalidValue,
+            format!("{location}.semitoneOffset"),
+            "Secondary oscillator semitone offset must be between -24 and 24.",
+        ));
+    }
+    if !finite_range(oscillator.detune_cents, -100.0, 100.0)
+        || !finite_range(oscillator.level, 0.0, 1.0)
+    {
+        return Err(failure(
+            PlanValidationCode::InvalidValue,
+            location,
+            "Secondary oscillator value is not finite or is out of range.",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_synth_patch(patch: &SynthPatch, location: &str) -> Result<(), PlanValidationFailure> {
     if patch.patch_model_version != PATCH_MODEL_VERSION {
         return Err(failure(
             PlanValidationCode::VersionMismatch,
@@ -274,6 +316,10 @@ fn validate_synth_patch(patch: &SynthPatchV2, location: &str) -> Result<(), Plan
             "Synth patch model version is unsupported.",
         ));
     }
+    validate_secondary_oscillator(
+        &patch.oscillator.secondary,
+        &format!("{location}.oscillator.secondary"),
+    )?;
     let values = [
         (
             patch.oscillator.detune_cents,
@@ -302,6 +348,7 @@ fn validate_synth_patch(patch: &SynthPatchV2, location: &str) -> Result<(), Plan
             1.0,
             "filter.envelopeAmount",
         ),
+        (patch.filter.key_tracking, 0.0, 1.5, "filter.keyTracking"),
         (
             patch.amplifier.attack_ms,
             0.0,
@@ -318,6 +365,30 @@ fn validate_synth_patch(patch: &SynthPatchV2, location: &str) -> Result<(), Plan
         ),
         (patch.movement.rate_hz, 0.0, 20.0, "movement.rateHz"),
         (patch.movement.depth, 0.0, 1.0, "movement.depth"),
+        (
+            patch.expression.amplitude_amount,
+            0.0,
+            1.0,
+            "expression.amplitudeAmount",
+        ),
+        (
+            patch.expression.attack_scale,
+            0.0,
+            2.0,
+            "expression.attackScale",
+        ),
+        (
+            patch.expression.filter_octaves,
+            0.0,
+            4.0,
+            "expression.filterOctaves",
+        ),
+        (
+            patch.expression.velocity_curve,
+            0.25,
+            4.0,
+            "expression.velocityCurve",
+        ),
         (patch.drive, 0.0, 1.0, "drive"),
         (patch.stereo_width, 0.0, 1.0, "stereoWidth"),
         (patch.output_gain, 0.0, 2.0, "outputGain"),
@@ -335,7 +406,7 @@ fn validate_synth_patch(patch: &SynthPatchV2, location: &str) -> Result<(), Plan
 }
 
 fn validate_drum_voice(
-    voice: &DrumVoicePatchV2,
+    voice: &DrumVoicePatch,
     algorithm: DrumAlgorithm,
     location: &str,
 ) -> Result<(), PlanValidationFailure> {
@@ -356,10 +427,7 @@ fn validate_drum_voice(
     Ok(())
 }
 
-fn validate_drum_patch(
-    patch: &DrumKitPatchV2,
-    location: &str,
-) -> Result<(), PlanValidationFailure> {
+fn validate_drum_patch(patch: &DrumKitPatch, location: &str) -> Result<(), PlanValidationFailure> {
     if patch.patch_model_version != PATCH_MODEL_VERSION {
         return Err(failure(
             PlanValidationCode::VersionMismatch,
@@ -674,30 +742,43 @@ pub fn validate_render_plan(plan: &RenderPlan) -> Result<(), PlanValidationFailu
 mod tests {
     use super::*;
 
-    pub(crate) fn valid_synth_patch() -> SynthPatchV2 {
-        SynthPatchV2 {
+    pub(crate) fn valid_synth_patch() -> SynthPatch {
+        SynthPatch {
             patch_model_version: PATCH_MODEL_VERSION,
-            oscillator: SynthOscillatorPatchV2 {
+            oscillator: SynthOscillatorPatch {
                 waveform: SynthWaveform::Saw,
                 detune_cents: -3.36,
                 sub_level: 0.7624,
                 noise_level: 0.02,
                 pulse_width: 0.5,
+                secondary: SynthSecondaryOscillatorPatch {
+                    waveform: SynthWaveform::Sine,
+                    semitone_offset: 12,
+                    detune_cents: 4.0,
+                    level: 0.16,
+                },
             },
-            filter: SynthFilterPatchV2 {
+            filter: SynthFilterPatch {
                 cutoff_hz: 342.72,
                 envelope_amount: 0.426,
+                key_tracking: 0.45,
                 resonance: 0.3396,
             },
-            amplifier: SynthAmplifierPatchV2 {
+            amplifier: SynthAmplifierPatch {
                 attack_ms: 25.08,
                 decay_ms: 307.0,
                 sustain: 0.716,
                 release_ms: 395.0,
             },
-            movement: SynthMovementPatchV2 {
+            movement: SynthMovementPatch {
                 rate_hz: 0.2,
                 depth: 0.1,
+            },
+            expression: SynthExpressionPatch {
+                amplitude_amount: 0.9,
+                attack_scale: 0.45,
+                filter_octaves: 1.5,
+                velocity_curve: 0.8,
             },
             drive: 0.0864,
             stereo_width: 0.028,
@@ -705,8 +786,8 @@ mod tests {
         }
     }
 
-    pub(crate) fn valid_drum_patch() -> DrumKitPatchV2 {
-        let voice = |algorithm, pitch_hz, decay_ms, noise| DrumVoicePatchV2 {
+    pub(crate) fn valid_drum_patch() -> DrumKitPatch {
+        let voice = |algorithm, pitch_hz, decay_ms, noise| DrumVoicePatch {
             algorithm,
             pitch_hz,
             tone: 0.5,
@@ -715,7 +796,7 @@ mod tests {
             drive: 0.1,
             gain: 0.75,
         };
-        DrumKitPatchV2 {
+        DrumKitPatch {
             patch_model_version: PATCH_MODEL_VERSION,
             kick: voice(DrumAlgorithm::Kick, 52.0, 280.0, 0.05),
             clap: voice(DrumAlgorithm::Clap, 1_200.0, 180.0, 0.9),

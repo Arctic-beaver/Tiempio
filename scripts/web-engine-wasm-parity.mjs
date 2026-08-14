@@ -6,7 +6,7 @@ import { requireLifecycleOwnership } from './lifecycle/ownership-guard.mjs'
 const ABI_OK = 0
 const ABI_INVALID = 1
 const ABI_QUEUE_FULL = 3
-const protocolVersion = 6
+const protocolVersion = 8
 const blockFrames = 128
 const webCapabilities = Object.freeze([
 	'protocol.typed-json',
@@ -15,8 +15,8 @@ const webCapabilities = Object.freeze([
 	'transport.loop',
 	'metronome.clock',
 	'synth.bass.deep',
-	'synth.catalog.v2',
-	'drums.procedural.v1',
+	'synth.catalog',
+	'drums.procedural',
 	'audition.notes',
 	'preview.programs',
 	'diagnostics.health',
@@ -68,8 +68,8 @@ class WasmEngineHarness {
 			this.send('handshake', {
 				protocolVersion,
 				peer: 'application',
-				renderPlanVersion: 3,
-				patchModelVersion: 2,
+				renderPlanVersion: 5,
+				patchModelVersion: 4,
 				capabilities: webCapabilities
 			}),
 			ABI_OK

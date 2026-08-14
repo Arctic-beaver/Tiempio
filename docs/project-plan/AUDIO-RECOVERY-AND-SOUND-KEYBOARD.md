@@ -92,8 +92,8 @@ the WAI-ARIA Tabs pattern for an accessible vertical side control:
   rotation or engine-state changes.
 - The restored strip reuses the shared performance component rather than introducing a second
   keyboard implementation.
-- Per-instrument mapping is persisted on pitched layer sources and migrated from older projects with
-  deterministic defaults; transport-wide key data remains readable for backward compatibility.
+- Per-instrument mapping is required on every current pitched-layer source; projects without that
+  current shape fail validation.
 - Sound selection plus mapping is one domain command, so undo/redo cannot leave the instrument and
   its keyboard meaning out of sync.
 - The compact transport continues using shared shell and design-system tokens rather than a
@@ -120,10 +120,9 @@ Branch: `fix/audio-host-recovery`.
 
 Branch: `fix/sound-chooser-keyboard-strip`.
 
-- Extend the pitched-layer project model with a persisted root/mode and octave mapping, including
-  migration, validation, fixtures and serialization coverage.
-- Add one atomic sound-and-mapping command and retain the legacy character-selection command for
-  compatible history/project replay.
+- Replace the pitched-layer project model with the current persisted root/mode and octave mapping,
+  including validation, fixtures and serialization coverage.
+- Add one atomic sound-and-mapping command and remove the superseded character-only command.
 - Add a shared compact-strip presentation to `PerformanceKeyboard` while preserving its input
   architecture and source-counted release behavior.
 - Restore the prototype's narrow white-key proportions, restrained held state and bottom-aligned
@@ -135,7 +134,7 @@ Branch: `fix/sound-chooser-keyboard-strip`.
 - Make `Use sound` save the chosen sound and mapping, then navigate directly to the editor without
   the separate Song Palette onboarding screen.
 - Use the selected layer's persisted mapping in the editor/performance input path.
-- Add domain, migration, action, keyboard and accessibility coverage for per-instrument persistence,
+- Add domain, strict-validation, action, keyboard and accessibility coverage for per-instrument persistence,
   direct navigation, seven real keys, focus behavior and the absence of filler keys.
 
 ### Stage C — compact transport capsule
@@ -173,12 +172,11 @@ Branch: `fix/audio-keyboard-acceptance`.
 - Replaying `start-audio` before the current plan and metronome settings could produce stale or
   briefly incorrect output.
 - A missing default output must remain retryable without an unbounded busy loop.
-- WASAPI device teardown can exceed the old five-second heartbeat window during wired/Bluetooth
-  changes; the new window remains explicit and bounded.
+- WASAPI device teardown during wired/Bluetooth changes can be slow; the current heartbeat window
+  remains explicit and bounded.
 - Retry subscriptions can duplicate health/events unless the previous application-side listeners
   are removed first.
-- Older project documents do not contain per-instrument mapping and must receive stable defaults
-  without corrupting their transport-wide key or changing unrelated serialized data.
+- A pitched layer without the current per-instrument mapping fails validation before session load.
 - Undo/redo during sound setup must restore sound and mapping together.
 - Switching the dock view or changing root/mode/octave with held pointer, keyboard or MIDI input must
   release all sources and must not leave a stuck note.
@@ -200,8 +198,8 @@ Branch: `fix/audio-keyboard-acceptance`.
   sessions, with one listener set and the latest project render plan.
 - Existing native-host recovery tests continue to cover initially unavailable output, device loss,
   default-device changes, capped retry and no stuck voices.
-- Project-model and migration tests prove each pitched instrument round-trips its own root/mode and
-  octave, with deterministic defaults for old projects and atomic undo/redo.
+- Current project-model tests prove each pitched instrument round-trips its own root/mode and
+  octave with atomic undo/redo; non-current data is rejected.
 - Sound Chooser action tests prove `Use sound` commits the sound/mapping once and proceeds directly
   to the editor without the Song Palette route.
 - Keyboard tests and UI policy checks prove exactly seven compact strip mappings, no filler keys,
@@ -219,7 +217,7 @@ Branch: `fix/audio-keyboard-acceptance`.
 - A successful automatic restart or explicit retry restores audio against the latest project
   revision without restarting Tiempio.
 - Default-output transitions remain bounded, truthful and free of orphaned native hosts.
-- Every pitched instrument persists its own root/mode and octave, including migrated older projects.
+- Every current pitched instrument persists its own root/mode and octave.
 - Sound Chooser again presents a simple seven-key bottom strip; its side switcher reveals inline
   scale/octave setup in the same dock, and `Use sound` proceeds directly to the editor.
 - The central transport capsule is visibly shorter without losing controls, readable values or

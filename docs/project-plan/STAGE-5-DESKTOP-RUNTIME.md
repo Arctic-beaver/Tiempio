@@ -230,21 +230,19 @@ as a design conflict and paused for user review. It is not solved by adding an u
 ### Contract evolution
 
 Stage 5 changes the Desktop bridge from window-only scaffolding into projects, settings, lifecycle
-and engine capabilities. It therefore treats the bridge shape as a versioned public contract:
+and engine capabilities. It therefore treats the bridge shape as one exact current public contract:
 
-- bump `applicationRuntimeVersion` when the required bridge shape changes;
-- reject a main/preload/renderer version mismatch before creating runtime clients;
+- change the runtime marker and required shape together across main, preload and renderer;
+- reject any bridge that does not match the current contract before creating runtime clients;
 - represent capability absence explicitly rather than installing throwing placeholders;
 - keep `resources` unavailable until bounded native audio import is implemented in its own stage;
 - define Save, Save As and Save Copy semantics explicitly; do not overload Web
   `download-requested` semantics to claim a Desktop persistence acknowledgement;
 - return opaque handles and neutral snapshots only; no error detail may contain a native path.
 
-Live native audio also changes the set of honestly supported engine capabilities. Stage A must
-record whether this is a compatible capability-only extension or a protocol-version change. Because
-the Stage 4 parser uses closed capability sets, an extension that an older peer would reject must
-advance `engineProtocolVersion`; it must not silently widen protocol version 1. Generated TypeScript
-and Rust bindings, fixtures and handshake tests move together.
+Live native audio also changes the set of honestly supported engine capabilities. The capability
+vocabulary, protocol marker, generated TypeScript/Rust bindings, fixtures and handshake tests move
+together in one current-only cutover; the closed parser never silently widens its accepted shape.
 
 ### Closed IPC surface
 
@@ -273,8 +271,8 @@ and Rust bindings, fixtures and handshake tests move together.
 - Untitled projects receive a handle without a path. Their first persist operation performs Save As.
 - The renderer cannot choose a raw path or forge a handle. Handles are validated for ownership and
   lifecycle on every call.
-- Registry state records the last loaded fingerprint, last persisted revision, compatibility state,
-  current bounded archive metadata and recovery identity, but not a second editable project model.
+- Registry state records the last loaded fingerprint, last persisted revision, current bounded
+  archive metadata and recovery identity, but not a second editable project model.
 
 ### Physical `.tiempio` container
 
@@ -287,8 +285,8 @@ and Rust bindings, fixtures and handshake tests move together.
   never receives the entire physical archive.
 - The initial renderer snapshot contains only the bounded project manifest needed by
   `ProjectSession`. Main retains validated opaque archive entries required for lossless rewrite.
-- Unknown future project versions open read-only with original bytes preserved. They cannot be
-  destructively normalized or saved as if supported.
+- A manifest that does not match the current project contract fails `open` as `PROJECT_INVALID`;
+  it is not registered, retained for copying or exposed as a read-only project.
 
 The inherited ceilings remain authoritative unless a separately reviewed format revision changes
 them: 512 entries, 16 MiB per entry, 4 MiB manifest, 32 MiB total decompressed data, 240-character
@@ -507,9 +505,9 @@ neutral fixtures only.
 **Stage exit:** cross-process contracts and lifecycle entry points are deterministic, generated
 bindings match and all future Stage 5 heavy commands have one safe owner.
 
-**Implementation record — 2026-08-10:** complete. Runtime bridge version 2, the closed Desktop IPC
-registry, bounded/redacted boundary validators, native-host bootstrap contract, engine protocol
-version 2 heartbeat/audio-health vocabulary and generated TypeScript/Rust bindings are committed as
+**Implementation record — 2026-08-10:** complete. The current runtime bridge, closed Desktop IPC
+registry, bounded/redacted boundary validators, native-host bootstrap contract, heartbeat/audio-health
+vocabulary and generated TypeScript/Rust bindings are committed as
 one contract surface. `cpal 0.17.3` and `fflate 0.8.3` are exactly pinned and locked. The lifecycle
 catalog now owns native-host build/staging, controlled audio self-test and unpacked package checks;
 its timeout and ownership policies are covered by tests. `npm run check:quick` passed all 19 stages,
@@ -540,8 +538,8 @@ project without renderer path authority or data loss.
 
 **Implementation record — 2026-08-10:** complete. Electron main now owns canonical source identity,
 256-bit opaque handles, native Open/Save destinations, a bounded ZIP central-directory preflight,
-streaming inflate with size/CRC checks, lossless retained entries and exact read-only copying of
-unsupported future projects. Saves use fingerprint revalidation, exclusive sibling temporary
+streaming inflate with size/CRC checks and lossless retained entries for current projects. Other
+project shapes fail at `open`. Saves use fingerprint revalidation, exclusive sibling temporary
 files, flush, atomic replacement and handled-exit cleanup. Per-project serialization keeps revision
 N/N+1 outcomes truthful; recovery and settings use checksummed/bounded atomic stores, and close can
 wait on the latest recovery barrier for at most 10 seconds. Fault injection covers open, read,
@@ -734,7 +732,7 @@ packaged-dialog path were not simulated or fabricated; they remain the manual ga
 ### Persistence and durability
 
 - Corrupt/truncated ZIP, central-directory inconsistency, duplicate normalized path, traversal,
-  link, excessive ratio/count/size or future project version.
+  link, excessive ratio/count/size or non-current project manifest.
 - Two paths resolve to one canonical source, or a file changes identity through link/case handling.
 - External modification, deletion, read-only source or Save As destination collision.
 - Project edit while save/recovery is in flight; out-of-order completion must not clear newer dirty
@@ -813,7 +811,7 @@ process and pause for user direction.
 ### Desktop runtime and security
 
 - The packaged application has one single-instance Electron main, one current-window foundation and
-  one version-compatible preload bridge.
+  one exact current preload bridge.
 - Renderer sandboxing, context isolation, CSP and navigation/window/permission denial remain intact.
 - Renderer sees no native paths, channel names, process identities, raw device handles or arbitrary
   IPC.

@@ -27,6 +27,44 @@ describe('engine wire render-plan contracts', () => {
 		}
 	})
 
+	it('requires the complete bounded current synth expression contract', () => {
+		const plan = fixture('valid-bass-plan.json') as {
+			layers: Array<{ source: { patch: Record<string, unknown> } }>
+		}
+		const patch = plan.layers[0]!.source.patch
+		delete patch.expression
+		assert.equal(validateEngineWireRenderPlan(plan).ok, false)
+
+		const invalidTracking = fixture('valid-bass-plan.json') as {
+			layers: Array<{ source: { patch: { filter: Record<string, unknown> } } }>
+		}
+		invalidTracking.layers[0]!.source.patch.filter.keyTracking = 1.51
+		assert.equal(validateEngineWireRenderPlan(invalidTracking).ok, false)
+	})
+
+	it('requires one complete bounded secondary oscillator contract', () => {
+		const missing = fixture('valid-bass-plan.json') as {
+			layers: Array<{ source: { patch: { oscillator: Record<string, unknown> } } }>
+		}
+		delete missing.layers[0]!.source.patch.oscillator.secondary
+		assert.equal(validateEngineWireRenderPlan(missing).ok, false)
+
+		for (const [field, value] of [
+			['level', 1.01],
+			['detuneCents', 101],
+			['semitoneOffset', 25],
+			['semitoneOffset', 0.5]
+		] as const) {
+			const invalid = fixture('valid-bass-plan.json') as {
+				layers: Array<{
+					source: { patch: { oscillator: { secondary: Record<string, unknown> } } }
+				}>
+			}
+			invalid.layers[0]!.source.patch.oscillator.secondary[field] = value
+			assert.equal(validateEngineWireRenderPlan(invalid).ok, false, field)
+		}
+	})
+
 	it('rejects unordered or unbounded project meter maps', () => {
 		const plan = fixture('valid-bass-plan.json') as Record<string, unknown>
 		assert.equal(

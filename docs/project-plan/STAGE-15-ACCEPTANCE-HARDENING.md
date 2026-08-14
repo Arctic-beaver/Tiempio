@@ -18,7 +18,7 @@ behavior. Stage 15 maps every required criterion to an executable check or a ret
 ### Product and UX
 
 - Stage 7 context-preserving Add draft, focus-safe Fine Tuning audition and exact commit/cancel rules;
-- Stage 8 complete perceptual catalog evidence, resolved-patch compatibility and native/WASM sound;
+- Stage 8 complete perceptual catalog evidence, current resolved-patch conformance and native/WASM sound;
 - Stage 9 note editing, two-axis navigation, ghosts, per-brick viewports, playheads, count-in,
   velocity/pressure, linear overdub and grouped Undo;
 - Stage 10 source/instance integrity, independent brick preview and synchronized lower song;
@@ -31,7 +31,7 @@ behavior. Stage 15 maps every required criterion to an executable check or a ret
 ### Architecture, security and durability
 
 - one canonical `ProjectSession`, render-plan compiler and Rust DSP authority on both targets;
-- deterministic V3-to-V4 migration, source references, project ceilings and stale revision handling;
+- current-only loading, source references, project ceilings and stale revision handling;
 - opaque Desktop paths/device handles and target-clean Web bundles;
 - physical `.tiempio` archive, portable audio assets, Save/Download/recovery truthfulness;
 - no network transfer of project/audio/name/path/device content;

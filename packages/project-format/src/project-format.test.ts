@@ -1,10 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import {
-	createProject,
-	projectSchemaVersion,
-	ProjectSession
-} from '../../project-core/src/index.js'
+import { createProject, ProjectSession } from '../../project-core/src/index.js'
 import {
 	createLogicalProjectArchive,
 	decodeRecoveryEnvelope,
@@ -59,16 +55,14 @@ describe('project format', () => {
 		}
 	})
 
-	it('preserves exact future-version bytes and blocks current save', () => {
+	it('rejects every non-current manifest without retaining it', () => {
 		const bytes = encodeCanonicalJson({
-			schemaVersion: projectSchemaVersion + 1,
-			futureField: 'keep exactly'
+			schemaVersion: Number.MAX_SAFE_INTEGER,
+			nonCurrentField: 'reject'
 		})
 		const result = parseProjectManifest(bytes)
-		assert.equal(result.status, 'unsupported')
-		if (result.status !== 'unsupported') return
-		assert.equal(result.saveAllowed, false)
-		assert.deepEqual(result.originalBytes, bytes)
+		assert.equal(result.status, 'invalid')
+		if (result.status === 'invalid') assert.equal(result.error.code, 'INVALID_MANIFEST')
 	})
 
 	it('validates owned logical archives before decoding entries', () => {

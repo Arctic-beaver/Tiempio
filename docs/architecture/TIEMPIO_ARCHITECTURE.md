@@ -59,8 +59,8 @@ The following rules are non-negotiable across implementation stages.
    objects or native engine process handles.
 9. The audio callback performs no allocation, blocking synchronization, filesystem access,
    logging or UI work.
-10. Unsupported, invalid or future-version project data fails closed and remains recoverable; it
-    is never silently discarded during load or save.
+10. Only the current project model can be loaded or recovered. Any other project data fails closed
+    at the boundary and is never retained as a hidden alternate format.
 11. User audio, project names, paths and musical content never enter analytics or network requests
     without a separately approved product and privacy decision.
 12. Windows ships first, while path, lifecycle, packaging, shortcuts and audio abstractions remain
@@ -354,12 +354,12 @@ fixture data. A synth source begins with zero notes, and a kit-only drum source 
 events. Selecting a named drum pattern is a separate explicit project command that copies bounded
 visible events into the source; the source then owns them independently of the catalog.
 
-The catalog pins project schema and resolved instrument/catalog compatibility, is hash-checked at
+The catalog pins the current project schema and resolved instrument/catalog contract, is hash-checked at
 build and load boundaries, and fails closed without replacing the current project. The engine only
 receives the ordinary render plan compiled from a successfully created user session. There is no
 starter-specific scheduler, playback transport or DSP path.
 
-Every shipped musical example and rhythm definition has a versioned provenance record. The
+Every shipped musical example and rhythm definition has an immutable provenance record. The
 baseline example is independently human-authored for Tiempio, uses no external sample/MIDI/loop and
 documents rights for both its composition data and any retained render. Content similarity review
 and legal escalation are release gates; the catalog never describes content with the unverifiable
@@ -389,14 +389,14 @@ Application settings and live audio-device state are separate:
 - the engine reports the active device and actual negotiated audio configuration;
 - UI never displays a requested device or low-latency mode as active until engine acknowledgement.
 
-Desktop stores validated settings under application data with atomic replacement. Web stores a
-versioned bounded snapshot in IndexedDB and degrades explicitly if browser storage is unavailable.
+Desktop stores validated current settings under application data with atomic replacement. Web
+stores the same bounded snapshot in IndexedDB and degrades explicitly if browser storage is unavailable.
 
 ## Project domain model
 
 The approved composition model uses stable opaque IDs, integer musical time and a strict boundary
-between reusable source material and its placements in the song. The full AS-TO-BE contract and
-migration plan are recorded in
+between reusable source material and its placements in the song. The full AS-TO-BE contract is
+recorded in
 [`STAGE-10-LINKED-BRICKS-AND-SONG.md`](../project-plan/STAGE-10-LINKED-BRICKS-AND-SONG.md).
 
 ```text
@@ -485,8 +485,8 @@ An instrument stores:
 
 - stable preset identity and preset revision;
 - semantic macro values such as brightness, hardness and dirt;
-- macro-mapping version;
-- resolved versioned DSP patch.
+- current macro-mapping marker;
+- resolved current DSP patch.
 
 The resolved patch is authoritative for sound reproduction. Preset and macro metadata preserve
 the understandable UI and allow later editing. Catalog updates do not silently alter existing
@@ -500,7 +500,7 @@ It separates three authorities:
 
 1. the **offline sound lab** renders deterministic stimulus matrices, computes objective
    descriptors and explores bounded candidate parameters;
-2. the **reviewed catalog** owns stable preset identity/revision, role/range metadata, versioned
+2. the **reviewed catalog** owns stable preset identity/revision, role/range metadata, explicit
    semantic macro curves and resolved patch seeds;
 3. the **human acceptance record** owns randomized level-matched preference, role-fit, fatigue and
    artifact decisions that metrics cannot make.
@@ -516,7 +516,7 @@ role-register/velocity spread, polyphony and callback cost. These measurements i
 make trials fair; they do not optimize “beauty” as one scalar. Blind target-creator desire-to-use
 and trained artifact review remain mandatory.
 
-Semantic macros map perceptual intention to multiple DSP parameters through versioned nonlinear
+Semantic macros map perceptual intention to multiple DSP parameters through explicit nonlinear
 curves. Frequency/time controls use perceptually appropriate logarithmic/exponential mapping,
 blends use bounded equal-power or equivalent curves and audible level is compensated where a
 brighter/dirtier/wider result would otherwise win only by gain. Per-preset mappings must be
@@ -530,16 +530,12 @@ improved, merged or removed; catalog count is not a domain invariant.
 
 The existing procedural drums are a positive reference and remain under regression/mix evidence.
 Their implementation changes only for a demonstrated defect or a level-matched preferred
-candidate, never merely because synth patch versions evolve.
+candidate, never merely because the synth patch contract changes.
 
-Any accepted oscillator, nonlinearity, expressive response, topology or effect addition increments
-the patch-model/protocol version before the V4 source-material freeze. Existing projects retain
-their complete resolved old patch. A future catalog upgrade is an explicit previewable project
-command, not a load-time migration side effect.
-
-Active chooser membership is separate from legacy preset recognition. Removing a weak or duplicate
-entry hides it for new selection but cannot make its old `presetId` invalid or prevent the stored
-resolved patch from rendering.
+Any accepted oscillator, nonlinearity, expressive response, topology or effect addition updates the
+patch and protocol contracts together before the source-material freeze. The MVP contains one
+current synth path and one preset registry. Development fixtures and seed projects are generated
+from that catalog.
 
 ### Project format
 
@@ -705,7 +701,7 @@ Architecture support cannot be used to bypass that approval.
 
 `SampleInstrumentSource` maps one bounded asset across accepted pitches and is driven by ordinary
 MIDI brick notes/velocity. `AudioPhraseSource` preserves continuous imported or recorded timing and
-uses a waveform editor; it is not transcribed to MIDI. Both use content-addressed `AudioAssetV1`,
+uses a waveform editor; it is not transcribed to MIDI. Both use content-addressed `AudioAsset`,
 validated trim/gain/envelope and the same native/WASM/offline render contract.
 
 Desktop main owns native paths, input handles, capture supervision and task-owned temporary take
@@ -1273,7 +1269,7 @@ The architecture is proven, rather than merely scaffolded, when:
 - Desktop audio runs outside the renderer and Web audio runs in an `AudioWorklet`;
 - the seven prototype states share one `ProjectSession`;
 - `Начать со звука` has no hidden musical content, while `Начать с примера` creates a fresh
-  editable V4 project copy through ordinary project, render-plan, persistence and engine paths;
+  editable current project copy through ordinary project, render-plan, persistence and engine paths;
 - the versioned starter example and expanded rhythm catalog have deterministic hashes, objective
   and listening evidence, and complete rights/provenance records;
 - `Мой звук` truthfully creates either a note-triggered sample instrument or a continuous fixed
@@ -1287,7 +1283,7 @@ The architecture is proven, rather than merely scaffolded, when:
 - Desktop preload exposes only the versioned bridge;
 - Shared Audio and suspended/unavailable audio states produce truthful diagnostics;
 - Light, Dark, compact, standard, ultrawide and constrained-height UI states are usable;
-- target boundaries, protocol versions, project migrations and real-time invariants are covered by
+- target boundaries, current protocol markers, current-only project loading and real-time invariants are covered by
   deterministic tests;
 - saved resolved patches reproduce after catalog evolution, and no macro-accessible sound can
   bypass the alias, true-peak, mono, continuity or callback-budget evidence;

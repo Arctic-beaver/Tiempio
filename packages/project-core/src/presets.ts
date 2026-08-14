@@ -5,12 +5,12 @@ import {
 	type DrumInstrument,
 	type DrumSource,
 	type DrumVoiceVariantId,
-	type ResolvedDrumKitPatchV2,
-	type ResolvedDrumVoicePatchV2,
-	type ResolvedSynthPatchV2,
-	type SemanticSynthMacrosV2,
+	type ResolvedDrumKitPatch,
+	type ResolvedDrumVoicePatch,
+	type ResolvedSynthPatch,
+	type SemanticSynthMacros,
 	type SoundFamily,
-	type SynthInstrumentStateV2,
+	type SynthInstrumentState,
 	type SynthMacroId,
 	type SynthPresetId,
 	type SynthWaveform
@@ -33,6 +33,10 @@ interface SynthPatchSeed {
 	readonly pulseWidth: number
 	readonly releaseMs: number
 	readonly resonance: number
+	readonly secondaryDetuneCents: number
+	readonly secondaryLevel: number
+	readonly secondarySemitoneOffset: number
+	readonly secondaryWaveform: SynthWaveform
 	readonly stereoWidth: number
 	readonly subLevel: number
 	readonly sustain: number
@@ -40,12 +44,213 @@ interface SynthPatchSeed {
 }
 
 export interface SynthPresetDefinition {
-	readonly defaultMacros: SemanticSynthMacrosV2
+	readonly defaultMacros: SemanticSynthMacros
 	readonly family: SoundFamily
 	readonly id: SynthPresetId
+	readonly mapping: SynthMacroProfile
 	readonly name: string
 	readonly seed: SynthPatchSeed
 }
+
+export interface SynthMacroProfile {
+	readonly brightnessCompensationDb: number
+	readonly brightnessKeyTrackingSpan: number
+	readonly brightnessOctaves: number
+	readonly brightnessSecondarySpan: number
+	readonly brightnessSubTrimDb: number
+	readonly dirtCompensationDb: number
+	readonly dirtDriveTarget: number
+	readonly dirtNoiseTarget: number
+	readonly hardnessAmplitudeSpan: number
+	readonly hardnessAttackOctaves: number
+	readonly hardnessCompensationDb: number
+	readonly hardnessEnvelopeSpan: number
+	readonly hardnessResonanceSpan: number
+	readonly lengthCompensationDb: number
+	readonly lengthOctaves: number
+	readonly lengthSustainSpan: number
+	readonly outputGainCeiling: number
+	readonly widthCompensationDb: number
+	readonly widthDetuneSpanCents: number
+	readonly widthMovementDepthSpan: number
+	readonly widthMovementRateRatio: number
+	readonly widthSecondarySpan: number
+	readonly widthStereoSpan: number
+}
+
+interface SynthExpressionProfile {
+	readonly amplitudeAmount: number
+	readonly attackScale: number
+	readonly filterOctaves: number
+	readonly keyTracking: number
+	readonly velocityCurve: number
+}
+
+const expressionProfiles: Readonly<Record<SoundFamily, SynthExpressionProfile>> = Object.freeze({
+	bass: Object.freeze({
+		amplitudeAmount: 0.9,
+		attackScale: 0.45,
+		filterOctaves: 1.25,
+		keyTracking: 0.32,
+		velocityCurve: 0.82
+	}),
+	lead: Object.freeze({
+		amplitudeAmount: 0.88,
+		attackScale: 0.55,
+		filterOctaves: 1.6,
+		keyTracking: 0.55,
+		velocityCurve: 0.8
+	}),
+	pad: Object.freeze({
+		amplitudeAmount: 0.82,
+		attackScale: 0.7,
+		filterOctaves: 1.1,
+		keyTracking: 0.38,
+		velocityCurve: 0.85
+	}),
+	pluck: Object.freeze({
+		amplitudeAmount: 0.92,
+		attackScale: 0.35,
+		filterOctaves: 1.8,
+		keyTracking: 0.65,
+		velocityCurve: 0.75
+	}),
+	texture: Object.freeze({
+		amplitudeAmount: 0.78,
+		attackScale: 0.65,
+		filterOctaves: 0.9,
+		keyTracking: 0.28,
+		velocityCurve: 0.9
+	})
+})
+
+const familyMacroProfiles: Readonly<Record<SoundFamily, SynthMacroProfile>> = Object.freeze({
+	bass: Object.freeze({
+		brightnessCompensationDb: 0.8,
+		brightnessKeyTrackingSpan: 0.08,
+		brightnessOctaves: 2.1,
+		brightnessSecondarySpan: 0.04,
+		brightnessSubTrimDb: 3.4,
+		dirtCompensationDb: 2.2,
+		dirtDriveTarget: 0.78,
+		dirtNoiseTarget: 0.12,
+		hardnessAmplitudeSpan: 0.06,
+		hardnessAttackOctaves: 1.8,
+		hardnessCompensationDb: 0.7,
+		hardnessEnvelopeSpan: 0.28,
+		hardnessResonanceSpan: 0.14,
+		lengthCompensationDb: 0,
+		lengthOctaves: 1.9,
+		lengthSustainSpan: 0.12,
+		outputGainCeiling: 0.9,
+		widthCompensationDb: 0.6,
+		widthDetuneSpanCents: 0.6,
+		widthMovementDepthSpan: 0.04,
+		widthMovementRateRatio: 0.35,
+		widthSecondarySpan: 0.05,
+		widthStereoSpan: 0.32
+	}),
+	lead: Object.freeze({
+		brightnessCompensationDb: 1.2,
+		brightnessKeyTrackingSpan: 0.12,
+		brightnessOctaves: 2.6,
+		brightnessSecondarySpan: 0.08,
+		brightnessSubTrimDb: 2.4,
+		dirtCompensationDb: 2.8,
+		dirtDriveTarget: 0.84,
+		dirtNoiseTarget: 0.16,
+		hardnessAmplitudeSpan: 0.08,
+		hardnessAttackOctaves: 2.2,
+		hardnessCompensationDb: 0.9,
+		hardnessEnvelopeSpan: 0.36,
+		hardnessResonanceSpan: 0.18,
+		lengthCompensationDb: 0,
+		lengthOctaves: 2.1,
+		lengthSustainSpan: 0.16,
+		outputGainCeiling: 0.9,
+		widthCompensationDb: 1.1,
+		widthDetuneSpanCents: 0,
+		widthMovementDepthSpan: 0.12,
+		widthMovementRateRatio: 0.55,
+		widthSecondarySpan: 0.14,
+		widthStereoSpan: 0.52
+	}),
+	pad: Object.freeze({
+		brightnessCompensationDb: 1,
+		brightnessKeyTrackingSpan: 0.08,
+		brightnessOctaves: 2.3,
+		brightnessSecondarySpan: 0.1,
+		brightnessSubTrimDb: 2,
+		dirtCompensationDb: 2.4,
+		dirtDriveTarget: 0.68,
+		dirtNoiseTarget: 0.24,
+		hardnessAmplitudeSpan: 0.04,
+		hardnessAttackOctaves: 1.4,
+		hardnessCompensationDb: 0.5,
+		hardnessEnvelopeSpan: 0.2,
+		hardnessResonanceSpan: 0.1,
+		lengthCompensationDb: 0,
+		lengthOctaves: 2.4,
+		lengthSustainSpan: 0.1,
+		outputGainCeiling: 0.9,
+		widthCompensationDb: 1.4,
+		widthDetuneSpanCents: 0,
+		widthMovementDepthSpan: 0.18,
+		widthMovementRateRatio: 0.5,
+		widthSecondarySpan: 0.2,
+		widthStereoSpan: 0.58
+	}),
+	pluck: Object.freeze({
+		brightnessCompensationDb: 1.4,
+		brightnessKeyTrackingSpan: 0.14,
+		brightnessOctaves: 2.8,
+		brightnessSecondarySpan: 0.14,
+		brightnessSubTrimDb: 2.2,
+		dirtCompensationDb: 2,
+		dirtDriveTarget: 0.62,
+		dirtNoiseTarget: 0.1,
+		hardnessAmplitudeSpan: 0.04,
+		hardnessAttackOctaves: 2.8,
+		hardnessCompensationDb: 1.1,
+		hardnessEnvelopeSpan: 0.42,
+		hardnessResonanceSpan: 0.22,
+		lengthCompensationDb: 8.4,
+		lengthOctaves: 2.7,
+		lengthSustainSpan: 0.08,
+		outputGainCeiling: 1.3,
+		widthCompensationDb: 0.8,
+		widthDetuneSpanCents: 3,
+		widthMovementDepthSpan: 0.05,
+		widthMovementRateRatio: 0.25,
+		widthSecondarySpan: 0.1,
+		widthStereoSpan: 0.14
+	}),
+	texture: Object.freeze({
+		brightnessCompensationDb: 1,
+		brightnessKeyTrackingSpan: 0.06,
+		brightnessOctaves: 2,
+		brightnessSecondarySpan: 0.16,
+		brightnessSubTrimDb: 1.8,
+		dirtCompensationDb: 3.1,
+		dirtDriveTarget: 0.88,
+		dirtNoiseTarget: 0.62,
+		hardnessAmplitudeSpan: 0.05,
+		hardnessAttackOctaves: 1.8,
+		hardnessCompensationDb: 0.7,
+		hardnessEnvelopeSpan: 0.24,
+		hardnessResonanceSpan: 0.16,
+		lengthCompensationDb: 0,
+		lengthOctaves: 2.3,
+		lengthSustainSpan: 0.12,
+		outputGainCeiling: 0.9,
+		widthCompensationDb: 1.5,
+		widthDetuneSpanCents: 16,
+		widthMovementDepthSpan: 0.22,
+		widthMovementRateRatio: 0.65,
+		widthSecondarySpan: 0.18,
+		widthStereoSpan: 0.6
+	})
+})
 
 const macros = (
 	brightness: number,
@@ -53,7 +258,7 @@ const macros = (
 	dirt: number,
 	length: number,
 	width: number
-): SemanticSynthMacrosV2 => Object.freeze({ brightness, hardness, dirt, length, width })
+): SemanticSynthMacros => Object.freeze({ brightness, hardness, dirt, length, width })
 
 const seed = (
 	waveform: SynthWaveform,
@@ -79,29 +284,38 @@ const seed = (
 		stereoWidth: options.stereoWidth ?? 0.16,
 		movementRateHz: options.movementRateHz ?? 0,
 		movementDepth: options.movementDepth ?? 0,
+		secondaryWaveform: options.secondaryWaveform ?? waveform,
+		secondarySemitoneOffset: options.secondarySemitoneOffset ?? 0,
+		secondaryDetuneCents: options.secondaryDetuneCents ?? 0,
+		secondaryLevel: options.secondaryLevel ?? 0,
 		outputGain: options.outputGain ?? 0.68
 	})
 
 const preset = (
 	id: SynthPresetId,
 	name: string,
-	defaultMacros: SemanticSynthMacrosV2,
-	patchSeed: SynthPatchSeed
+	defaultMacros: SemanticSynthMacros,
+	patchSeed: SynthPatchSeed,
+	mappingOverrides: Partial<SynthMacroProfile> = {}
 ): SynthPresetDefinition =>
-	Object.freeze({
-		id,
-		name,
-		family: id.slice(0, id.indexOf('.')) as SoundFamily,
-		defaultMacros,
-		seed: patchSeed
-	})
+	(() => {
+		const family = id.slice(0, id.indexOf('.')) as SoundFamily
+		return Object.freeze({
+			id,
+			name,
+			family,
+			defaultMacros,
+			seed: patchSeed,
+			mapping: Object.freeze({ ...familyMacroProfiles[family], ...mappingOverrides })
+		})
+	})()
 
 export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freeze([
 	preset(
 		'bass.deep',
 		'Deep',
 		macros(0.24, 0.38, 0.12, 0.7, 0.08),
-		seed('saw', 190, 24, 400, { subLevel: 0.78, outputGain: 0.7 })
+		seed('saw', 190, 24, 400, { subLevel: 0.78, outputGain: 0.84 })
 	),
 	preset(
 		'bass.punchy',
@@ -111,32 +325,39 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			decayMs: 110,
 			sustain: 0.38,
 			envelopeAmount: 0.72,
-			outputGain: 0.62
+			outputGain: 0.57
 		})
 	),
 	preset(
 		'bass.warm',
 		'Warm',
 		macros(0.34, 0.3, 0.08, 0.72, 0.18),
-		seed('triangle', 430, 18, 460, { subLevel: 0.62, drive: 0.08, outputGain: 0.76 })
+		seed('triangle', 430, 18, 460, {
+			subLevel: 0.62,
+			drive: 0.08,
+			secondaryWaveform: 'sine',
+			secondarySemitoneOffset: 12,
+			secondaryLevel: 0.1,
+			outputGain: 0.82
+		})
 	),
 	preset(
 		'bass.dirty',
 		'Dirty',
 		macros(0.5, 0.66, 0.76, 0.5, 0.14),
-		seed('saw', 690, 6, 240, { subLevel: 0.46, drive: 0.38, resonance: 0.3, outputGain: 0.56 })
+		seed('saw', 690, 6, 240, { subLevel: 0.46, drive: 0.38, resonance: 0.3, outputGain: 0.6 })
 	),
 	preset(
 		'bass.soft',
 		'Soft',
 		macros(0.18, 0.16, 0.02, 0.82, 0.24),
-		seed('sine', 320, 48, 580, { subLevel: 0.48, envelopeAmount: 0.18, outputGain: 0.82 })
+		seed('sine', 320, 48, 580, { subLevel: 0.48, envelopeAmount: 0.18, outputGain: 0.63 })
 	),
 	preset(
 		'bass.retro',
 		'Retro',
 		macros(0.44, 0.58, 0.24, 0.48, 0.04),
-		seed('square', 760, 8, 190, { pulseWidth: 0.38, drive: 0.16, outputGain: 0.6 })
+		seed('square', 760, 8, 190, { pulseWidth: 0.38, drive: 0.16, outputGain: 0.42 })
 	),
 	preset(
 		'lead.glass',
@@ -146,6 +367,10 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			resonance: 0.34,
 			movementRateHz: 0.35,
 			movementDepth: 0.08,
+			secondaryWaveform: 'sine',
+			secondarySemitoneOffset: 12,
+			secondaryDetuneCents: 6,
+			secondaryLevel: 0.2,
 			outputGain: 0.6
 		})
 	),
@@ -158,14 +383,14 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			drive: 0.12,
 			movementRateHz: 4.2,
 			movementDepth: 0.12,
-			outputGain: 0.54
+			outputGain: 0.65
 		})
 	),
 	preset(
 		'lead.velvet',
 		'Velvet',
 		macros(0.46, 0.3, 0.04, 0.68, 0.56),
-		seed('triangle', 2100, 24, 520, { sustain: 0.74, outputGain: 0.66 })
+		seed('triangle', 2100, 24, 520, { sustain: 0.74, outputGain: 0.43 })
 	),
 	preset(
 		'lead.hollow',
@@ -176,14 +401,14 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			resonance: 0.46,
 			movementRateHz: 0.22,
 			movementDepth: 0.14,
-			outputGain: 0.55
+			outputGain: 0.47
 		})
 	),
 	preset(
 		'lead.razor',
 		'Razor',
 		macros(0.94, 0.9, 0.4, 0.24, 0.34),
-		seed('saw', 7200, 1, 90, { resonance: 0.28, drive: 0.26, outputGain: 0.44 })
+		seed('saw', 7200, 1, 90, { resonance: 0.28, drive: 0.26, outputGain: 0.46 })
 	),
 	preset(
 		'lead.voice',
@@ -194,7 +419,7 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			resonance: 0.58,
 			movementRateHz: 5.1,
 			movementDepth: 0.06,
-			outputGain: 0.58
+			outputGain: 0.35
 		})
 	),
 	preset(
@@ -205,7 +430,7 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			detuneCents: 8,
 			movementRateHz: 0.16,
 			movementDepth: 0.18,
-			outputGain: 0.5
+			outputGain: 0.65
 		})
 	),
 	preset(
@@ -216,7 +441,11 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			sustain: 0.86,
 			movementRateHz: 0.1,
 			movementDepth: 0.05,
-			outputGain: 0.58
+			secondaryWaveform: 'triangle',
+			secondarySemitoneOffset: 12,
+			secondaryDetuneCents: 5,
+			secondaryLevel: 0.12,
+			outputGain: 0.38
 		})
 	),
 	preset(
@@ -228,7 +457,10 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			sustain: 0.82,
 			movementRateHz: 0.14,
 			movementDepth: 0.08,
-			outputGain: 0.56
+			secondaryWaveform: 'saw',
+			secondaryDetuneCents: 7,
+			secondaryLevel: 0.18,
+			outputGain: 0.5
 		})
 	),
 	preset(
@@ -250,7 +482,7 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 		seed('saw', 2400, 240, 1500, {
 			movementRateHz: 0.48,
 			movementDepth: 0.32,
-			outputGain: 0.46
+			outputGain: 0.54
 		})
 	),
 	preset(
@@ -262,7 +494,7 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			drive: 0.14,
 			movementRateHz: 0.12,
 			movementDepth: 0.2,
-			outputGain: 0.43
+			outputGain: 0.68
 		})
 	),
 	preset(
@@ -273,7 +505,10 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			decayMs: 150,
 			sustain: 0.02,
 			resonance: 0.48,
-			outputGain: 0.62
+			secondaryWaveform: 'sine',
+			secondarySemitoneOffset: 12,
+			secondaryLevel: 0.24,
+			outputGain: 0.85
 		})
 	),
 	preset(
@@ -284,7 +519,7 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			decayMs: 210,
 			sustain: 0.03,
 			noiseLevel: 0.04,
-			outputGain: 0.72
+			outputGain: 0.64
 		})
 	),
 	preset(
@@ -296,14 +531,17 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			sustain: 0.04,
 			movementRateHz: 6.4,
 			movementDepth: 0.04,
-			outputGain: 0.6
+			secondaryWaveform: 'sine',
+			secondarySemitoneOffset: 12,
+			secondaryLevel: 0.32,
+			outputGain: 0.36
 		})
 	),
 	preset(
 		'pluck.short',
 		'Short',
 		macros(0.54, 0.88, 0.08, 0.04, 0.12),
-		seed('square', 3200, 1, 35, { decayMs: 70, sustain: 0, outputGain: 0.58 })
+		seed('square', 3200, 1, 35, { decayMs: 70, sustain: 0, outputGain: 0.66 })
 	),
 	preset(
 		'texture.grain',
@@ -314,7 +552,11 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			drive: 0.18,
 			movementRateHz: 7.5,
 			movementDepth: 0.22,
-			outputGain: 0.4
+			secondaryWaveform: 'square',
+			secondarySemitoneOffset: 12,
+			secondaryDetuneCents: 9,
+			secondaryLevel: 0.14,
+			outputGain: 0.51
 		})
 	),
 	preset(
@@ -326,7 +568,11 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			sustain: 0.9,
 			movementRateHz: 0.06,
 			movementDepth: 0.24,
-			outputGain: 0.4
+			secondaryWaveform: 'triangle',
+			secondarySemitoneOffset: 12,
+			secondaryDetuneCents: 8,
+			secondaryLevel: 0.2,
+			outputGain: 0.32
 		})
 	),
 	preset(
@@ -337,7 +583,7 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			pulseWidth: 0.24,
 			movementRateHz: 3.8,
 			movementDepth: 0.38,
-			outputGain: 0.44
+			outputGain: 0.42
 		})
 	),
 	preset(
@@ -349,7 +595,7 @@ export const synthPresetCatalog: readonly SynthPresetDefinition[] = Object.freez
 			drive: 0.2,
 			movementRateHz: 0.18,
 			movementDepth: 0.26,
-			outputGain: 0.36
+			outputGain: 0.54
 		})
 	),
 	preset(
@@ -378,6 +624,29 @@ function bounded(value: number, minimum: number, maximum: number): number {
 	return rounded(Math.min(maximum, Math.max(minimum, value)))
 }
 
+function smoothstep(value: number): number {
+	const unit = Math.min(1, Math.max(0, value))
+	return unit * unit * (3 - 2 * unit)
+}
+
+function macroDelta(value: number, defaultValue: number): number {
+	if (value === defaultValue) return 0
+	const centered = (value - defaultValue) * 2
+	return Math.sign(centered) * smoothstep(Math.min(1, Math.abs(centered)))
+}
+
+function toward(value: number, delta: number, minimum: number, maximum: number): number {
+	return delta >= 0 ? value + (maximum - value) * delta : value + (value - minimum) * delta
+}
+
+function octaveScale(octaves: number, delta: number): number {
+	return 2 ** (octaves * delta)
+}
+
+function decibelGain(decibels: number): number {
+	return 10 ** (decibels / 20)
+}
+
 export function assertMacroValue(value: number): number {
 	if (!Number.isFinite(value) || value < 0 || value > 1) {
 		throw new RangeError('A semantic macro value must be finite and between 0 and 1.')
@@ -397,56 +666,158 @@ export function synthPresetsForFamily(family: SoundFamily): readonly SynthPreset
 
 export function resolveSynthPatch(
 	presetId: SynthPresetId,
-	macrosValue: SemanticSynthMacrosV2
-): ResolvedSynthPatchV2 {
+	macrosValue: SemanticSynthMacros
+): ResolvedSynthPatch {
 	for (const value of Object.values(macrosValue)) assertMacroValue(value)
 	const definition = synthPresetDefinition(presetId)
-	const { seed: patchSeed } = definition
-	const brightnessScale = 0.38 + macrosValue.brightness * 1.62
-	const lengthScale = 0.24 + macrosValue.length * 1.42
+	const { defaultMacros, mapping, seed: patchSeed } = definition
+	const expressionProfile = expressionProfiles[definition.family]
+	const brightness = macroDelta(macrosValue.brightness, defaultMacros.brightness)
+	const hardness = macroDelta(macrosValue.hardness, defaultMacros.hardness)
+	const dirt = macroDelta(macrosValue.dirt, defaultMacros.dirt)
+	const length = macroDelta(macrosValue.length, defaultMacros.length)
+	const width = macroDelta(macrosValue.width, defaultMacros.width)
+	const lengthScale = octaveScale(mapping.lengthOctaves, length)
+	const compensationDb = -(
+		brightness * mapping.brightnessCompensationDb +
+		hardness * mapping.hardnessCompensationDb +
+		dirt * mapping.dirtCompensationDb +
+		length * mapping.lengthCompensationDb +
+		width * mapping.widthCompensationDb
+	)
 	return cloneAndFreeze({
 		patchModelVersion,
 		voice: 'subtractive-synth',
 		oscillator: {
 			waveform: patchSeed.waveform,
-			detuneCents: bounded(patchSeed.detuneCents + (macrosValue.width - 0.5) * 18, -48, 48),
-			subLevel: bounded(patchSeed.subLevel * (1.12 - macrosValue.brightness * 0.32), 0, 1),
-			noiseLevel: bounded(patchSeed.noiseLevel + macrosValue.dirt * 0.16, 0, 0.72),
-			pulseWidth: bounded(
-				patchSeed.pulseWidth + (macrosValue.hardness - 0.5) * 0.18,
-				0.12,
-				0.88
-			)
+			detuneCents: bounded(
+				toward(
+					patchSeed.detuneCents,
+					width,
+					0,
+					patchSeed.detuneCents + mapping.widthDetuneSpanCents
+				),
+				-48,
+				48
+			),
+			subLevel: bounded(
+				patchSeed.subLevel * decibelGain(-brightness * mapping.brightnessSubTrimDb),
+				0,
+				1
+			),
+			noiseLevel: bounded(
+				toward(patchSeed.noiseLevel, dirt, 0, mapping.dirtNoiseTarget),
+				0,
+				1
+			),
+			pulseWidth: patchSeed.pulseWidth,
+			secondary: {
+				waveform: patchSeed.secondaryWaveform,
+				semitoneOffset: patchSeed.secondarySemitoneOffset,
+				detuneCents: patchSeed.secondaryDetuneCents,
+				level: bounded(
+					patchSeed.secondaryLevel +
+						brightness * mapping.brightnessSecondarySpan +
+						width * mapping.widthSecondarySpan,
+					0,
+					1
+				)
+			}
 		},
 		filter: {
-			cutoffHz: bounded(patchSeed.cutoffHz * brightnessScale, 40, 18_000),
-			resonance: bounded(patchSeed.resonance + macrosValue.hardness * 0.24, 0, 0.86),
+			cutoffHz: bounded(
+				patchSeed.cutoffHz * octaveScale(mapping.brightnessOctaves, brightness),
+				40,
+				18_000
+			),
+			resonance: bounded(
+				patchSeed.resonance + hardness * mapping.hardnessResonanceSpan,
+				0,
+				0.86
+			),
 			envelopeAmount: bounded(
-				patchSeed.envelopeAmount + (macrosValue.hardness - 0.5) * 0.42,
+				patchSeed.envelopeAmount + hardness * mapping.hardnessEnvelopeSpan,
 				-0.8,
 				0.94
+			),
+			keyTracking: bounded(
+				expressionProfile.keyTracking + brightness * mapping.brightnessKeyTrackingSpan,
+				0,
+				1.5
 			)
 		},
 		amplifier: {
-			attackMs: bounded(patchSeed.attackMs * (1.24 - macrosValue.hardness * 0.68), 0.5, 4000),
+			attackMs: bounded(
+				patchSeed.attackMs * octaveScale(-mapping.hardnessAttackOctaves, hardness),
+				0.5,
+				4000
+			),
 			decayMs: bounded(patchSeed.decayMs * lengthScale, 12, 5000),
-			sustain: bounded(patchSeed.sustain * (0.72 + macrosValue.length * 0.38), 0, 0.96),
+			sustain: bounded(patchSeed.sustain + length * mapping.lengthSustainSpan, 0, 0.96),
 			releaseMs: bounded(patchSeed.releaseMs * lengthScale, 8, 6000)
 		},
 		movement: {
-			rateHz: bounded(patchSeed.movementRateHz * (0.5 + macrosValue.width), 0, 12),
-			depth: bounded(patchSeed.movementDepth + macrosValue.width * 0.12, 0, 0.72)
+			rateHz: bounded(
+				patchSeed.movementRateHz * (1 + width * mapping.widthMovementRateRatio),
+				0,
+				12
+			),
+			depth: bounded(
+				toward(
+					patchSeed.movementDepth,
+					width,
+					0,
+					patchSeed.movementDepth + mapping.widthMovementDepthSpan
+				),
+				0,
+				0.72
+			)
 		},
-		drive: bounded(patchSeed.drive + macrosValue.dirt * 0.58, 0, 0.92),
-		stereoWidth: bounded(patchSeed.stereoWidth + macrosValue.width * 0.58, 0, 1),
-		outputGain: bounded(patchSeed.outputGain - macrosValue.dirt * 0.1, 0.18, 0.9)
+		expression: {
+			amplitudeAmount: bounded(
+				expressionProfile.amplitudeAmount + hardness * mapping.hardnessAmplitudeSpan,
+				0,
+				1
+			),
+			attackScale: bounded(
+				expressionProfile.attackScale * octaveScale(-0.35, hardness),
+				0,
+				2
+			),
+			filterOctaves: bounded(
+				expressionProfile.filterOctaves * octaveScale(0.45, brightness),
+				0,
+				4
+			),
+			velocityCurve: bounded(
+				expressionProfile.velocityCurve * octaveScale(-0.25, hardness),
+				0.25,
+				4
+			)
+		},
+		drive: bounded(toward(patchSeed.drive, dirt, 0, mapping.dirtDriveTarget), 0, 0.92),
+		stereoWidth: bounded(
+			toward(
+				patchSeed.stereoWidth,
+				width,
+				0,
+				patchSeed.stereoWidth + mapping.widthStereoSpan
+			),
+			0,
+			1
+		),
+		outputGain: bounded(
+			patchSeed.outputGain * decibelGain(compensationDb),
+			0,
+			mapping.outputGainCeiling
+		)
 	})
 }
 
 export function createSynthInstrument(
 	presetId: SynthPresetId = 'bass.deep',
-	macrosValue: SemanticSynthMacrosV2 = synthPresetDefinition(presetId).defaultMacros
-): SynthInstrumentStateV2 {
+	macrosValue: SemanticSynthMacros = synthPresetDefinition(presetId).defaultMacros
+): SynthInstrumentState {
 	const definition = synthPresetDefinition(presetId)
 	const ownedMacros = cloneAndFreeze(macrosValue)
 	return cloneAndFreeze({
@@ -460,31 +831,31 @@ export function createSynthInstrument(
 }
 
 export function updateSynthMacro(
-	instrument: SynthInstrumentStateV2,
+	instrument: SynthInstrumentState,
 	macro: SynthMacroId,
 	value: number
-): SynthInstrumentStateV2 {
+): SynthInstrumentState {
 	assertMacroValue(value)
 	return createSynthInstrument(instrument.presetId, { ...instrument.macros, [macro]: value })
 }
 
 export const createDeepBassInstrument = (
-	macrosValue: SemanticSynthMacrosV2 = deepBassDefaultMacros
-): SynthInstrumentStateV2 => createSynthInstrument('bass.deep', macrosValue)
+	macrosValue: SemanticSynthMacros = deepBassDefaultMacros
+): SynthInstrumentState => createSynthInstrument('bass.deep', macrosValue)
 
-export const resolveDeepBassPatch = (macrosValue: SemanticSynthMacrosV2): ResolvedSynthPatchV2 =>
+export const resolveDeepBassPatch = (macrosValue: SemanticSynthMacros): ResolvedSynthPatch =>
 	resolveSynthPatch('bass.deep', macrosValue)
 
 export const updateDeepBassMacro = updateSynthMacro
 
-interface DrumVoiceVariantDefinition extends ResolvedDrumVoicePatchV2 {
+interface DrumVoiceVariantDefinition extends ResolvedDrumVoicePatch {
 	readonly instrument: DrumInstrument
 }
 
 const drumVoice = (
 	instrument: DrumInstrument,
 	variantId: DrumVoiceVariantId,
-	algorithm: ResolvedDrumVoicePatchV2['algorithm'],
+	algorithm: ResolvedDrumVoicePatch['algorithm'],
 	pitchHz: number,
 	tone: number,
 	decayMs: number,
@@ -533,8 +904,8 @@ export function drumVoiceVariantsFor(
 
 export function resolveDrumKitPatch(
 	voiceVariants: Readonly<Record<DrumInstrument, DrumVoiceVariantId>>
-): ResolvedDrumKitPatchV2 {
-	const voices = {} as Record<DrumInstrument, ResolvedDrumVoicePatchV2>
+): ResolvedDrumKitPatch {
+	const voices = {} as Record<DrumInstrument, ResolvedDrumVoicePatch>
 	for (const instrument of ['kick', 'clap', 'closedHat', 'openHat', 'perc'] as const) {
 		const variantId = voiceVariants[instrument]
 		const definition = drumVariantById.get(variantId)

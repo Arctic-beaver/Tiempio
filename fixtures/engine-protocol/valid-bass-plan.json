@@ -1,5 +1,5 @@
 {
-	"planVersion": 3,
+	"planVersion": 5,
 	"projectId": "project.engine-fixture",
 	"projectRevision": 7,
 	"ticksPerQuarter": 960,
@@ -18,15 +18,26 @@
 			"source": {
 				"type": "subtractive-synth",
 				"patch": {
-					"patchModelVersion": 2,
+					"patchModelVersion": 4,
 					"oscillator": {
 						"waveform": "saw",
 						"detuneCents": -3.36,
 						"subLevel": 0.7624,
 						"noiseLevel": 0.02,
-						"pulseWidth": 0.5
+						"pulseWidth": 0.5,
+						"secondary": {
+							"waveform": "sine",
+							"semitoneOffset": 12,
+							"detuneCents": 4,
+							"level": 0.16
+						}
 					},
-					"filter": { "cutoffHz": 342.72, "envelopeAmount": 0.426, "resonance": 0.3396 },
+					"filter": {
+						"cutoffHz": 342.72,
+						"envelopeAmount": 0.426,
+						"keyTracking": 0.45,
+						"resonance": 0.3396
+					},
 					"amplifier": {
 						"attackMs": 25.08,
 						"decayMs": 307,
@@ -34,6 +45,12 @@
 						"sustain": 0.716
 					},
 					"movement": { "rateHz": 0.2, "depth": 0.1 },
+					"expression": {
+						"amplitudeAmount": 0.9,
+						"attackScale": 0.45,
+						"filterOctaves": 1.5,
+						"velocityCurve": 0.8
+					},
 					"drive": 0.0864,
 					"stereoWidth": 0.028,
 					"outputGain": 0.7056

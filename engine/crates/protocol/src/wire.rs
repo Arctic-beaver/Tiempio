@@ -189,25 +189,36 @@ pub struct WireLoop {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireSynthOscillatorPatchV2 {
+pub struct WireSynthOscillatorPatch {
     pub waveform: String,
     pub detune_cents: f64,
     pub sub_level: f64,
     pub noise_level: f64,
     pub pulse_width: f64,
+    pub secondary: WireSynthSecondaryOscillatorPatch,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireSynthFilterPatchV2 {
+pub struct WireSynthSecondaryOscillatorPatch {
+    pub waveform: String,
+    pub semitone_offset: i32,
+    pub detune_cents: f64,
+    pub level: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WireSynthFilterPatch {
     pub cutoff_hz: f64,
     pub envelope_amount: f64,
+    pub key_tracking: f64,
     pub resonance: f64,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireSynthAmplifierPatchV2 {
+pub struct WireSynthAmplifierPatch {
     pub attack_ms: f64,
     pub decay_ms: f64,
     pub release_ms: f64,
@@ -216,19 +227,29 @@ pub struct WireSynthAmplifierPatchV2 {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireSynthMovementPatchV2 {
+pub struct WireSynthMovementPatch {
     pub rate_hz: f64,
     pub depth: f64,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireSynthPatchV2 {
+pub struct WireSynthExpressionPatch {
+    pub amplitude_amount: f64,
+    pub attack_scale: f64,
+    pub filter_octaves: f64,
+    pub velocity_curve: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WireSynthPatch {
     pub patch_model_version: u32,
-    pub oscillator: WireSynthOscillatorPatchV2,
-    pub filter: WireSynthFilterPatchV2,
-    pub amplifier: WireSynthAmplifierPatchV2,
-    pub movement: WireSynthMovementPatchV2,
+    pub oscillator: WireSynthOscillatorPatch,
+    pub filter: WireSynthFilterPatch,
+    pub amplifier: WireSynthAmplifierPatch,
+    pub movement: WireSynthMovementPatch,
+    pub expression: WireSynthExpressionPatch,
     pub drive: f64,
     pub stereo_width: f64,
     pub output_gain: f64,
@@ -249,12 +270,12 @@ pub struct WireMidiNote {
 pub struct WireSynthSource {
     #[serde(rename = "type")]
     pub source_type: String,
-    pub patch: WireSynthPatchV2,
+    pub patch: WireSynthPatch,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireDrumVoicePatchV2 {
+pub struct WireDrumVoicePatch {
     pub algorithm: String,
     pub pitch_hz: f64,
     pub tone: f64,
@@ -266,19 +287,19 @@ pub struct WireDrumVoicePatchV2 {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireDrumVoicesV2 {
-    pub kick: WireDrumVoicePatchV2,
-    pub clap: WireDrumVoicePatchV2,
-    pub closed_hat: WireDrumVoicePatchV2,
-    pub open_hat: WireDrumVoicePatchV2,
-    pub perc: WireDrumVoicePatchV2,
+pub struct WireDrumVoices {
+    pub kick: WireDrumVoicePatch,
+    pub clap: WireDrumVoicePatch,
+    pub closed_hat: WireDrumVoicePatch,
+    pub open_hat: WireDrumVoicePatch,
+    pub perc: WireDrumVoicePatch,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WireDrumKitPatchV2 {
+pub struct WireDrumKitPatch {
     pub patch_model_version: u32,
-    pub voices: WireDrumVoicesV2,
+    pub voices: WireDrumVoices,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -286,7 +307,7 @@ pub struct WireDrumKitPatchV2 {
 pub struct WireDrumSource {
     #[serde(rename = "type")]
     pub source_type: String,
-    pub patch: WireDrumKitPatchV2,
+    pub patch: WireDrumKitPatch,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]

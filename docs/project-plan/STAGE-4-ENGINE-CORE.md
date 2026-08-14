@@ -43,7 +43,7 @@ cross-language generated-file checks.
 
 Stage 3 already provides:
 
-- project schema v1 and patch-model v1;
+- the current project schema and patch model;
 - a fully resolved `Deep` Bass patch with values rounded to six decimal places;
 - a deterministic, revision-bound TypeScript render plan;
 - stable layer, clip, note and event IDs;
@@ -102,7 +102,7 @@ The arrows mean “is used by”. Responsibilities are:
   conversion, scheduler, transport state, bounded voice arena, block renderer,
   plan-revision state and diagnostics. It knows patch data but not platform
   transports.
-- `synth`: the patch-model-v1 `DeepBassVoice` implementation and its voice
+- `synth`: the current `DeepBassVoice` implementation and its voice
   factory. It depends on `core` traits and `dsp` primitives.
 - `protocol`: generated stable codes plus strict wire DTOs, UTF-8 JSON body
   validation, bounded framing, handshake state and conversion into validated
@@ -245,9 +245,9 @@ loop wrap use a short bounded release or a documented emergency reset. Every
 voice has a finite maximum release duration, so invalid state cannot create a
 permanent voice.
 
-## Deep Bass patch-model-v1 signal path
+## Deep Bass signal path
 
-The reviewed v1 voice is intentionally small and reproducible:
+The reviewed voice is intentionally small and reproducible:
 
 1. phase-continuous anti-aliased saw pair with bounded detune;
 2. centered sine sub oscillator controlled by `subLevel`;
@@ -383,7 +383,7 @@ fast-forward merge into `feature/skeleton-engine-core`.
 - Filter instability near Nyquist, denormal-scale tails, DC accumulation,
   clipping and non-finite intermediates.
 - Empty plan and silence-only plan.
-- Unsupported drums or future patch types must fail explicitly, never be
+- Unknown drum voices or non-current patch shapes must fail explicitly, never be
   silently omitted from an acknowledged plan.
 
 ## Verification strategy

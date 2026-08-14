@@ -3,8 +3,8 @@ import {
 	type EngineDiagnosticCode
 } from './generated/engine-protocol.generated.js'
 
-export const engineRenderPlanVersion = 3 as const
-export const enginePatchModelVersion = 2 as const
+export const engineRenderPlanVersion = 5 as const
+export const enginePatchModelVersion = 4 as const
 export const engineTicksPerQuarter = 960 as const
 
 export type EngineWireSynthWaveform = 'saw' | 'square' | 'triangle' | 'sine'
@@ -27,7 +27,7 @@ export interface EngineWireLoop {
 	readonly startTick: number
 }
 
-export interface EngineWireSynthPatchV2 {
+export interface EngineWireSynthPatch {
 	readonly amplifier: {
 		readonly attackMs: number
 		readonly decayMs: number
@@ -38,7 +38,14 @@ export interface EngineWireSynthPatchV2 {
 	readonly filter: {
 		readonly cutoffHz: number
 		readonly envelopeAmount: number
+		readonly keyTracking: number
 		readonly resonance: number
+	}
+	readonly expression: {
+		readonly amplitudeAmount: number
+		readonly attackScale: number
+		readonly filterOctaves: number
+		readonly velocityCurve: number
 	}
 	readonly movement: {
 		readonly depth: number
@@ -48,6 +55,12 @@ export interface EngineWireSynthPatchV2 {
 		readonly detuneCents: number
 		readonly noiseLevel: number
 		readonly pulseWidth: number
+		readonly secondary: {
+			readonly detuneCents: number
+			readonly level: number
+			readonly semitoneOffset: number
+			readonly waveform: EngineWireSynthWaveform
+		}
 		readonly subLevel: number
 		readonly waveform: EngineWireSynthWaveform
 	}
@@ -56,7 +69,7 @@ export interface EngineWireSynthPatchV2 {
 	readonly stereoWidth: number
 }
 
-export interface EngineWireDrumVoicePatchV2 {
+export interface EngineWireDrumVoicePatch {
 	readonly algorithm: 'kick' | 'clap' | 'closed-hat' | 'open-hat' | 'perc'
 	readonly decayMs: number
 	readonly drive: number
@@ -66,9 +79,9 @@ export interface EngineWireDrumVoicePatchV2 {
 	readonly tone: number
 }
 
-export interface EngineWireDrumKitPatchV2 {
+export interface EngineWireDrumKitPatch {
 	readonly patchModelVersion: typeof enginePatchModelVersion
-	readonly voices: Readonly<Record<EngineWireDrumInstrument, EngineWireDrumVoicePatchV2>>
+	readonly voices: Readonly<Record<EngineWireDrumInstrument, EngineWireDrumVoicePatch>>
 }
 
 export interface EngineWireMidiNote {
@@ -93,7 +106,7 @@ export interface EngineWireSynthLayer {
 	readonly id: string
 	readonly pan: number
 	readonly source: {
-		readonly patch: EngineWireSynthPatchV2
+		readonly patch: EngineWireSynthPatch
 		readonly type: 'subtractive-synth'
 	}
 }
@@ -104,7 +117,7 @@ export interface EngineWireDrumLayer {
 	readonly id: string
 	readonly pan: number
 	readonly source: {
-		readonly patch: EngineWireDrumKitPatchV2
+		readonly patch: EngineWireDrumKitPatch
 		readonly type: 'procedural-drums'
 	}
 }
@@ -177,7 +190,7 @@ function validAmplifier(value: unknown): boolean {
 	)
 }
 
-function validSynthPatch(value: unknown): value is EngineWireSynthPatchV2 {
+function validSynthPatch(value: unknown): value is EngineWireSynthPatch {
 	if (
 		!record(value) ||
 		!exactKeys(value, [
@@ -186,6 +199,7 @@ function validSynthPatch(value: unknown): value is EngineWireSynthPatchV2 {
 			'filter',
 			'amplifier',
 			'movement',
+			'expression',
 			'drive',
 			'stereoWidth',
 			'outputGain'
@@ -197,23 +211,50 @@ function validSynthPatch(value: unknown): value is EngineWireSynthPatchV2 {
 			'detuneCents',
 			'subLevel',
 			'noiseLevel',
-			'pulseWidth'
+			'pulseWidth',
+			'secondary'
 		]) ||
 		!['saw', 'square', 'triangle', 'sine'].includes(String(value.oscillator.waveform)) ||
 		!finiteRange(value.oscillator.detuneCents, -100, 100) ||
 		!finiteRange(value.oscillator.subLevel, 0, 1) ||
 		!finiteRange(value.oscillator.noiseLevel, 0, 1) ||
 		!finiteRange(value.oscillator.pulseWidth, 0.05, 0.95) ||
+		!record(value.oscillator.secondary) ||
+		!exactKeys(value.oscillator.secondary, [
+			'waveform',
+			'semitoneOffset',
+			'detuneCents',
+			'level'
+		]) ||
+		!['saw', 'square', 'triangle', 'sine'].includes(
+			String(value.oscillator.secondary.waveform)
+		) ||
+		!Number.isInteger(value.oscillator.secondary.semitoneOffset) ||
+		!finiteRange(value.oscillator.secondary.semitoneOffset, -24, 24) ||
+		!finiteRange(value.oscillator.secondary.detuneCents, -100, 100) ||
+		!finiteRange(value.oscillator.secondary.level, 0, 1) ||
 		!record(value.filter) ||
-		!exactKeys(value.filter, ['cutoffHz', 'envelopeAmount', 'resonance']) ||
+		!exactKeys(value.filter, ['cutoffHz', 'envelopeAmount', 'keyTracking', 'resonance']) ||
 		!finiteRange(value.filter.cutoffHz, 20, 24_000) ||
 		!finiteRange(value.filter.envelopeAmount, -1, 1) ||
+		!finiteRange(value.filter.keyTracking, 0, 1.5) ||
 		!finiteRange(value.filter.resonance, 0, 1) ||
 		!validAmplifier(value.amplifier) ||
 		!record(value.movement) ||
 		!exactKeys(value.movement, ['rateHz', 'depth']) ||
 		!finiteRange(value.movement.rateHz, 0, 20) ||
 		!finiteRange(value.movement.depth, 0, 1) ||
+		!record(value.expression) ||
+		!exactKeys(value.expression, [
+			'amplitudeAmount',
+			'attackScale',
+			'filterOctaves',
+			'velocityCurve'
+		]) ||
+		!finiteRange(value.expression.amplitudeAmount, 0, 1) ||
+		!finiteRange(value.expression.attackScale, 0, 2) ||
+		!finiteRange(value.expression.filterOctaves, 0, 4) ||
+		!finiteRange(value.expression.velocityCurve, 0.25, 4) ||
 		!finiteRange(value.drive, 0, 1) ||
 		!finiteRange(value.stereoWidth, 0, 1) ||
 		!finiteRange(value.outputGain, 0, 2)
@@ -247,7 +288,7 @@ function validDrumVoice(value: unknown, instrument: EngineWireDrumInstrument): b
 	)
 }
 
-function validDrumPatch(value: unknown): value is EngineWireDrumKitPatchV2 {
+function validDrumPatch(value: unknown): value is EngineWireDrumKitPatch {
 	if (
 		!record(value) ||
 		!exactKeys(value, ['patchModelVersion', 'voices']) ||

@@ -463,6 +463,32 @@ function validateResolvedPatch(value: unknown, context: ValidationContext, path:
 		finiteNumber(oscillator.subLevel, context, `${path}.oscillator.subLevel`, 0, 1)
 		finiteNumber(oscillator.noiseLevel, context, `${path}.oscillator.noiseLevel`, 0, 1)
 		finiteNumber(oscillator.pulseWidth, context, `${path}.oscillator.pulseWidth`, 0.05, 0.95)
+		const secondary = record(oscillator.secondary, context, `${path}.oscillator.secondary`)
+		if (secondary !== null) {
+			if (typeof secondary.waveform !== 'string' || !synthWaveforms.has(secondary.waveform)) {
+				issue(
+					context,
+					'INVALID_VALUE',
+					`${path}.oscillator.secondary.waveform`,
+					'Expected a supported secondary oscillator waveform.'
+				)
+			}
+			integer(
+				secondary.semitoneOffset,
+				context,
+				`${path}.oscillator.secondary.semitoneOffset`,
+				-24,
+				24
+			)
+			finiteNumber(
+				secondary.detuneCents,
+				context,
+				`${path}.oscillator.secondary.detuneCents`,
+				-100,
+				100
+			)
+			finiteNumber(secondary.level, context, `${path}.oscillator.secondary.level`, 0, 1)
+		}
 	}
 	const movement = record(patch.movement, context, `${path}.movement`)
 	if (movement !== null) {
@@ -474,6 +500,7 @@ function validateResolvedPatch(value: unknown, context: ValidationContext, path:
 		finiteNumber(filter.cutoffHz, context, `${path}.filter.cutoffHz`, 20, 24_000)
 		finiteNumber(filter.resonance, context, `${path}.filter.resonance`, 0, 1)
 		finiteNumber(filter.envelopeAmount, context, `${path}.filter.envelopeAmount`, -1, 1)
+		finiteNumber(filter.keyTracking, context, `${path}.filter.keyTracking`, 0, 1.5)
 	}
 	const amplifier = record(patch.amplifier, context, `${path}.amplifier`)
 	if (amplifier !== null) {
@@ -481,6 +508,19 @@ function validateResolvedPatch(value: unknown, context: ValidationContext, path:
 		finiteNumber(amplifier.decayMs, context, `${path}.amplifier.decayMs`, 0, 60_000)
 		finiteNumber(amplifier.sustain, context, `${path}.amplifier.sustain`, 0, 1)
 		finiteNumber(amplifier.releaseMs, context, `${path}.amplifier.releaseMs`, 0, 60_000)
+	}
+	const expression = record(patch.expression, context, `${path}.expression`)
+	if (expression !== null) {
+		finiteNumber(
+			expression.amplitudeAmount,
+			context,
+			`${path}.expression.amplitudeAmount`,
+			0,
+			1
+		)
+		finiteNumber(expression.attackScale, context, `${path}.expression.attackScale`, 0, 2)
+		finiteNumber(expression.filterOctaves, context, `${path}.expression.filterOctaves`, 0, 4)
+		finiteNumber(expression.velocityCurve, context, `${path}.expression.velocityCurve`, 0.25, 4)
 	}
 	finiteNumber(patch.drive, context, `${path}.drive`, 0, 1)
 	finiteNumber(patch.stereoWidth, context, `${path}.stereoWidth`, 0, 1)

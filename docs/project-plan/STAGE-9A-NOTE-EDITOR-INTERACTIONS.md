@@ -36,7 +36,7 @@ note manipulation`). The Piano Roll now renders only canonical project notes, ex
 - Stage D is complete and merged into the task integration history at `1cad5af` (`Add customizable
   keyboard shortcuts`). It adds a themed settings dialog, grouped keycap bindings, physical-key
   capture, multiple bindings, explicit conflict replacement, reserved-combination rejection,
-  per-command and global reset, legacy settings migration and persisted overrides. Validation
+  per-command and global reset plus current-only persisted overrides. Validation
   passed 123 contract tests, 86 repository-policy tests, Web typecheck and lint.
 - Stage E is active on `feature/note-editor-acceptance`. Integrated interaction smoke has covered
   canonical-note truth, exact double-click add/remove, body movement, short-note duration resizing,

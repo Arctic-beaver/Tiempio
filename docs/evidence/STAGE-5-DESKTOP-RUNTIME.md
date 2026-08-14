@@ -17,7 +17,7 @@ Play/Pause plus playhead positions. Reference assets remain locked and unchanged
 
 | Delivery stage              | Branch                                 | Commit               | Result                                                                          |
 | --------------------------- | -------------------------------------- | -------------------- | ------------------------------------------------------------------------------- |
-| A — contracts and lifecycle | `feature/desktop-contracts-lifecycle`  | `02af779`            | Runtime v2, protocol v2, closed IPC and lifecycle-owned workflows               |
+| A — contracts and lifecycle | `feature/desktop-contracts-lifecycle`  | `02af779`            | Current runtime/protocol, closed IPC and lifecycle-owned workflows              |
 | B — native persistence      | `feature/desktop-native-persistence`   | `823cd90`            | Opaque handles, bounded ZIP, atomic/fingerprint saves, recovery and settings    |
 | C — native shared audio     | `feature/native-shared-audio-host`     | `f8e8144`            | Framed Rust host, CPAL shared output, Deep Bass callback and controlled backend |
 | D — engine supervision      | `feature/desktop-engine-supervision`   | `3219215`            | Verified child ownership, restart, coalescing and typed preload bridge          |
@@ -35,7 +35,7 @@ Play/Pause plus playhead positions. Reference assets remain locked and unchanged
 - Compiled unit/contract suite: 103 passing tests.
 - Policy suite: 86 passing tests after adding package-integrity coverage.
 - Persistence tests exercise physical create/open/save/reopen, Save As/Copy, external fingerprint
-  conflict, unsupported-version preservation, recovery, settings and injected write failures in
+  conflict, strict current-only rejection, recovery, settings and injected write failures in
   isolated temporary directories without exposing paths to the renderer.
 - Supervisor tests exercise handshake/token/version failures, framing limits, heartbeat hang, crash,
   one restart, newest-plan restore, renderer generation changes, PID reuse and cleanup refusal.

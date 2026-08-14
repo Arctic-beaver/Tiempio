@@ -13,7 +13,7 @@ export function createDesktopPersistenceServices(
 	owner: () => BrowserWindow | null,
 	userDataPath = app.getPath('userData')
 ): DesktopPersistenceServices {
-	const root = join(userDataPath, 'runtime-v1')
+	const root = join(userDataPath, 'runtime')
 	const recoveries = new RecoveryStore(join(root, 'recovery'))
 	return Object.freeze({
 		projects: new ProjectPersistenceService(new NativeProjectDialogs(owner), recoveries),

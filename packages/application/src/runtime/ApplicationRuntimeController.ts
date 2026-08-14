@@ -42,7 +42,6 @@ export interface ProjectDocumentCodec {
 	):
 		| { readonly project: ProjectDocument; readonly status: 'loaded' }
 		| { readonly error: { readonly message: string }; readonly status: 'invalid' }
-		| { readonly status: 'unsupported' }
 	encode(project: ProjectDocument): Uint8Array
 }
 
@@ -865,25 +864,11 @@ export class ApplicationRuntimeController implements ApplicationController {
 			if (!selected.ok) return selected
 			const loaded = await projects.load(selected.value)
 			if (!loaded.ok) return loaded
-			if (loaded.value.compatibility === 'unsupported') {
-				return Object.freeze({
-					ok: false as const,
-					error: applicationError(
-						'PROJECT_READ_ONLY',
-						'This project was created by a newer Tiempio version and cannot be edited.'
-					)
-				})
-			}
 			const decoded = decode(loaded.value.snapshot.bytes)
 			if (decoded.status !== 'loaded') {
 				return Object.freeze({
 					ok: false as const,
-					error: applicationError(
-						decoded.status === 'unsupported' ? 'PROJECT_READ_ONLY' : 'PROJECT_INVALID',
-						decoded.status === 'unsupported'
-							? 'This project was created by a newer Tiempio version and cannot be edited.'
-							: decoded.error.message
-					)
+					error: applicationError('PROJECT_INVALID', decoded.error.message)
 				})
 			}
 			return Object.freeze({

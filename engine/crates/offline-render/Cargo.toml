@@ -6,7 +6,9 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 tiempio-engine-core = { path = "../core" }
 tiempio-engine-drums = { path = "../drums" }
 tiempio-engine-dsp = { path = "../dsp" }

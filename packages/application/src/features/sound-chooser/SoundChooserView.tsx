@@ -28,11 +28,11 @@ import {
 	createSynthInstrument,
 	type LayerPerformanceMapping,
 	type ProjectKey,
-	type SemanticSynthMacrosV2,
+	type SemanticSynthMacros,
 	type SoundFamily,
 	type SynthMacroId,
 	type SynthPresetId,
-	type SynthInstrumentStateV2
+	type SynthInstrumentState
 } from '../../../../project-core/src/index.js'
 import { PerformanceKeyboard } from '../../performance/PerformanceKeyboard.js'
 import type { LayersProjection, ProjectedLayerItem } from '../../project/projections/types.js'
@@ -76,7 +76,7 @@ const scaleTabId = 'sound-mapping-scale-tab'
 const scalePanelId = 'sound-mapping-scale-panel'
 
 export interface SoundChooserViewProperties {
-	readonly auditionInstrument: SynthInstrumentStateV2 | null
+	readonly auditionInstrument: SynthInstrumentState | null
 	readonly commitPending?: boolean
 	readonly initialPerformance?: LayerPerformanceMapping
 	readonly layerId: string | null
@@ -88,7 +88,7 @@ export interface SoundChooserViewProperties {
 	readonly onCommitMacro: (macro: SynthMacroId, value: number) => void
 	readonly onSelectPreset: (presetId: SynthPresetId) => void
 	readonly onSelectLayer: (item: ProjectedLayerItem) => void
-	readonly selectedMacros: SemanticSynthMacrosV2
+	readonly selectedMacros: SemanticSynthMacros
 	readonly selectedPresetId: SynthPresetId
 }
 
@@ -126,7 +126,7 @@ export function SoundChooserView({
 	const [octave, setOctave] = useState(initialPerformance.octave)
 	const [macroPreview, setMacroPreview] = useState<Partial<Record<SynthMacroId, number>>>({})
 	const [acceptedDraftInstrument, setAcceptedDraftInstrument] =
-		useState<SynthInstrumentStateV2 | null>(null)
+		useState<SynthInstrumentState | null>(null)
 	const dockTabRefs = useRef(new Map<SoundMappingDockView, HTMLButtonElement>())
 	const activeFamily =
 		model.families.find((family) =>

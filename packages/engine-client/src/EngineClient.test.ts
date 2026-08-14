@@ -118,8 +118,8 @@ describe('EngineClient', () => {
 			payload: {
 				protocolVersion: engineProtocolVersion,
 				peer: 'application',
-				renderPlanVersion: 3,
-				patchModelVersion: 2,
+				renderPlanVersion: 5,
+				patchModelVersion: 4,
 				capabilities: ['protocol.typed-json']
 			}
 		})

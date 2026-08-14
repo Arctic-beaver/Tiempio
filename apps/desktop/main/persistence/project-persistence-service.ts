@@ -37,14 +37,11 @@ import { RecoveryStore } from './recovery-settings-store.js'
 interface MutableProjectRecord {
 	readonly handle: ProjectHandle
 	readonly recoveryIdentity: string
-	compatibility: 'supported' | 'unsupported'
 	entries: readonly LogicalArchiveEntry[]
 	fingerprint: string | null
 	lastPersistedRevision: number | null
 	manifestBytes: Uint8Array | null
 	queue: Promise<void>
-	saveAllowed: boolean
-	sourceArchiveBytes: Uint8Array | null
 	sourceIdentity: string | null
 	sourcePath: string | null
 }
@@ -114,14 +111,11 @@ export class ProjectPersistenceService implements ProjectsRuntime {
 		initial: Partial<
 			Pick<
 				MutableProjectRecord,
-				| 'compatibility'
 				| 'entries'
 				| 'fingerprint'
 				| 'lastPersistedRevision'
 				| 'manifestBytes'
 				| 'recoveryIdentity'
-				| 'saveAllowed'
-				| 'sourceArchiveBytes'
 				| 'sourceIdentity'
 				| 'sourcePath'
 			>
@@ -130,7 +124,6 @@ export class ProjectPersistenceService implements ProjectsRuntime {
 		const record: MutableProjectRecord = {
 			handle: projectHandle(),
 			recoveryIdentity: initial.recoveryIdentity ?? this.recoveries.createIdentity(),
-			compatibility: initial.compatibility ?? 'supported',
 			entries: initial.entries ?? Object.freeze([]),
 			fingerprint: initial.fingerprint ?? null,
 			lastPersistedRevision: initial.lastPersistedRevision ?? null,
@@ -139,11 +132,6 @@ export class ProjectPersistenceService implements ProjectsRuntime {
 					? null
 					: new Uint8Array(initial.manifestBytes),
 			queue: Promise.resolve(),
-			saveAllowed: initial.saveAllowed ?? true,
-			sourceArchiveBytes:
-				initial.sourceArchiveBytes === undefined || initial.sourceArchiveBytes === null
-					? null
-					: new Uint8Array(initial.sourceArchiveBytes),
 			sourceIdentity: initial.sourceIdentity ?? null,
 			sourcePath: initial.sourcePath ?? null
 		}
@@ -233,13 +221,9 @@ export class ProjectPersistenceService implements ProjectsRuntime {
 						'The project archive is invalid.'
 					)
 				}
-				const manifestBytes =
-					logical.status === 'loaded'
-						? logical.entries.find(
-								(entry) =>
-									entry.path.toLocaleLowerCase('en-US') === projectManifestPath
-							)?.bytes
-						: logical.originalManifestBytes
+				const manifestBytes = logical.entries.find(
+					(entry) => entry.path.toLocaleLowerCase('en-US') === projectManifestPath
+				)?.bytes
 				if (manifestBytes === undefined) {
 					throw new PersistenceBoundaryError(
 						'PROJECT_INVALID',
@@ -247,12 +231,9 @@ export class ProjectPersistenceService implements ProjectsRuntime {
 					)
 				}
 				const record = this.createRecord({
-					compatibility: logical.status === 'loaded' ? 'supported' : 'unsupported',
 					entries: logical.entries.map(ownedEntry),
 					fingerprint: sha256Fingerprint(archiveBytes),
 					manifestBytes,
-					saveAllowed: logical.saveAllowed,
-					sourceArchiveBytes: opened.archiveBytes,
 					sourceIdentity: identity,
 					sourcePath: identity
 				})
@@ -278,9 +259,7 @@ export class ProjectPersistenceService implements ProjectsRuntime {
 			return Object.freeze({
 				ok: true as const,
 				value: Object.freeze({
-					compatibility: record.compatibility,
 					fingerprint: record.fingerprint,
-					saveAllowed: record.saveAllowed,
 					snapshot: Object.freeze({
 						revision: record.lastPersistedRevision ?? 0,
 						bytes: new Uint8Array(record.manifestBytes)
@@ -383,7 +362,6 @@ export class ProjectPersistenceService implements ProjectsRuntime {
 	private commitPersistedRecord(
 		record: MutableProjectRecord,
 		destination: DestinationReservation,
-		archiveBytes: Uint8Array,
 		entries: readonly LogicalArchiveEntry[],
 		manifestBytes: Uint8Array,
 		fingerprint: string,
@@ -396,11 +374,8 @@ export class ProjectPersistenceService implements ProjectsRuntime {
 		record.sourcePath = destination.path
 		record.fingerprint = fingerprint
 		record.lastPersistedRevision = revision
-		record.compatibility = 'supported'
-		record.saveAllowed = true
 		record.entries = entries.map(ownedEntry)
 		record.manifestBytes = new Uint8Array(manifestBytes)
-		record.sourceArchiveBytes = new Uint8Array(archiveBytes)
 		this.bySource.set(destination.identity, record.handle)
 	}
 
@@ -414,12 +389,6 @@ export class ProjectPersistenceService implements ProjectsRuntime {
 			const bounded = validateProjectSnapshotEnvelope(snapshotInput)
 			if (!bounded.ok) {
 				throw new PersistenceBoundaryError('INVALID_REQUEST', bounded.error.message)
-			}
-			if (!record.saveAllowed) {
-				throw new PersistenceBoundaryError(
-					'PROJECT_READ_ONLY',
-					'This project version is read-only.'
-				)
 			}
 			const snapshot = this.validatedSnapshot(bounded.value)
 			if (
@@ -446,7 +415,6 @@ export class ProjectPersistenceService implements ProjectsRuntime {
 			this.commitPersistedRecord(
 				record,
 				destination,
-				archive.bytes,
 				archive.entries,
 				snapshot.bytes,
 				fingerprint,
@@ -535,22 +503,6 @@ export class ProjectPersistenceService implements ProjectsRuntime {
 						status: 'canceled' as const,
 						revision: snapshot.revision
 					})
-				}
-				if (!record.saveAllowed && record.sourceArchiveBytes !== null) {
-					try {
-						await atomicReplaceFile(destination.path, record.sourceArchiveBytes, {
-							expectedFingerprint: destination.expectedFingerprint,
-							faults: this.faults
-						})
-						return Object.freeze({
-							status: 'copy-written' as const,
-							revision: bounded.value.revision
-						})
-					} catch (error) {
-						return failedPersistence(snapshot.revision, error)
-					} finally {
-						this.destinationReservations.delete(destination.identity)
-					}
 				}
 				return this.persistTo(record, snapshot, destination, false)
 			})
@@ -644,12 +596,10 @@ export class ProjectPersistenceService implements ProjectsRuntime {
 		const recovery = restored.value.recovery
 		const manifest = manifestEntry(recovery.manifestBytes)
 		const record = this.createRecord({
-			compatibility: recovery.status === 'loaded' ? 'supported' : 'unsupported',
 			entries: Object.freeze([manifest]),
 			lastPersistedRevision: null,
 			manifestBytes: recovery.manifestBytes,
-			recoveryIdentity: restored.value.identity,
-			saveAllowed: recovery.status === 'loaded'
+			recoveryIdentity: restored.value.identity
 		})
 		return Object.freeze({ ok: true as const, value: record.handle })
 	}

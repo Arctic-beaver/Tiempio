@@ -135,9 +135,7 @@ function recoveryProjectsRuntime(
 				? Object.freeze({
 						ok: true as const,
 						value: Object.freeze({
-							compatibility: 'supported' as const,
 							fingerprint: 'sha256:test',
-							saveAllowed: true,
 							snapshot: Object.freeze({
 								revision: 3,
 								bytes: new Uint8Array([9])

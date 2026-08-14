@@ -16,19 +16,11 @@ import {
 } from './index.js'
 
 describe('Desktop runtime payload validation', () => {
-	it('migrates legacy settings and validates bounded physical shortcuts', () => {
-		assert.deepEqual(validateSettingsSnapshot({ version: 1, colorScheme: 'dark' }), {
-			ok: true,
-			value: {
-				version: 3,
-				colorScheme: 'dark',
-				metronome: { enabled: false, volume: 0.65 },
-				shortcutOverrides: []
-			}
-		})
+	it('accepts only current settings and validates bounded physical shortcuts', () => {
 		const current = validateSettingsSnapshot({
-			version: 2,
+			version: 3,
 			colorScheme: 'system',
+			metronome: { enabled: false, volume: 0.65 },
 			shortcutOverrides: [
 				{
 					commandId: 'note.move-left',
@@ -45,9 +37,7 @@ describe('Desktop runtime payload validation', () => {
 			]
 		})
 		assert.equal(current.ok, true)
-		if (current.ok) {
-			assert.deepEqual(current.value.metronome, { enabled: false, volume: 0.65 })
-		}
+		if (current.ok) assert.deepEqual(current.value.metronome, { enabled: false, volume: 0.65 })
 		assert.equal(
 			validateSettingsSnapshot({
 				version: 3,
@@ -59,8 +49,9 @@ describe('Desktop runtime payload validation', () => {
 		)
 		assert.equal(
 			validateSettingsSnapshot({
-				version: 2,
+				version: 3,
 				colorScheme: 'system',
+				metronome: { enabled: false, volume: 0.65 },
 				shortcutOverrides: [
 					{ commandId: 'note.delete', bindings: [] },
 					{ commandId: 'note.delete', bindings: [] }
@@ -120,21 +111,18 @@ describe('Desktop runtime payload validation', () => {
 		)
 	})
 
-	it('owns loaded project bytes and rejects contradictory compatibility', () => {
+	it('owns loaded project bytes and rejects obsolete load metadata', () => {
 		const source = new Uint8Array([4, 5, 6])
 		const loaded = validateProjectLoadEnvelope({
-			compatibility: 'supported',
 			fingerprint: `sha256:${'C'.repeat(64)}`,
-			saveAllowed: true,
 			snapshot: { revision: 3, bytes: source }
 		})
 		assert.equal(loaded.ok, true)
 		if (loaded.ok) assert.notEqual(loaded.value.snapshot.bytes, source)
 		assert.equal(
 			validateProjectLoadEnvelope({
-				compatibility: 'unsupported',
 				fingerprint: null,
-				saveAllowed: true,
+				obsoleteFormat: true,
 				snapshot: { revision: 0, bytes: source }
 			}).ok,
 			false

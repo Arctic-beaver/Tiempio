@@ -4,10 +4,10 @@
 
 **Status:** approved planning baseline; implementation has not started.
 
-This is the first post-foundation interchange stage. It begins only after Stage 15 has accepted the V4
+This is the first post-foundation interchange stage. It begins only after Stage 15 has accepted the current
 source/instance architecture, starter content, personal audio and audio export. Import introduces
 batch hostile external files and lossy mapping from other music tools, so it must not be folded into
-Stage 6 Web runtime or Stage 10 song work. It reuses the already accepted `AudioAssetV1`,
+Stage 6 Web runtime or Stage 10 song work. It reuses the already accepted `AudioAsset`,
 `AudioPhraseSource`, WAV validator/decoder and fixed-audio scheduler.
 
 The initial delivery supports:

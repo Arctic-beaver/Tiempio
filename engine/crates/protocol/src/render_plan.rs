@@ -1,14 +1,15 @@
 use serde_json::Value;
 use tiempio_engine_core::{
-    DrumAlgorithm, DrumHitEvent, DrumInstrument, DrumKitPatchV2, DrumVoicePatchV2,
-    InstrumentLayerPlan, LayerSource, LoopRegion, MeterPoint, MidiNoteEvent, RenderPlan,
-    RenderPlanRevision, SynthAmplifierPatchV2, SynthFilterPatchV2, SynthMovementPatchV2,
-    SynthOscillatorPatchV2, SynthPatchV2, SynthWaveform, TempoPoint, validate_render_plan,
+    DrumAlgorithm, DrumHitEvent, DrumInstrument, DrumKitPatch, DrumVoicePatch, InstrumentLayerPlan,
+    LayerSource, LoopRegion, MeterPoint, MidiNoteEvent, RenderPlan, RenderPlanRevision,
+    SynthAmplifierPatch, SynthExpressionPatch, SynthFilterPatch, SynthMovementPatch,
+    SynthOscillatorPatch, SynthPatch, SynthSecondaryOscillatorPatch, SynthWaveform, TempoPoint,
+    validate_render_plan,
 };
 
 use crate::validation::parse_payload;
 use crate::{
-    ProtocolDiagnostic, ProtocolError, WireDrumHit, WireDrumSource, WireDrumVoicePatchV2,
+    ProtocolDiagnostic, ProtocolError, WireDrumHit, WireDrumSource, WireDrumVoicePatch,
     WireMidiNote, WireRenderPlan, WireSynthSource,
 };
 
@@ -48,8 +49,8 @@ fn drum_algorithm(value: &str) -> Result<DrumAlgorithm, ProtocolError> {
     }
 }
 
-fn drum_voice(wire: &WireDrumVoicePatchV2) -> Result<DrumVoicePatchV2, ProtocolError> {
-    Ok(DrumVoicePatchV2 {
+fn drum_voice(wire: &WireDrumVoicePatch) -> Result<DrumVoicePatch, ProtocolError> {
+    Ok(DrumVoicePatch {
         algorithm: drum_algorithm(&wire.algorithm)?,
         pitch_hz: wire.pitch_hz,
         tone: wire.tone,
@@ -85,29 +86,42 @@ fn convert_synth_layer(
         gain,
         pan,
         source: LayerSource::Synth {
-            patch: SynthPatchV2 {
+            patch: SynthPatch {
                 patch_model_version: patch.patch_model_version,
-                oscillator: SynthOscillatorPatchV2 {
+                oscillator: SynthOscillatorPatch {
                     waveform: synth_waveform(&patch.oscillator.waveform)?,
                     detune_cents: patch.oscillator.detune_cents,
                     sub_level: patch.oscillator.sub_level,
                     noise_level: patch.oscillator.noise_level,
                     pulse_width: patch.oscillator.pulse_width,
+                    secondary: SynthSecondaryOscillatorPatch {
+                        waveform: synth_waveform(&patch.oscillator.secondary.waveform)?,
+                        semitone_offset: patch.oscillator.secondary.semitone_offset,
+                        detune_cents: patch.oscillator.secondary.detune_cents,
+                        level: patch.oscillator.secondary.level,
+                    },
                 },
-                filter: SynthFilterPatchV2 {
+                filter: SynthFilterPatch {
                     cutoff_hz: patch.filter.cutoff_hz,
                     envelope_amount: patch.filter.envelope_amount,
+                    key_tracking: patch.filter.key_tracking,
                     resonance: patch.filter.resonance,
                 },
-                amplifier: SynthAmplifierPatchV2 {
+                amplifier: SynthAmplifierPatch {
                     attack_ms: patch.amplifier.attack_ms,
                     decay_ms: patch.amplifier.decay_ms,
                     release_ms: patch.amplifier.release_ms,
                     sustain: patch.amplifier.sustain,
                 },
-                movement: SynthMovementPatchV2 {
+                movement: SynthMovementPatch {
                     rate_hz: patch.movement.rate_hz,
                     depth: patch.movement.depth,
+                },
+                expression: SynthExpressionPatch {
+                    amplitude_amount: patch.expression.amplitude_amount,
+                    attack_scale: patch.expression.attack_scale,
+                    filter_octaves: patch.expression.filter_octaves,
+                    velocity_curve: patch.expression.velocity_curve,
                 },
                 drive: patch.drive,
                 stereo_width: patch.stereo_width,
@@ -143,7 +157,7 @@ fn convert_drum_layer(
         gain,
         pan,
         source: LayerSource::Drums {
-            patch: DrumKitPatchV2 {
+            patch: DrumKitPatch {
                 patch_model_version: source.patch.patch_model_version,
                 kick: drum_voice(&voices.kick)?,
                 clap: drum_voice(&voices.clap)?,

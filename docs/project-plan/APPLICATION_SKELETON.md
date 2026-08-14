@@ -376,7 +376,7 @@ canonical revision with deterministic persistence round trips.
 - Define versioned project schema with stable IDs and integer PPQ time.
 - Implement layers, MIDI clips, minimal drum clips, sections, transport, key and instrument source.
 - Define resolved Bass patch, semantic macros, preset revision and patch-model version.
-- Implement pure validators and migrations.
+- Implement pure validators for the current project shape.
 - Implement `ProjectSession` snapshots with revision, persisted revision, dirty state and typed
   command application.
 - Add bounded in-memory undo/redo for semantic commands.
@@ -399,7 +399,7 @@ canonical revision with deterministic persistence round trips.
 
 - Duplicate/missing IDs, invalid references and cycles fail validation.
 - Negative/out-of-range ticks, zero durations and integer overflow fail closed.
-- Unknown future schema and patch versions preserve original bytes and refuse destructive Save.
+- Any project or patch shape outside the current contract fails `open` and is not retained.
 - Out-of-scale notes remain valid musical data.
 - A mutation during Save leaves the newer revision dirty.
 - Preset catalog changes do not change a resolved saved patch.
@@ -407,7 +407,7 @@ canonical revision with deterministic persistence round trips.
 
 ### Verification
 
-- Schema and migration fixtures.
+- Current-schema fixtures.
 - Repeated serialize/parse/serialize round trips.
 - Property-based or exhaustive bounded command-sequence tests where practical.
 - Undo/redo invariants.
@@ -655,8 +655,8 @@ Detailed authorities:
 
 ### Outcome
 
-Stage 9 introduces the V4 reusable source-material/song-instance boundary and deterministic V3
-migration before recording writes new data. The brick editor then supports open-ended horizontal
+Stage 9 introduces the reusable source-material/song-instance boundary directly before recording
+writes new data. The brick editor then supports open-ended horizontal
 time, vertical pitch navigation, truthful off-screen-note indicators, per-brick semantic viewport
 memory, a full-line draggable playhead and an optional musical-context inspector.
 
@@ -667,7 +667,7 @@ the first note and never wraps at the old source end.
 
 ### Required order
 
-1. `feature/recording-source-domain` — V4 source material, instances, migration and grouped commands;
+1. `feature/recording-source-domain` — current source material, instances and grouped commands;
 2. `feature/brick-editor-navigation` — two-axis canvas, ghosts, inspector, viewport memory and
    continuous manual playhead;
 3. `feature/performance-recording-protocol` — count-in, record cursor and applied-event acknowledgement;
@@ -701,8 +701,8 @@ the first note and never wraps at the old source end.
 
 The user-approved scope and detailed staged implementation plan are authoritative in
 [`STAGE-10-LINKED-BRICKS-AND-SONG.md`](STAGE-10-LINKED-BRICKS-AND-SONG.md). This approved change replaces the old assumption
-that `ProjectLayer.clips[]` may continue to own both musical content and timeline placement. Its V4
-domain and migration prerequisite is completed in Stage 9 so recording and composition share
+that `ProjectLayer.clips[]` may continue to own both musical content and timeline placement. Its
+replacement domain is completed in Stage 9 so recording and composition share
 one source authority from their first implementation.
 
 ### Outcome
@@ -727,7 +727,7 @@ overdub, pressure or Undo semantics.
 
 ### Work
 
-- Build on the migrated V4 source layer as stable brick identity and its instances by source layer ID.
+- Build on the current source layer as stable brick identity and its instances by source layer ID.
 - Implement source commands separately from place, move, trim, split, loop-resize and delete.
 - Compile bounded source programs once and schedule linked instances without unbounded event copies.
 - Implement upper preview as transient keyed cursors: a late-enabled brick starts from its own zero.
@@ -754,14 +754,14 @@ overdub, pressure or Undo semantics.
   inside editable brick sources.
 - Consume the frozen perceptual catalog, patch model and macro mappings from Stage 8; Stage 10
   may expose them in linked bricks but cannot retune or silently upgrade saved sounds.
-- Preserve and reverify the Stage 9 V3-to-V4 migration, save, reopen, recovery and undo/redo
-  behavior while introducing referenced song scheduling.
+- Preserve and reverify current save, reopen, recovery and undo/redo behavior while introducing
+  referenced song scheduling.
 - Remove obsolete clip-placement demo state after all projections use the new authority.
 
 ### Edge cases
 
-- A V3 layer has zero, one or several clips; migration must preserve sound and audible placement
-  without guessing links between legacy clips.
+- Non-current project data is rejected; development fixtures are regenerated with the current
+  source/instance model rather than converted on load.
 - A source is edited while an older render plan compiles; the stale plan cannot activate.
 - A cycle is shortened below an instance's source offset; playback normalizes phase without
   rewriting local instance data.
@@ -787,7 +787,7 @@ overdub, pressure or Undo semantics.
 
 ### Verification
 
-- V3-to-V4 golden migration fixtures for empty, one-clip and multi-clip layers.
+- Current source/instance fixtures cover empty, one-instance and multi-instance layers.
 - Domain tests prove source mutations propagate by reference while placement mutations remain local.
 - Shared render-plan fixtures and deterministic scheduling scenarios run through native and Web/WASM
   adapters.
@@ -822,7 +822,7 @@ overdub, pressure or Undo semantics.
   move, each from its own engine cursor, and moving an idle line cannot start playback.
 - The musical-context inspector is optional, independently collapsible and always reopenable;
   essential selected-note commands survive its collapse and its state never dirties the project.
-- A migrated or newly created linked composition reopens with the same sound, source material,
+- A newly created linked composition reopens with the same sound, source material,
   instance positions, cycle pause and arranged durations.
 - Missing output, suspended Web audio, stale plan, invalid reference or exceeded plan limit has a
   specific recovery action or stable diagnostic.
@@ -835,7 +835,7 @@ integration branch.
 The detailed implementation authority is
 [`STAGE-11-STARTER-CONTENT.md`](STAGE-11-STARTER-CONTENT.md). This stage deliberately follows
 the source/instance architecture: the example must prove the real song model rather than become
-temporary demo data that a later stage has to migrate.
+temporary demo data that a later stage has to replace.
 
 ### Outcome
 
@@ -856,7 +856,7 @@ drum patterns pass objective, listening and editability acceptance.
 ### Exit criteria
 
 - `Новый трек` and `Начать со звука` contain no hidden or off-viewport authored material.
-- `Начать с примера` creates an independent, unsaved, non-autoplaying V4 project copy that uses
+- `Начать с примера` creates an independent, unsaved, non-autoplaying current project copy that uses
   ordinary source, instance, render-plan, Undo, Save and recovery paths.
 - The example is an original human-authored Tiempio composition with a versioned rights/provenance
   record; no external sample, MIDI phrase, stock loop or unreviewed generative output ships.
@@ -1004,12 +1004,12 @@ for safety, target separation, UX, audio and lifecycle behavior. Stage 15 audits
   focus behavior on both targets.
 - Audit the complete perceptual sound-quality manifest: oscillator/nonlinearity alias probes,
   loudness/true peak, macro direction, role-range/polyphony, native/WASM budgets, blind creator
-  evidence and resolved-patch compatibility.
+  evidence and current resolved-patch conformance.
 - Audit context-preserving brick creation, transient draft audition, cancel/resume and atomic final
   commit on both targets and responsive layer surfaces.
 - Audit the Stage 9 recording clock, automatic grouped commit, linear canvas, overdub and
   pressure/velocity contract on both targets.
-- Audit the linked-brick contract, V3-to-V4 migration and source/instance reference integrity.
+- Audit the linked-brick contract, current-only loading and source/instance reference integrity.
 - Audit the Stage 11 empty-start contract, immutable starter catalog, fresh project-copy
   semantics, original example-song provenance and complete ten-pattern rhythm library.
 - Audit the approved `Мой звук` intent split and `Запись` screen: bounded validation/decode/capture,
@@ -1082,7 +1082,7 @@ script owns the workflow.
   witness.
 - Every criterion in `STAGE-13-AUDIO-EXPORT.md` maps to an executable check or retained witness.
 - Every criterion in `STAGE-14-RESPONSIVE-MOBILE.md` maps to an executable check or retained witness.
-- No V3 combined clip authority or copied-event placement path remains active after migration.
+- No combined clip authority or copied-event placement path remains after the source cutover.
 - All checks pass from a clean integration branch under one lifecycle owner.
 - No task-owned process, lock or cleanup quarantine remains.
 - Desktop and Web production artifacts are independently inspectable and target-clean.
@@ -1136,7 +1136,7 @@ These cases must remain visible in stage reviews even when their final handling 
 
 ### Data and durability
 
-- invalid, corrupt, truncated or future-version project;
+- invalid, corrupt, truncated or non-current project;
 - project larger than bounded manifest/archive limits;
 - interrupted Save before and after atomic replace;
 - edit while Save or recovery write is in flight;

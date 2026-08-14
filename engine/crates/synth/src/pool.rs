@@ -158,36 +158,50 @@ pub type BassVoicePool = SynthVoicePool;
 #[cfg(test)]
 mod tests {
     use tiempio_engine_core::{
-        PATCH_MODEL_VERSION, SynthAmplifierPatchV2, SynthFilterPatchV2, SynthMovementPatchV2,
-        SynthOscillatorPatchV2, SynthPatchV2, SynthWaveform,
+        PATCH_MODEL_VERSION, SynthAmplifierPatch, SynthExpressionPatch, SynthFilterPatch,
+        SynthMovementPatch, SynthOscillatorPatch, SynthPatch, SynthSecondaryOscillatorPatch,
+        SynthWaveform,
     };
 
     use super::*;
 
-    fn patch() -> SynthPatchV2 {
-        SynthPatchV2 {
+    fn patch() -> SynthPatch {
+        SynthPatch {
             patch_model_version: PATCH_MODEL_VERSION,
-            oscillator: SynthOscillatorPatchV2 {
+            oscillator: SynthOscillatorPatch {
                 waveform: SynthWaveform::Saw,
                 detune_cents: -3.0,
                 sub_level: 0.75,
                 noise_level: 0.0,
                 pulse_width: 0.5,
+                secondary: SynthSecondaryOscillatorPatch {
+                    waveform: SynthWaveform::Sine,
+                    semitone_offset: 0,
+                    detune_cents: 7.0,
+                    level: 0.16,
+                },
             },
-            filter: SynthFilterPatchV2 {
+            filter: SynthFilterPatch {
                 cutoff_hz: 340.0,
                 envelope_amount: 0.42,
+                key_tracking: 0.45,
                 resonance: 0.34,
             },
-            amplifier: SynthAmplifierPatchV2 {
+            amplifier: SynthAmplifierPatch {
                 attack_ms: 2.0,
                 decay_ms: 30.0,
                 release_ms: 10.0,
                 sustain: 0.7,
             },
-            movement: SynthMovementPatchV2 {
+            movement: SynthMovementPatch {
                 rate_hz: 0.0,
                 depth: 0.0,
+            },
+            expression: SynthExpressionPatch {
+                amplitude_amount: 0.9,
+                attack_scale: 0.5,
+                filter_octaves: 1.5,
+                velocity_curve: 0.8,
             },
             drive: 0.08,
             stereo_width: 0.03,
@@ -195,7 +209,7 @@ mod tests {
         }
     }
 
-    fn start(identifier: u64, started_at: u64, patch: &SynthPatchV2) -> VoiceStart<'_> {
+    fn start(identifier: u64, started_at: u64, patch: &SynthPatch) -> VoiceStart<'_> {
         VoiceStart {
             identity: VoiceIdentity::Audition(identifier),
             pitch: 36,

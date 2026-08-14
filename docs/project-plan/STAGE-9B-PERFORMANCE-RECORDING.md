@@ -17,7 +17,7 @@ Before any recording branch begins, three mandatory entry gates run in order:
    keyboard-intent routing and `SemanticSlider` commit semantics;
 3. [`STAGE-8-PERCEPTUAL-SOUND-QUALITY.md`](STAGE-8-PERCEPTUAL-SOUND-QUALITY.md) freezes the
    researched, measured and blind-reviewed built-in catalog, patch model and semantic macro
-   mappings before V4 sources begin persisting them.
+   mappings before current sources begin persisting them.
 
 Fine Tuning must never disable physical-key audition merely because a range retains focus;
 recording then reuses that proven input boundary instead of introducing a second focus policy.
@@ -422,20 +422,20 @@ own a recording clock.
 
 ### Project schema prerequisite
 
-Correct recording cannot be built against the old assumption that a clip simultaneously owns
-source notes and arrangement placement. Stage 9 therefore owns the domain/migration step
+Correct recording cannot be built against the provisional assumption that a clip simultaneously
+owns source notes and arrangement placement. Stage 9 therefore owns the domain cutover
 forward from the linked-bricks plan:
 
-- introduce the V4 source material and song-instance boundary defined in
+- introduce the current source material and song-instance boundary defined in
   [`STAGE-10-LINKED-BRICKS-AND-SONG.md`](STAGE-10-LINKED-BRICKS-AND-SONG.md);
-- migrate V3 clips deterministically before recording is enabled;
+- replace the clip-owned model atomically before recording is enabled;
 - record directly into `layer.material`, never into a copied song instance;
-- preserve legacy audible song placement through V4 instances;
-- allow the existing engine-plan compiler to flatten bounded V4 instances temporarily until Stage
+- regenerate development projects and seed content with current instances;
+- allow the existing engine-plan compiler to flatten bounded instances temporarily until Stage
   7 introduces the referenced source-program render plan.
 
-This is a staged engine optimization, not a second project authority. The saved project becomes V4
-once; Stage 7 does not migrate it again.
+This is a staged engine optimization, not a second project authority. Only the current saved shape
+is accepted after the cutover.
 
 ### Source commands
 
@@ -487,7 +487,7 @@ The shared schema and generated TypeScript/Rust protocol add one common recordin
 bounded commands/events. Conceptually:
 
 ```text
-capability: recording.performance.v1
+capability: recording.performance
 
 start-recording
   recordingId, targetLayerId, projectRevision
@@ -600,17 +600,16 @@ curves, curated catalog production and blind native/Web acceptance.
 
 **Exit:** every retained visible sound and macro surface clears the frozen objective and
 desire-to-use gates; weak/filler entries are absent, the current drums remain regression-protected,
-and the resolved patch/mapping versions are stable enough for V4 persistence.
+and the resolved patch/mapping contract is stable enough for current persistence.
 
-### Stage 9B-1 — V4 source-material prerequisite
+### Stage 9B-1 — source-material prerequisite
 
 **Suggested branch:** `feature/recording-source-domain`.
 
-- move the V4 source/instance schema and deterministic V3 migration from the former roadmap into this
-  phase;
+- replace the current project domain with the source/instance schema in this phase;
 - add source-note begin/finalize and material-extension commands;
 - cover tail-rest consumption, limits, revision validation and recording history grouping;
-- adapt current projections/compiler to V4 without adding the Stage 10 song UI.
+- adapt current projections/compiler to the new source boundary without adding the Stage 10 song UI.
 
 **Exit:** recording can target one canonical reusable source, and one Undo restores the complete
 grouped command sequence.
@@ -691,7 +690,7 @@ selected note, semantic viewport anchors, engine authority and canonical recordi
 - measure latency, live-projection reconciliation, canvas/memory budgets and recovery cadence;
 - remove temporary recording mocks and document any measured target limit.
 
-**Exit:** both targets record the same engine-clock-timed source notes and reopen the same V4
+**Exit:** both targets record the same engine-clock-timed source notes and reopen the same current
 material without a confirmation step or hidden data loss.
 
 ## Verification matrix
@@ -699,7 +698,7 @@ material without a confirmation step or hidden data loss.
 | Boundary | Required evidence |
 | --- | --- |
 | Domain | Begin/finalize/extend commands, tail-rest transformation, limits and one history group |
-| Migration | Deterministic V3-to-V4 fixtures before any recording command is accepted |
+| Cutover | Current source/instance fixtures before any recording command is accepted |
 | Engine clock | Exact frame/tick scenarios for count-in, note-on/off, held Stop and tempo/meter |
 | Input | Focus-safe physical keys, native slider-key ownership, multi-touch, same-pitch sources, pointer pressure and fallback velocity |
 | Live projection | Optimistic start reconciles to ack; growing edge and stale-ID rejection |
@@ -734,8 +733,8 @@ handling and exact task-owned process cleanup.
 - The focus-safe Sound Chooser gate passes before recording work begins: Fine Tuning range focus
   permits mapped performance keys, native range keys still adjust it and unrelated `keyup` cannot
   commit a slider.
-- The perceptual sound-quality gate freezes the catalog, patch model and macro mappings before V4
-  sources or recorded projects persist them; existing resolved patches remain reproducible.
+- The perceptual sound-quality gate freezes the catalog, patch model and macro mappings before
+  sources or recorded projects persist them.
 - Recording is available only after `Use sound` in an editable brick source.
 - Record starts at the exact playhead tick after a meter-derived count-in, not at first note-on.
 - Existing notes survive; every pass is overdub and overlapping notes remain independent.
@@ -746,7 +745,7 @@ handling and exact task-owned process cleanup.
 - Stop automatically keeps the pass and only closes held notes/history; no confirmation is shown.
 - One Undo/Redo removes/restores all notes and length changes from the pass.
 - Loss of focus, pointer, device or engine ends in bounded cleanup with no stuck voice or false REC.
-- Project V4 stores source material independently of song instances before Stage 7 begins.
+- The current project stores source material independently of song instances before Stage 7 begins.
 - Desktop native and Web AudioWorklet paths pass the same versioned recording protocol and timing
   scenarios.
 - A user-approved UI delta and retained light/dark/touch evidence make Record unmistakably different

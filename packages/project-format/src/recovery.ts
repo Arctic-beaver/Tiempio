@@ -11,7 +11,7 @@ export const recoveryEnvelopeVersion = 1 as const
 
 const base64Alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
-interface RecoveryPayloadV1 {
+interface RecoveryPayload {
 	readonly manifestBase64: string
 	readonly recoveryVersion: typeof recoveryEnvelopeVersion
 	readonly revision: number
@@ -23,12 +23,6 @@ export type RecoveryDecodeResult =
 			readonly project: ProjectDocument
 			readonly revision: number
 			readonly status: 'loaded'
-	  }
-	| {
-			readonly manifestBytes: Uint8Array
-			readonly revision: number
-			readonly saveAllowed: false
-			readonly status: 'unsupported'
 	  }
 	| { readonly error: ProjectFormatError; readonly status: 'invalid' }
 
@@ -97,7 +91,7 @@ export function encodeRecoveryEnvelope(project: ProjectDocument, revision: numbe
 	if (!Number.isSafeInteger(revision) || revision < 0) {
 		throw new RangeError('Recovery revision must be a non-negative safe integer.')
 	}
-	const payload: RecoveryPayloadV1 = {
+	const payload: RecoveryPayload = {
 		recoveryVersion: recoveryEnvelopeVersion,
 		revision,
 		manifestBase64: encodeBase64(encodeProjectManifest(project))
@@ -159,14 +153,6 @@ export function decodeRecoveryEnvelope(bytes: Uint8Array): RecoveryDecodeResult 
 	}
 	const manifest = parseProjectManifest(manifestBytes)
 	if (manifest.status === 'invalid') return { status: 'invalid', error: manifest.error }
-	if (manifest.status === 'unsupported') {
-		return {
-			status: 'unsupported',
-			revision: payload.revision,
-			manifestBytes: manifest.originalBytes,
-			saveAllowed: false
-		}
-	}
 	return {
 		status: 'loaded',
 		revision: payload.revision,

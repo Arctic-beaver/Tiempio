@@ -1,5 +1,5 @@
 {
-	"planVersion": 3,
+	"planVersion": 5,
 	"projectId": "project.drums-fixture",
 	"projectRevision": 1,
 	"ticksPerQuarter": 960,
@@ -15,7 +15,7 @@
 			"source": {
 				"type": "procedural-drums",
 				"patch": {
-					"patchModelVersion": 2,
+					"patchModelVersion": 4,
 					"voices": {
 						"kick": {
 							"algorithm": "kick",

@@ -2,7 +2,6 @@ import {
 	assertValidProject,
 	loadProjectDocument,
 	type ProjectDocument,
-	type ProjectLoadResult,
 	type ProjectValidationIssue
 } from '../../project-core/src/index.js'
 import { decodeUtf8, encodeCanonicalJson } from './canonical-json.js'
@@ -42,7 +41,6 @@ export interface ProjectFormatError {
 
 export type ManifestReadResult =
 	| {
-			readonly migratedFromSchemaVersion: number | null
 			readonly project: ProjectDocument
 			readonly status: 'loaded'
 	  }
@@ -50,12 +48,6 @@ export type ManifestReadResult =
 			readonly error: ProjectFormatError
 			readonly issues: readonly ProjectValidationIssue[]
 			readonly status: 'invalid'
-	  }
-	| {
-			readonly compatibility: Extract<ProjectLoadResult, { status: 'unsupported' }>
-			readonly originalBytes: Uint8Array
-			readonly saveAllowed: false
-			readonly status: 'unsupported'
 	  }
 
 export type LogicalArchiveValidationResult =
@@ -66,15 +58,7 @@ export type ProjectArchiveOpenResult =
 	| {
 			readonly entries: readonly LogicalArchiveEntry[]
 			readonly project: ProjectDocument
-			readonly saveAllowed: true
 			readonly status: 'loaded'
-	  }
-	| {
-			readonly compatibility: Extract<ProjectLoadResult, { status: 'unsupported' }>
-			readonly entries: readonly LogicalArchiveEntry[]
-			readonly originalManifestBytes: Uint8Array
-			readonly saveAllowed: false
-			readonly status: 'unsupported'
 	  }
 	| { readonly error: ProjectFormatError; readonly status: 'invalid' }
 
@@ -155,16 +139,7 @@ export function parseProjectManifest(bytes: Uint8Array): ManifestReadResult {
 	if (loaded.status === 'loaded') {
 		return {
 			status: 'loaded',
-			project: loaded.project,
-			migratedFromSchemaVersion: loaded.migratedFromSchemaVersion
-		}
-	}
-	if (loaded.status === 'unsupported') {
-		return {
-			status: 'unsupported',
-			compatibility: loaded,
-			originalBytes,
-			saveAllowed: false
+			project: loaded.project
 		}
 	}
 	return {
@@ -355,20 +330,10 @@ export function openLogicalProjectArchive(
 	}
 	const loaded = parseProjectManifest(manifest.bytes)
 	if (loaded.status === 'invalid') return { status: 'invalid', error: loaded.error }
-	if (loaded.status === 'unsupported') {
-		return {
-			status: 'unsupported',
-			compatibility: loaded.compatibility,
-			entries: validation.entries,
-			originalManifestBytes: loaded.originalBytes,
-			saveAllowed: false
-		}
-	}
 	return {
 		status: 'loaded',
 		project: loaded.project,
-		entries: validation.entries,
-		saveAllowed: true
+		entries: validation.entries
 	}
 }
 

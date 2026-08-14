@@ -2,7 +2,7 @@
 
 Browser file handles, selected `File` snapshots, object URLs and IndexedDB records remain private to
 this adapter. Shared application contracts receive only unpredictable opaque handles, owned bounded
-bytes, versioned settings and truthful persistence outcomes.
+bytes, current settings and truthful persistence outcomes.
 
 - Physical `.tiempio` ZIP validation is owned by `packages/project-format`; `fflate` is loaded only
   when an archive must be opened or encoded.
@@ -12,7 +12,7 @@ bytes, versioned settings and truthful persistence outcomes.
 - `persistAs` may open the save picker from its caller's user action. If that API is absent, it
   requests a Download and does not bind or acknowledge a saved revision.
 - `saveCopy` always reports `download-requested`; browser Download completion is unknowable.
-- IndexedDB database `tiempio-runtime` version 1 owns separate `settings` and `recoveries` stores.
+- IndexedDB database `tiempio-runtime` uses one current shape with separate `settings` and `recoveries` stores.
   Corrupt, excessive, blocked, aborted and quota-limited storage fails closed without disabling the
   in-memory project registry.
 

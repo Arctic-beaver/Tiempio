@@ -38,8 +38,8 @@ fn handshake(session: &mut ProtocolSession) {
             &json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 3,
-                "patchModelVersion": 2,
+                "renderPlanVersion": 5,
+                "patchModelVersion": 4,
                 "capabilities": ["protocol.typed-json", "render.offline"],
             }),
         ))
@@ -112,29 +112,37 @@ fn fixed_wire_phrase_is_acknowledged_finite_non_silent_and_deterministic() {
     assert_eq!(first_summary.health.active_voices, 0);
     assert_eq!(first.non_finite_sample_count, 0);
     assert_eq!(first.clipped_sample_count, 0);
-    assert_eq!(first.pcm16_fnv1a64, 0x0b5a_0b26_16a1_da84);
-    assert_eq!(first.non_silent_frames, 88_226);
-    assert_eq!(first.leading_silent_frames, 1);
+    assert_eq!(first.pcm16_fnv1a64, 0x5434_02ae_63df_9e92);
+    assert_eq!(first.non_silent_frames, 88_206);
+    assert_eq!(first.leading_silent_frames, 11);
     assert_eq!(first.trailing_silent_frames, 9_220);
-    assert_eq!(first.first_non_silent_frame, Some(1));
+    assert_eq!(first.first_non_silent_frame, Some(11));
     assert_eq!(first.last_non_silent_frame, Some(97_446));
-    assert_close(first.peak, 0.362_838_537_936_272_8, 1.0e-6);
-    assert_close(first.rms, 0.126_360_742_373_672_37, 1.0e-6);
-    assert_close(first.dc_offset_left, 0.000_434_008_376_289_544_9, 1.0e-7);
-    assert_close(first.dc_offset_right, 0.000_437_110_051_478_169_27, 1.0e-7);
+    assert_close(first.peak, 0.245_698_690_348_220_76, 1.0e-6);
+    assert_close(first.rms, 0.091_626_467_291_768_33, 1.0e-6);
+    assert_close(
+        first.dc_offset_left,
+        0.000_000_692_624_354_881_676_9,
+        1.0e-7,
+    );
+    assert_close(
+        first.dc_offset_right,
+        0.000_000_682_881_724_774_052_1,
+        1.0e-7,
+    );
     assert_close(
         first.spectral_band_energy.low,
-        0.014_051_584_358_374_702,
+        0.007_459_234_722_766_436,
         1.0e-6,
     );
     assert_close(
         first.spectral_band_energy.mid,
-        0.001_504_939_029_665_882_2,
+        0.000_750_269_398_406_240_3,
         1.0e-6,
     );
     assert_close(
         first.spectral_band_energy.high,
-        0.000_050_582_300_182_336_19,
+        0.000_013_798_660_219_141_72,
         1.0e-7,
     );
 }

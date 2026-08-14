@@ -1,6 +1,6 @@
 import { engineProtocolLimits } from '../../../../packages/contracts/src/index.js'
 
-export const webEngineProcessorName = 'tiempio-web-engine-v1'
+export const webEngineProcessorName = 'tiempio-web-engine'
 export const webEngineAbiVersion = 1
 export const webEngineMaximumPendingCommands = 32
 export const webEngineMaximumEventsPerRender = 16

@@ -256,9 +256,9 @@ Stage 11 factory separation and expanded catalog are specified in
    failure.
 8. Add Desktop/Web, responsive, focus, keyboard, screen-reader and visual regression coverage.
 
-No V4 source-instance migration, recording protocol or Stage 10 song scheduling belongs in this
-branch. The gate must work against the current project model while leaving a coordinator seam that
-the V4 source commit can adapt later.
+No source-instance cutover, recording protocol or Stage 10 song scheduling belongs in this branch.
+The gate must work against the current project model while leaving a coordinator seam that the
+source-domain commit can adapt later.
 
 ## Failure and edge cases
 

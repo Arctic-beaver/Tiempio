@@ -1,0 +1,54 @@
+{
+	"analyzerRevision": 3,
+	"matrixRevision": 1,
+	"probeCount": 648,
+	"presetCount": 27,
+	"sampleRates": [44100, 48000],
+	"before": {
+		"familyLevelSpreadDb": {
+			"bass": 4.681,
+			"lead": 6.772,
+			"pad": 7.607,
+			"pluck": 7.178,
+			"texture": 5.55
+		},
+		"polyphonyHeadroomFindings": [
+			"pad.soft at 44100 and 48000 Hz",
+			"pad.warm at 44100 and 48000 Hz"
+		],
+		"transientPitchFinding": "pluck.glass low-role probes measured 10.419 to 10.741 cents sharp",
+		"technicalDuplicateSuspectPairs": [
+			["bass.deep", "bass.warm"],
+			["bass.soft", "bass.warm"],
+			["texture.pulse", "texture.wire"]
+		]
+	},
+	"adoptedChanges": {
+		"catalog": "Per-preset output gains were moved to the measured within-family median; pad.motion received a further 0.16 dB chord-headroom trim; the obsolete shared 0.18 gain floor was removed because it clipped valid macro compensation after level matching.",
+		"pluckGlass": "A 220 ms decay candidate cleared the local pitch gate but failed the frozen SQ-D Length continuity gate, so the production 150 ms decay was retained.",
+		"analyzer": "Pitch anchors account for intentional sub oscillators; local-RMS normalization removes short-decay bias; pitch lag is interpolated; onset uses a 5 ms envelope; event discontinuity is the residual over adjacent musical slope in synth-only contexts."
+	},
+	"after": {
+		"result": "pass",
+		"familyLevelSpreadDb": {
+			"bass": 0.084,
+			"lead": 0.123,
+			"pad": 0.109,
+			"pluck": 0.06,
+			"texture": 0.24
+		},
+		"worstTruePeakDbtp": -1.0377,
+		"worstEventDiscontinuity": 0.067719,
+		"worstAbsoluteDc": 0.000901,
+		"failureCount": 0
+	},
+	"auditionPackage": {
+		"blindCandidateCount": 27,
+		"contextsPerCandidate": 4,
+		"audioFileCount": 108,
+		"trialCount": 29,
+		"maximumLevelMatchErrorDb": 0.00017,
+		"maximumTruePeakDbtp": -1.1915
+	},
+	"decision": "All 27 current defaults are retained for blinded human review. Technical proximity flags do not authorize automatic deletion."
+}

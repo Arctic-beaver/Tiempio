@@ -527,8 +527,8 @@ mod tests {
             &json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 3,
-                "patchModelVersion": 2,
+                "renderPlanVersion": 5,
+                "patchModelVersion": 4,
                 "capabilities": WEB_WORKLET_CAPABILITY_CODES
             }),
         )

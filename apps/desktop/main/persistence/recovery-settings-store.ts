@@ -29,7 +29,7 @@ import {
 import { PersistenceBoundaryError, persistenceApplicationError } from './persistence-error.js'
 
 const recoveryFilePattern = /^([A-F0-9]{64})\.recovery$/u
-const settingsFileName = 'settings-v1.json'
+const settingsFileName = 'settings.json'
 const defaultSettings = Object.freeze({
 	version: 3 as const,
 	colorScheme: 'system' as const,

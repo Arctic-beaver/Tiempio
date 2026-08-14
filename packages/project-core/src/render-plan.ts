@@ -4,8 +4,10 @@ import {
 	engineRenderPlanVersion,
 	engineTicksPerQuarter,
 	validateEngineWireRenderPlan,
+	type EngineWireDrumKitPatch,
+	type EngineWireDrumVoicePatch,
 	type EngineWireRenderPlan,
-	type EngineWireSynthPatchV2
+	type EngineWireSynthPatch
 } from '../../contracts/src/index.js'
 import {
 	defaultTicksPerQuarter,
@@ -18,12 +20,13 @@ import {
 	type ProjectId,
 	type ProjectKey,
 	type ProjectLoop,
-	type ResolvedDrumKitPatchV2,
-	type ResolvedSynthPatchV2
+	type ResolvedDrumKitPatch,
+	type ResolvedDrumVoicePatch,
+	type ResolvedSynthPatch
 } from './model.js'
 import { validateProjectDocument } from './validation.js'
 
-export const renderPlanVersion = 1 as const
+export const renderPlanVersion = 3 as const
 
 export interface RenderPlanMidiEvent {
 	readonly clipId: ClipId
@@ -53,11 +56,11 @@ export interface RenderPlanLayer {
 	readonly id: LayerId
 	readonly pan: number
 	readonly source:
-		| { readonly instrument: ResolvedSynthPatchV2; readonly type: 'synth' }
+		| { readonly instrument: ResolvedSynthPatch; readonly type: 'synth' }
 		| {
 				readonly kitId: 'drums.clean-pulse'
 				readonly kitRevision: 1
-				readonly patch: ResolvedDrumKitPatchV2
+				readonly patch: ResolvedDrumKitPatch
 				readonly type: 'drum'
 		  }
 }
@@ -91,16 +94,42 @@ export type EngineWirePlanCompilationResult =
 			readonly status: 'rejected'
 	  }
 
-export function compileEngineWireSynthPatch(patch: ResolvedSynthPatchV2): EngineWireSynthPatchV2 {
+export function compileEngineWireSynthPatch(patch: ResolvedSynthPatch): EngineWireSynthPatch {
 	return cloneAndFreeze({
 		patchModelVersion: enginePatchModelVersion,
 		oscillator: patch.oscillator,
 		filter: patch.filter,
 		amplifier: patch.amplifier,
 		movement: patch.movement,
+		expression: patch.expression,
 		drive: patch.drive,
 		stereoWidth: patch.stereoWidth,
 		outputGain: patch.outputGain
+	})
+}
+
+function compileEngineWireDrumVoice(patch: ResolvedDrumVoicePatch): EngineWireDrumVoicePatch {
+	return cloneAndFreeze({
+		algorithm: patch.algorithm,
+		pitchHz: patch.pitchHz,
+		tone: patch.tone,
+		decayMs: patch.decayMs,
+		noise: patch.noise,
+		drive: patch.drive,
+		gain: patch.gain
+	})
+}
+
+export function compileEngineWireDrumPatch(patch: ResolvedDrumKitPatch): EngineWireDrumKitPatch {
+	return cloneAndFreeze({
+		patchModelVersion: enginePatchModelVersion,
+		voices: {
+			kick: compileEngineWireDrumVoice(patch.voices.kick),
+			clap: compileEngineWireDrumVoice(patch.voices.clap),
+			closedHat: compileEngineWireDrumVoice(patch.voices.closedHat),
+			openHat: compileEngineWireDrumVoice(patch.voices.openHat),
+			perc: compileEngineWireDrumVoice(patch.voices.perc)
+		}
 	})
 }
 
@@ -283,30 +312,13 @@ export function compileEngineWireRenderPlan(
 					)
 				}
 			}
-			const voices = layer.source.patch.voices
 			return {
 				id: layer.id,
 				gain: layer.gain,
 				pan: layer.pan,
 				source: {
 					type: 'procedural-drums' as const,
-					patch: {
-						patchModelVersion: enginePatchModelVersion,
-						voices: Object.fromEntries(
-							Object.entries(voices).map(([instrument, voice]) => [
-								instrument,
-								{
-									algorithm: voice.algorithm,
-									pitchHz: voice.pitchHz,
-									tone: voice.tone,
-									decayMs: voice.decayMs,
-									noise: voice.noise,
-									drive: voice.drive,
-									gain: voice.gain
-								}
-							])
-						)
-					}
+					patch: compileEngineWireDrumPatch(layer.source.patch)
 				},
 				events: layer.events.flatMap((event) =>
 					event.type === 'drum-hit'

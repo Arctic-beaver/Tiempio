@@ -118,7 +118,7 @@ const compiledTestFiles = Object.freeze([
 	resolve('.test-out/packages/music-theory/src/music-theory.test.js'),
 	resolve('.test-out/packages/project-core/src/project-model.test.js'),
 	resolve('.test-out/packages/project-core/src/project-validation.test.js'),
-	resolve('.test-out/packages/project-core/src/project-migrations.test.js'),
+	resolve('.test-out/packages/project-core/src/project-loader.test.js'),
 	resolve('.test-out/packages/project-core/src/project-session.test.js'),
 	resolve('.test-out/packages/project-core/src/render-plan.test.js'),
 	resolve('.test-out/packages/project-format/src/project-format.test.js')
@@ -413,6 +413,81 @@ const steps = Object.freeze({
 			],
 			5 * minute
 		),
+	synthQualityPrimitivesEvidence: (check = false) =>
+		directStep(
+			check ? 'synth quality primitive bakeoff check' : 'synth quality primitive bakeoff',
+			cargo,
+			[
+				'run',
+				'--manifest-path',
+				'engine/Cargo.toml',
+				'--package',
+				'tiempio-engine-offline-render',
+				'--bin',
+				'render-synth-quality-primitives',
+				'--locked',
+				...(check ? ['--', '--check'] : [])
+			],
+			5 * minute
+		),
+	sqDMacroMatrix: () =>
+		nodeFileStep(
+			'SQ-D current macro render matrix',
+			'scripts/generate-sq-d-macro-matrix.mjs',
+			[],
+			minute
+		),
+	sqDMacroEvidence: (check = false) =>
+		directStep(
+			check ? 'SQ-D macro audio evidence check' : 'SQ-D macro audio evidence',
+			cargo,
+			[
+				'run',
+				'--manifest-path',
+				'engine/Cargo.toml',
+				'--package',
+				'tiempio-engine-offline-render',
+				'--bin',
+				'render-sq-d-macro-evidence',
+				'--release',
+				'--locked',
+				...(check ? ['--', '--check'] : [])
+			],
+			6 * minute
+		),
+	sqECatalogMatrix: () =>
+		nodeFileStep(
+			'SQ-E bounded current catalog matrix',
+			'scripts/generate-sq-e-catalog-matrix.mjs',
+			[],
+			minute
+		),
+	sqECatalogEvidence: (mode = 'evidence') =>
+		directStep(
+			mode === 'check'
+				? 'SQ-E catalog technical evidence check'
+				: mode === 'baseline'
+					? 'SQ-E catalog technical baseline'
+					: 'SQ-E catalog technical evidence',
+			cargo,
+			[
+				'run',
+				'--manifest-path',
+				'engine/Cargo.toml',
+				'--package',
+				'tiempio-engine-offline-render',
+				'--bin',
+				'render-sq-e-catalog-evidence',
+				'--release',
+				'--locked',
+				...(mode === 'check'
+					? ['--', '--check']
+					: mode === 'baseline'
+						? ['--', '--baseline']
+						: [])
+			],
+			12 * minute
+		),
 	nativeHostBuild: () =>
 		directStep(
 			'native host release build',
@@ -555,6 +630,38 @@ const workflowFactories = Object.freeze({
 		steps.webEngineWasmParity()
 	],
 	'evidence:engine': () => [steps.engineEvidence()],
+	'evidence:synth-quality-primitives': () => [steps.synthQualityPrimitivesEvidence()],
+	'check:synth-quality-primitives': () => [steps.synthQualityPrimitivesEvidence(true)],
+	'evidence:sq-d-macros': () => [
+		steps.testOutputClean(),
+		steps.testCompile(),
+		steps.sqDMacroMatrix(),
+		steps.sqDMacroEvidence()
+	],
+	'check:sq-d-macros': () => [
+		steps.testOutputClean(),
+		steps.testCompile(),
+		steps.sqDMacroMatrix(),
+		steps.sqDMacroEvidence(true)
+	],
+	'baseline:sq-e-catalog': () => [
+		steps.testOutputClean(),
+		steps.testCompile(),
+		steps.sqECatalogMatrix(),
+		steps.sqECatalogEvidence('baseline')
+	],
+	'evidence:sq-e-catalog': () => [
+		steps.testOutputClean(),
+		steps.testCompile(),
+		steps.sqECatalogMatrix(),
+		steps.sqECatalogEvidence()
+	],
+	'check:sq-e-catalog': () => [
+		steps.testOutputClean(),
+		steps.testCompile(),
+		steps.sqECatalogMatrix(),
+		steps.sqECatalogEvidence('check')
+	],
 	'build:engine': engineBuildSteps,
 	'build:web-engine': () => [steps.webWasmTargetInventory(), steps.webEngineBuild()],
 	'check:audio': () => [...engineBuildSteps(), steps.nativeHostAudioCheck()],
@@ -599,6 +706,13 @@ const workflowTimeoutOverrides = Object.freeze({
 	'check:web-engine': 16 * minute,
 	'check:audio': 12 * minute,
 	'check:audio-live': 12 * minute,
+	'evidence:synth-quality-primitives': 6 * minute,
+	'check:synth-quality-primitives': 6 * minute,
+	'evidence:sq-d-macros': 9 * minute,
+	'check:sq-d-macros': 9 * minute,
+	'baseline:sq-e-catalog': 15 * minute,
+	'evidence:sq-e-catalog': 15 * minute,
+	'check:sq-e-catalog': 15 * minute,
 	'package:check': 20 * minute,
 	'check:visual-a11y': 8 * minute,
 	'preview:web': 11 * minute,

@@ -1,0 +1,141 @@
+{
+  "assets": [
+    {
+      "blindId": "SQF-A01",
+      "family": "bass",
+      "presetId": "bass.deep"
+    },
+    {
+      "blindId": "SQF-A02",
+      "family": "texture",
+      "presetId": "texture.pulse"
+    },
+    {
+      "blindId": "SQF-A03",
+      "family": "lead",
+      "presetId": "lead.voice"
+    },
+    {
+      "blindId": "SQF-A04",
+      "family": "pluck",
+      "presetId": "pluck.short"
+    },
+    {
+      "blindId": "SQF-A05",
+      "family": "lead",
+      "presetId": "lead.razor"
+    },
+    {
+      "blindId": "SQF-A06",
+      "family": "bass",
+      "presetId": "bass.warm"
+    },
+    {
+      "blindId": "SQF-A07",
+      "family": "bass",
+      "presetId": "bass.retro"
+    },
+    {
+      "blindId": "SQF-A08",
+      "family": "lead",
+      "presetId": "lead.velvet"
+    },
+    {
+      "blindId": "SQF-A09",
+      "family": "texture",
+      "presetId": "texture.mist"
+    },
+    {
+      "blindId": "SQF-A10",
+      "family": "pluck",
+      "presetId": "pluck.wood"
+    },
+    {
+      "blindId": "SQF-A11",
+      "family": "texture",
+      "presetId": "texture.grain"
+    },
+    {
+      "blindId": "SQF-A12",
+      "family": "bass",
+      "presetId": "bass.soft"
+    },
+    {
+      "blindId": "SQF-A13",
+      "family": "bass",
+      "presetId": "bass.dirty"
+    },
+    {
+      "blindId": "SQF-A14",
+      "family": "pad",
+      "presetId": "pad.air"
+    },
+    {
+      "blindId": "SQF-A15",
+      "family": "pad",
+      "presetId": "pad.motion"
+    },
+    {
+      "blindId": "SQF-A16",
+      "family": "texture",
+      "presetId": "texture.wire"
+    },
+    {
+      "blindId": "SQF-A17",
+      "family": "bass",
+      "presetId": "bass.punchy"
+    },
+    {
+      "blindId": "SQF-A18",
+      "family": "lead",
+      "presetId": "lead.hollow"
+    },
+    {
+      "blindId": "SQF-A19",
+      "family": "pad",
+      "presetId": "pad.warm"
+    },
+    {
+      "blindId": "SQF-A20",
+      "family": "texture",
+      "presetId": "texture.dust"
+    },
+    {
+      "blindId": "SQF-A21",
+      "family": "pad",
+      "presetId": "pad.soft"
+    },
+    {
+      "blindId": "SQF-A22",
+      "family": "lead",
+      "presetId": "lead.glass"
+    },
+    {
+      "blindId": "SQF-A23",
+      "family": "pad",
+      "presetId": "pad.dust"
+    },
+    {
+      "blindId": "SQF-A24",
+      "family": "lead",
+      "presetId": "lead.solar"
+    },
+    {
+      "blindId": "SQF-A25",
+      "family": "pluck",
+      "presetId": "pluck.bell"
+    },
+    {
+      "blindId": "SQF-A26",
+      "family": "pluck",
+      "presetId": "pluck.glass"
+    },
+    {
+      "blindId": "SQF-A27",
+      "family": "lead",
+      "presetId": "lead.neon"
+    }
+  ],
+  "packageRevision": 1,
+  "purpose": "study-coordinator-key"
+}

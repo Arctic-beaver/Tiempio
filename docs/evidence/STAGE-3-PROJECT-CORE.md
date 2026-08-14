@@ -12,12 +12,12 @@ Delivery branches:
 
 ## Accepted architecture
 
-- `packages/project-core` owns schema v1, opaque IDs, 960 PPQ musical time,
-  resolved instrument state, validation, v0 migration, semantic commands,
+- `packages/project-core` owns the current schema, opaque IDs, 960 PPQ musical time,
+  resolved instrument state, strict current-only validation, semantic commands,
   immutable revisioned sessions, bounded undo/redo and deterministic render
   plans.
 - `packages/project-format` owns canonical UTF-8 manifests, bounded logical
-  `.tiempio` archives, exact preservation of unsupported future bytes and CRC32
+  `.tiempio` archives, strict current-only loading and CRC32
   recovery envelopes.
 - `packages/application` owns one `ProjectSessionProvider`. Home, Layers,
   Context, Piano Roll, Drums, Arrangement and Sound Sculpt are pure projections
@@ -35,7 +35,7 @@ native/WASM engine hosting and audible playback remain outside this stage.
 
 `npm run checks` passed all 27 bounded, sequential lifecycle stages:
 
-- 51 compiled tests in 9 suites, including schema, validation, migrations,
+- 51 compiled tests in 9 suites, including schema, strict current-only rejection,
   session revision/history/save/recovery races, commands, canonical project
   format, recovery corruption detection, render plans and all seven UI
   projections;

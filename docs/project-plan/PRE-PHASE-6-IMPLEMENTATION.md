@@ -34,8 +34,7 @@ No worktree, push, pull request, merge to `main` or `.github/workflows` change i
 - the native engine owns audio scheduling, transport and metronome timing.
 - shared application and design-system packages do not import Desktop or Web adapters.
 - no raw samples, FFT arrays or renderer-timed metronome clicks cross the runtime boundary.
-- project schema v1 already owns key and meter data; adding palette input does not require a project
-  format migration.
+- the current project schema already owns key and meter data; palette input uses that shape directly.
 
 ## Approved interaction constants
 
@@ -208,7 +207,7 @@ No worktree, push, pull request, merge to `main` or `.github/workflows` change i
 - add enable/disable/volume commands as ephemeral engine state;
 - schedule from actual project position across play, stop, seek, tempo and loop changes;
 - restore preference only at a known boundary after device/host recovery;
-- migrate settings for metronome enablement and volume without changing project history.
+- persist metronome enablement and volume in the current settings shape without changing project history.
 
 ### Verification and exit
 
@@ -216,7 +215,7 @@ No worktree, push, pull request, merge to `main` or `.github/workflows` change i
 - loop starts in the middle of a bar do not receive a false downbeat;
 - seek/stop/restart do not duplicate or omit a stale click;
 - gain/envelope remain bounded and allocation-free in the callback;
-- protocol mismatch and old settings fail or migrate deterministically.
+- protocol mismatch and any non-current settings fail closed deterministically.
 
 ## Stage H - transport, beat and ruler presentation
 
@@ -277,7 +276,7 @@ the decision in acceptance evidence.
 - portalled overlays can escape modal focus or close on their own pointer event;
 - enharmonic aliases can make labels lie even when MIDI pitches are correct;
 - a palette change can be mistaken for transposition unless the persistent copy remains visible;
-- settings version growth can lose shortcut overrides if migration is not additive;
+- malformed or non-current settings must fail closed without losing the active in-memory defaults;
 - render-plan meter changes can break native protocol parity if only one language updates;
 - loop boundaries are not necessarily bar boundaries;
 - wave animation can retain hidden requestAnimationFrame work or react falsely to input without sound;
@@ -291,6 +290,6 @@ the decision in acceptance evidence.
 - no remaining open product decision is required for this scoped delivery;
 - Stage 6 code and architecture remain untouched;
 - every automated and manual gate above passes or records an explicitly accepted platform limit;
-- project files round-trip without note movement and old settings migrate without loss;
+- current project files and settings round-trip without note movement or alternate-format handling;
 - no task-owned process, lifecycle lock or cleanup quarantine remains;
 - the integration branch is clean and ready for review without merge to `main`, push or PR.

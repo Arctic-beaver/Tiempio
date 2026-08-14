@@ -90,6 +90,13 @@ describe('closed lifecycle workflow catalog', () => {
 			'check:rust',
 			'check:web-engine',
 			'evidence:engine',
+			'evidence:synth-quality-primitives',
+			'check:synth-quality-primitives',
+			'evidence:sq-d-macros',
+			'check:sq-d-macros',
+			'baseline:sq-e-catalog',
+			'evidence:sq-e-catalog',
+			'check:sq-e-catalog',
 			'build:engine',
 			'build:web-engine',
 			'check:audio',
@@ -100,6 +107,68 @@ describe('closed lifecycle workflow catalog', () => {
 				steps.some((step) => /(?:cargo|rustc|rustup)(?:\.exe)?$/iu.test(step.command))
 			)
 			assert.ok(steps.every((step) => Object.hasOwn(step, 'shell') === false))
+		}
+	})
+
+	it('owns SQ-D generation and audio evidence in one bounded sequence', () => {
+		for (const name of ['evidence:sq-d-macros', 'check:sq-d-macros']) {
+			const workflow = workflowSteps(name)
+			assert.deepEqual(
+				workflow.map((step) => step.name),
+				[
+					'compiled test output cleanup',
+					'test TypeScript compile',
+					'SQ-D current macro render matrix',
+					name.startsWith('check:')
+						? 'SQ-D macro audio evidence check'
+						: 'SQ-D macro audio evidence'
+				]
+			)
+			assert.equal(workflow[3].arguments.includes('render-sq-d-macro-evidence'), true)
+			assert.equal(workflow[3].arguments.includes('--release'), true)
+			assert.ok(workflow.every((step) => Object.hasOwn(step, 'shell') === false))
+		}
+	})
+
+	it('owns SQ-E matrix and release evidence in one bounded sequence', () => {
+		for (const name of [
+			'baseline:sq-e-catalog',
+			'evidence:sq-e-catalog',
+			'check:sq-e-catalog'
+		]) {
+			const workflow = workflowSteps(name)
+			assert.deepEqual(
+				workflow.slice(0, 3).map((step) => step.name),
+				[
+					'compiled test output cleanup',
+					'test TypeScript compile',
+					'SQ-E bounded current catalog matrix'
+				]
+			)
+			assert.equal(workflow[3].arguments.includes('render-sq-e-catalog-evidence'), true)
+			assert.equal(workflow[3].arguments.includes('--release'), true)
+			assert.equal(workflow[3].arguments.includes('--baseline'), name.startsWith('baseline:'))
+			assert.equal(workflow[3].arguments.includes('--check'), name.startsWith('check:'))
+			assert.ok(workflow.every((step) => Object.hasOwn(step, 'shell') === false))
+		}
+	})
+
+	it('owns the bounded synth primitive bakeoff without recursive workflows', () => {
+		for (const name of [
+			'evidence:synth-quality-primitives',
+			'check:synth-quality-primitives'
+		]) {
+			const workflow = workflowSteps(name)
+			assert.equal(workflow.length, 1)
+			assert.equal(
+				workflow[0].name,
+				name.startsWith('check:')
+					? 'synth quality primitive bakeoff check'
+					: 'synth quality primitive bakeoff'
+			)
+			assert.equal(workflow[0].arguments.includes('render-synth-quality-primitives'), true)
+			assert.ok(workflow[0].timeoutMs > 0)
+			assert.equal(Object.hasOwn(workflow[0], 'shell'), false)
 		}
 	})
 

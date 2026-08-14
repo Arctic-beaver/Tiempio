@@ -5,8 +5,8 @@ use std::time::Instant;
 
 use rtrb::{Consumer, PopError, Producer, PushError};
 use tiempio_engine_core::{
-    CompositeVoiceBank, DrumInstrument, DrumKitPatchV2, DrumVoicePatchV2, EngineKernel,
-    LayerSource, MAX_SAFE_INTEGER, PreparedPlan, RenderPlan, SynthPatchV2, TransportState,
+    CompositeVoiceBank, DrumInstrument, DrumKitPatch, DrumVoicePatch, EngineKernel, LayerSource,
+    MAX_SAFE_INTEGER, PreparedPlan, RenderPlan, SynthPatch, TransportState,
 };
 use tiempio_engine_drums::DrumVoicePool;
 use tiempio_engine_dsp::{DspConfiguration, StereoFrame};
@@ -27,12 +27,12 @@ const PREVIEW_HASH_MASK: u64 = (1_u64 << 54) - 1;
 
 #[derive(Clone, Debug)]
 pub enum AuditionPatch {
-    Synth(SynthPatchV2),
-    Drums(DrumKitPatchV2),
+    Synth(SynthPatch),
+    Drums(DrumKitPatch),
 }
 
 #[must_use]
-pub fn synth_patch_for_layer(plan: &RenderPlan, layer_id: &str) -> Option<SynthPatchV2> {
+pub fn synth_patch_for_layer(plan: &RenderPlan, layer_id: &str) -> Option<SynthPatch> {
     match audition_patch_for_layer(plan, layer_id) {
         Some(AuditionPatch::Synth(patch)) => Some(patch),
         Some(AuditionPatch::Drums(_)) | None => None,
@@ -117,7 +117,7 @@ pub struct PreparedPreview {
     base_identifier: u64,
     duration_frames: u64,
     actions: Box<[PreviewAction]>,
-    patch: SynthPatchV2,
+    patch: SynthPatch,
 }
 
 impl PreparedPreview {
@@ -125,7 +125,7 @@ impl PreparedPreview {
     pub fn prepare(
         program: PreviewProgramPayload,
         sample_rate: u32,
-        patch: SynthPatchV2,
+        patch: SynthPatch,
     ) -> Option<Self> {
         let id = PreviewId::new(&program.preview_id)?;
         let base_identifier = stable_preview_hash(&program.preview_id);
@@ -238,13 +238,13 @@ pub enum RealtimeCommand {
         identifier: u64,
         pitch: u8,
         velocity: u8,
-        patch: SynthPatchV2,
+        patch: SynthPatch,
     },
     DrumHit {
         identifier: u64,
         instrument: DrumInstrument,
         velocity: u8,
-        patch: DrumVoicePatchV2,
+        patch: DrumVoicePatch,
     },
     NoteOff(u64),
     StartPreview(PreparedPreview),
@@ -656,7 +656,7 @@ impl RealtimeEngine {
         identifier: u64,
         instrument: DrumInstrument,
         velocity: u8,
-        patch: &DrumVoicePatchV2,
+        patch: &DrumVoicePatch,
     ) {
         self.end_preview(PreviewEndReason::Interrupted);
         self.engine
@@ -997,37 +997,50 @@ pub fn create_engine(sample_rate: u32) -> EngineKernel<RealtimeVoiceBank> {
 mod tests {
     use rtrb::RingBuffer;
     use tiempio_engine_core::{
-        PATCH_MODEL_VERSION, SynthAmplifierPatchV2, SynthFilterPatchV2, SynthMovementPatchV2,
-        SynthOscillatorPatchV2, SynthWaveform,
+        PATCH_MODEL_VERSION, SynthAmplifierPatch, SynthExpressionPatch, SynthFilterPatch,
+        SynthMovementPatch, SynthOscillatorPatch, SynthSecondaryOscillatorPatch, SynthWaveform,
     };
     use tiempio_engine_protocol::PreviewEventPayload;
 
     use super::*;
 
-    fn preview_patch() -> SynthPatchV2 {
-        SynthPatchV2 {
+    fn preview_patch() -> SynthPatch {
+        SynthPatch {
             patch_model_version: PATCH_MODEL_VERSION,
-            oscillator: SynthOscillatorPatchV2 {
+            oscillator: SynthOscillatorPatch {
                 waveform: SynthWaveform::Saw,
                 detune_cents: 0.0,
                 sub_level: 0.5,
                 noise_level: 0.0,
                 pulse_width: 0.5,
+                secondary: SynthSecondaryOscillatorPatch {
+                    waveform: SynthWaveform::Sine,
+                    semitone_offset: 12,
+                    detune_cents: 3.0,
+                    level: 0.12,
+                },
             },
-            filter: SynthFilterPatchV2 {
+            filter: SynthFilterPatch {
                 cutoff_hz: 500.0,
                 envelope_amount: 0.4,
+                key_tracking: 0.45,
                 resonance: 0.2,
             },
-            amplifier: SynthAmplifierPatchV2 {
+            amplifier: SynthAmplifierPatch {
                 attack_ms: 0.0,
                 decay_ms: 0.0,
                 release_ms: 1.0,
                 sustain: 1.0,
             },
-            movement: SynthMovementPatchV2 {
+            movement: SynthMovementPatch {
                 rate_hz: 0.0,
                 depth: 0.0,
+            },
+            expression: SynthExpressionPatch {
+                amplitude_amount: 0.9,
+                attack_scale: 0.5,
+                filter_octaves: 1.5,
+                velocity_curve: 0.8,
             },
             drive: 0.0,
             stereo_width: 0.0,

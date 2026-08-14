@@ -8,7 +8,7 @@ linked-bricks song architecture. Implementation has not started.
 The phase begins only after Stage 10A–10D in
 [`STAGE-10-LINKED-BRICKS-AND-SONG.md`](STAGE-10-LINKED-BRICKS-AND-SONG.md) have passed on Desktop and Web. It consumes the
 frozen instrument catalog from
-[`STAGE-8-PERCEPTUAL-SOUND-QUALITY.md`](STAGE-8-PERCEPTUAL-SOUND-QUALITY.md) and the final V4
+[`STAGE-8-PERCEPTUAL-SOUND-QUALITY.md`](STAGE-8-PERCEPTUAL-SOUND-QUALITY.md) and the final
 source/instance model; it must not add a demo-only project model, playback path or copied-note
 shortcut. The dedicated audio-export gate then uses the approved example as its full-song fixture;
 Stage 15 audits the combined result.
@@ -60,7 +60,7 @@ to evaluate a candidate, but audition events are ephemeral and cannot leak into 
 After `Use sound`:
 
 - one canonical source is committed with the chosen reproducible instrument state;
-- melodic `notes` or the V4 equivalent is exactly empty;
+- melodic `notes` are exactly empty;
 - choosing only a drum kit leaves canonical drum events exactly empty;
 - no song instance is placed automatically;
 - the editor opens at the source's performance range and shows a concise empty-state invitation;
@@ -197,7 +197,7 @@ Rules:
   the catalog;
 - a starter revision pins resolved instrument state, so a later preset retune does not silently
   change the shipped example without a reviewed content-revision bump;
-- all event IDs, source references and song placements satisfy the same V4 integrity checks as
+- all event IDs, source references and song placements satisfy the same current integrity checks as
   saved user work;
 - malformed or incompatible starter content fails closed with a specific diagnostic and leaves the
   current project untouched;
@@ -300,7 +300,7 @@ branch. Each bounded stage uses its own branch and merges back sequentially:
    provenance and visual evidence before handing the result to Stage 12 and final Stage 15 audit.
 
 The example composition is not authored against temporary Stage 6 clips. It is created only with
-the completed V4 source/instance commands and is regenerated/reviewed if those commands change.
+the completed current source/instance commands and is regenerated/reviewed if those commands change.
 
 ## Edge cases and failure policy
 
@@ -334,7 +334,7 @@ the completed V4 source/instance commands and is regenerated/reviewed if those c
 - starter manifest schema/hash tests and a deterministic clone golden test;
 - repeated opening proves fresh project/persistence identities and independent mutations;
 - initial-history test proves template population is not an Undo entry;
-- save/reopen/recovery tests prove an edited example is an ordinary V4 project;
+- save/reopen/recovery tests prove an edited example is an ordinary current project;
 - catalog property tests cover IDs, revisions, meter/resolution, limits and pattern distances;
 - pattern command tests cover replace/merge choice, Undo/Redo and saved-project independence from
   later catalog revisions;

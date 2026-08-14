@@ -254,8 +254,8 @@ describe('EngineHostSupervisor', () => {
 		assert.equal(connected.ok, true)
 		if (connected.ok) {
 			assert.deepEqual(connected.value.capabilities, nativeHostCapabilityCodes)
-			assert.ok(connected.value.capabilities.includes('synth.catalog.v2'))
-			assert.ok(connected.value.capabilities.includes('drums.procedural.v1'))
+			assert.ok(connected.value.capabilities.includes('synth.catalog'))
+			assert.ok(connected.value.capabilities.includes('drums.procedural'))
 		}
 		assert.equal((await supervisor.send(handshake())).ok, true)
 

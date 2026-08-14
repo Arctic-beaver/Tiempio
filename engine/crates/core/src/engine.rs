@@ -1,7 +1,7 @@
 use tiempio_engine_dsp::{DspConfiguration, LinearSmoother, OutputGuard, StereoFrame, clear_block};
 
 use crate::{
-    DrumInstrument, DrumVoicePatchV2, LayerSource, PreparedActionKind, PreparedPlan, SynthPatchV2,
+    DrumInstrument, DrumVoicePatch, LayerSource, PreparedActionKind, PreparedPlan, SynthPatch,
     TempoError,
 };
 
@@ -20,7 +20,7 @@ pub struct VoiceStart<'a> {
     pub identity: VoiceIdentity,
     pub pitch: u8,
     pub velocity: u8,
-    pub patch: &'a SynthPatchV2,
+    pub patch: &'a SynthPatch,
     pub layer_gain: f64,
     pub layer_pan: f64,
     pub started_at: u64,
@@ -31,7 +31,7 @@ pub struct DrumVoiceStart<'a> {
     pub identity: VoiceIdentity,
     pub instrument: DrumInstrument,
     pub velocity: u8,
-    pub patch: &'a DrumVoicePatchV2,
+    pub patch: &'a DrumVoicePatch,
     pub layer_gain: f64,
     pub layer_pan: f64,
     pub started_at: u64,
@@ -412,7 +412,7 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
         identifier: u64,
         pitch: u8,
         velocity: u8,
-        voice_patch: &SynthPatchV2,
+        voice_patch: &SynthPatch,
     ) {
         self.voice_bank.note_on(VoiceStart {
             identity: VoiceIdentity::Audition(identifier),
@@ -435,7 +435,7 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
         identifier: u64,
         instrument: DrumInstrument,
         velocity: u8,
-        voice_patch: &DrumVoicePatchV2,
+        voice_patch: &DrumVoicePatch,
     ) {
         self.voice_bank.drum_hit(DrumVoiceStart {
             identity: VoiceIdentity::Audition(identifier),
@@ -647,7 +647,7 @@ mod tests {
     use super::*;
     use crate::{
         InstrumentLayerPlan, LayerSource, LoopRegion, MeterPoint, MidiNoteEvent,
-        RENDER_PLAN_VERSION, RenderPlan, RenderPlanRevision, SynthPatchV2, TICKS_PER_QUARTER,
+        RENDER_PLAN_VERSION, RenderPlan, RenderPlanRevision, SynthPatch, TICKS_PER_QUARTER,
         TempoPoint,
     };
 
@@ -711,7 +711,7 @@ mod tests {
         }
     }
 
-    fn test_patch() -> SynthPatchV2 {
+    fn test_patch() -> SynthPatch {
         crate::tests::valid_synth_patch()
     }
 

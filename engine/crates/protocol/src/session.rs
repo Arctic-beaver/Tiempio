@@ -243,8 +243,8 @@ mod tests {
             &json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 3,
-                "patchModelVersion": 2,
+                "renderPlanVersion": 5,
+                "patchModelVersion": 4,
                 "capabilities": ["protocol.typed-json"]
             }),
         )
@@ -327,8 +327,8 @@ mod tests {
                 &json!({
                     "protocolVersion": ENGINE_PROTOCOL_VERSION,
                     "peer": "application",
-                    "renderPlanVersion": 3,
-                    "patchModelVersion": 2,
+                    "renderPlanVersion": 5,
+                    "patchModelVersion": 4,
                     "capabilities": [
                         "protocol.typed-json",
                         "audio.native.shared",
@@ -400,8 +400,8 @@ mod tests {
                 &json!({
                     "protocolVersion": ENGINE_PROTOCOL_VERSION,
                     "peer": "application",
-                    "renderPlanVersion": 3,
-                    "patchModelVersion": 2,
+                    "renderPlanVersion": 5,
+                    "patchModelVersion": 4,
                     "capabilities": [
                         "protocol.typed-json",
                         "audio.web.worklet",

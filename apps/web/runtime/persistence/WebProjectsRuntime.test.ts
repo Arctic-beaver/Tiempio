@@ -5,8 +5,7 @@ import {
 	createLogicalProjectArchive,
 	decodeUtf8,
 	encodeCanonicalJson,
-	encodeProjectManifest,
-	projectManifestPath
+	encodeProjectManifest
 } from '../../../../packages/project-format/src/index.js'
 import {
 	decodePhysicalProjectArchive,
@@ -184,8 +183,6 @@ describe('Web project persistence runtime', () => {
 		const loaded = await test.projects.load(opened.value)
 		assert.equal(loaded.ok, true)
 		if (loaded.ok) {
-			assert.equal(loaded.value.compatibility, 'supported')
-			assert.equal(loaded.value.saveAllowed, false)
 			assert.match(decodeUtf8(loaded.value.snapshot.bytes), /Snapshot/u)
 		}
 
@@ -216,7 +213,7 @@ describe('Web project persistence runtime', () => {
 		assert.equal(opened.ok, true)
 		if (!opened.ok) return
 		const initial = await test.projects.load(opened.value)
-		assert.equal(initial.ok && initial.value.saveAllowed, true)
+		assert.equal(initial.ok, true)
 
 		const persisted = await test.projects.persist(opened.value, {
 			revision: 4,
@@ -286,35 +283,24 @@ describe('Web project persistence runtime', () => {
 		)
 	})
 
-	it('preserves unsupported archives byte-for-byte through Download', async () => {
+	it('rejects a non-current archive at the open boundary', async () => {
 		const test = harness()
-		const futureManifest = encodeCanonicalJson({ schemaVersion: 999, future: 'preserve' })
-		const futureArchive = encodePhysicalProjectArchive([
+		const nonCurrentManifest = encodeCanonicalJson({
+			schemaVersion: Number.MAX_SAFE_INTEGER
+		})
+		const nonCurrentArchive = encodePhysicalProjectArchive([
 			{
-				path: projectManifestPath,
-				bytes: futureManifest,
-				declaredBytes: futureManifest.byteLength,
-				compressedBytes: futureManifest.byteLength
+				path: 'project.json',
+				bytes: nonCurrentManifest,
+				declaredBytes: nonCurrentManifest.byteLength,
+				compressedBytes: nonCurrentManifest.byteLength
 			}
 		])
-		test.files.openSelections.push({ file: new FakeFile(futureArchive), handle: null })
+		test.files.openSelections.push({ file: new FakeFile(nonCurrentArchive), handle: null })
 		const opened = await test.projects.open()
-		assert.equal(opened.ok, true)
-		if (!opened.ok) return
-		const loaded = await test.projects.load(opened.value)
-		assert.equal(loaded.ok && loaded.value.compatibility, 'unsupported')
-		const outcome = await test.projects.saveCopy(opened.value, {
-			revision: 9,
-			bytes: projectBytes('Ignored current snapshot')
-		})
-		assert.equal(outcome.status, 'download-requested')
-		assert.deepEqual(test.files.downloads[0]?.bytes, futureArchive)
-		const saveAs = await test.projects.persistAs(opened.value, {
-			revision: 9,
-			bytes: projectBytes('Ignored current snapshot')
-		})
-		assert.equal(saveAs.status, 'failed')
-		if (saveAs.status === 'failed') assert.equal(saveAs.error.code, 'PROJECT_READ_ONLY')
+		assert.equal(opened.ok, false)
+		if (!opened.ok) assert.equal(opened.error.code, 'PROJECT_INVALID')
+		assert.equal(test.files.downloads.length, 0)
 	})
 
 	it('round-trips recovery while rejecting corrupt input and unverifiable writes', async () => {

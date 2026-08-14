@@ -132,7 +132,7 @@ native picker or storage settings during automated acceptance:
 - granted direct write, permission denial/revocation and external fingerprint conflict;
 - Save As binding only after verified write/close/re-read;
 - canceled operations and Download as `download-requested`, never persisted;
-- exact preservation of unsupported future archives;
+- rejection of every non-current archive before a project handle is registered;
 - settings defaults only for absence, latest-revision checksummed recovery and corrupt recovery;
 - blocked, aborted and quota/storage failures while the in-memory application remains usable;
 - opaque-handle validation so raw browser handles, names and bytes do not cross the adapter boundary.

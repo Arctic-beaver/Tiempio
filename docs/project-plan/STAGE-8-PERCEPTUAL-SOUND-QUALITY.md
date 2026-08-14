@@ -2,12 +2,38 @@
 
 ## Status and authority
 
-**Status:** approved product direction; implementation has not started.
+**Status:** engineering implementation complete and approved for squash merge on 14 August 2026.
+SQ-F technical packaging is complete; the human preference study is deferred post-merge and is not
+claimed as passed.
 
-**Placement:** after Stage 6 and the context-preserving Add / focus-safe Sound Chooser bug gates,
-but before the V4 source-material migration, performance recording and Stage 7.
+**Placement:** after Stage 7 and its context-preserving Add / focus-safe Sound Chooser gates, but
+before the source-material boundary and performance recording in Stage 9.
 
 **Integration branch:** `feature/perceptual-sound-quality`.
+
+**MVP current-only decision (14 August 2026):** Stage 8 owns the application catalog, patch model,
+preset registry and render path. All project and runtime boundaries accept exactly these current
+shapes.
+
+**Current execution checkpoint (14 August 2026):**
+
+- SQ-A through SQ-D are merged sequentially into `feature/perceptual-sound-quality`;
+- SQ-D includes one shared patch/render path, explicit per-preset semantic
+  mappings, a bounded secondary oscillator, continuous smoothing, deterministic fixtures and the
+  current-only project/runtime cutover;
+- the 19-step quality workflow passes policy, generated protocol, formatting, lint, boundaries,
+  218 contract tests, 100 repository-policy tests, Node/Web type checks, Rust format/check/Clippy,
+  workspace tests, deterministic offline proof and the real-time zero-allocation callback gate;
+- native Web-worklet tests, release WASM build and Desktop/Web parity pass for five synth families,
+  procedural drums, controls and bounded failures;
+- the 275-probe production render matrix and all 25 family/macro sweeps pass the frozen safety,
+  continuity and Spearman gates, and its report regenerates byte-for-byte; evidence is recorded in
+  `SQ-D-MACRO-MAPPING.json` and `SQ-D-MACRO-MAPPING.md`;
+- the SQ-E 648-probe catalog matrix passes at 44.1/48 kHz, with worst family spread 0.240 dB and no
+  hard-gate failures; 27 level-matched blind candidate bundles, four contexts each (108 WAVs), and
+  29 trials are ready;
+- SQ-E and the final Stage 8 engineering audit are complete; the product owner approved merge with
+  SQ-F observations deferred. The catalog remains neither preference-accepted nor frozen.
 
 This document is authoritative for the first production-quality built-in synth catalog, the
 bounded DSP work required to make it possible, the mathematical sound-lab workflow and the
@@ -53,10 +79,10 @@ The first catalog therefore follows these rules:
 and make macro behaviour reproducible; they cannot select the winning timbre without listening.
 The release gate is deliberately hybrid: deterministic analysis **and** blind human preference.
 
-## Current baseline and why parameter tuning alone is not enough
+## Current architecture and why parameter tuning alone is not enough
 
 The current catalog contains 27 synth presets in five families (`Bass`, `Lead`, `Pad`, `Pluck`,
-`Texture`) and 15 drum-voice variants. Every synth preset resolves to the same V2 subtractive
+`Texture`) and 15 drum-voice variants. Every synth preset resolves to the same subtractive
 topology:
 
 ```text
@@ -114,7 +140,7 @@ compliance claim.
 
 ### Objective defect and behaviour gate
 
-The offline sound lab renders a versioned matrix and derives at least:
+The offline sound lab renders the frozen matrix and derives at least:
 
 - sample peak and 4x-oversampled true peak in dBTP;
 - K-weighted loudness for fixed phrases plus unweighted RMS and crest factor;
@@ -131,7 +157,7 @@ The offline sound lab renders a versioned matrix and derives at least:
 Hard safety gates include zero non-finite output, zero unexpected output-guard clamps in the
 catalog matrix, bounded DC, bounded true peak, no stuck tail and the existing real-time allocation
 contract. Aliasing, register balance, stereo compatibility and level-spread limits are frozen from
-the baseline/research stage **before** candidates are ranked, then recorded in a versioned quality
+the baseline/research stage **before** candidates are ranked, then recorded in the frozen quality
 profile. Thresholds may differ by role but cannot be loosened after hearing a favourite candidate
 without an explicit reviewed plan change.
 
@@ -181,21 +207,21 @@ Two panels have different jobs:
 
 A pilot determines sample size through power analysis and freezes the analysis plan. Candidate
 comparisons use paired observations, bootstrap confidence intervals and effect sizes rather than a
-single informal vote. Each replacement must improve the current version with a meaningful effect
+single informal vote. Each replacement must improve the incumbent sound with a meaningful effect
 or justify itself as a distinct role while meeting the frozen absolute desirability floor. Repeated
 critical artifact reports block release. Weak or duplicate sounds are improved, merged or removed;
 the catalog count is never the acceptance target.
 
 The initial frozen decision rule uses seven-point scales: median `want to use` and role-fit are each
 at least `5/7`, their lower quartile is at least `4/7`, and a replacement candidate's paired
-desirability improvement over the current version has a positive 95% bootstrap confidence bound.
+desirability improvement over the incumbent sound has a positive 95% bootstrap confidence bound.
 A candidate kept for a genuinely different role may use a predeclared non-inferiority margin
 instead, but still clears the absolute floors. The same critical artifact independently reported
 by two trained listeners blocks that candidate until a new corrected study round. The pilot may
 change these numbers only before unblinding catalog candidates and with the reason recorded; it is
 not permission to lower the bar after results are known.
 
-## Versioned stimulus matrix
+## Frozen stimulus matrix
 
 Every preset is rendered with identical deterministic material where comparable and a
 role-specific phrase where necessary:
@@ -211,7 +237,8 @@ role-specific phrase where necessary:
   target supports it;
 - solo, mono fold-down, and one small level-controlled mix with the protected drum reference.
 
-The matrix and its maximum render count are versioned. A low-discrepancy Sobol or Latin-hypercube
+The matrix and its maximum render count are frozen before candidate ranking. A low-discrepancy
+Sobol or Latin-hypercube
 sample covers multidimensional patch space more efficiently than random knob twiddling. Automated
 analysis rejects unsafe regions; Pareto ranking retains candidates that balance role descriptors,
 low artifacts, headroom, macro range and CPU cost. Human sound design selects and refines the final
@@ -229,7 +256,7 @@ headroom:
 2. **Controlled nonlinear colour.** Compare oversampled or antiderivative/otherwise
    alias-controlled saturation against the current audio-rate tanh path. Loudness compensation
    prevents Drive from winning by gain alone.
-3. **Expressive key/velocity response.** Add versioned key tracking, velocity-to-amplitude curves
+3. **Expressive key/velocity response.** Add explicit key tracking, velocity-to-amplitude curves
    and optional velocity-to-filter/attack response so low/high notes and soft/hard playing remain
    musical rather than being a linear volume multiplier.
 4. **Envelope quality.** Compare perceptually useful exponential/curved segments, retrigger policy
@@ -238,17 +265,17 @@ headroom:
    for families that cannot reach an accepted identity with the current single-waveform topology.
    Voice count and stereo behaviour remain explicit patch data, not hidden random state.
 6. **Space and motion.** Only after dry sounds pass, compare a bounded chorus/delay/room primitive
-   for Pad/Texture/Lead. It becomes a versioned render-graph/patch node with mono and CPU gates, not
+   for Pad/Texture/Lead. It becomes a bounded render-graph/patch node with mono and CPU gates, not
    an always-on master effect. If it adds spectacle but damages mix clarity or target budgets, it is
    deferred rather than smuggled into presets.
 
 The stage does not require every candidate primitive. It requires the measured bake-off and enough
-adopted primitives to make every retained catalog entry pass. Any accepted patch-model change is
-versioned before V4 source material is frozen.
+adopted primitives to make every retained catalog entry pass. Accepted changes replace the current
+patch contract atomically before source material is frozen.
 
 ## Semantic macro surfaces
 
-One formula for all presets is replaced by a versioned per-family/per-preset mapping made from
+One formula for all presets is replaced by an explicit per-family/per-preset mapping made from
 shared curve primitives. Each mapping defines:
 
 - default sweet spot and safe `[0, 1]` domain;
@@ -306,29 +333,17 @@ song playback and offline render.
 - protect choke, transient and variant contrast; change an algorithm only for a demonstrated defect
   or a clearly preferred, level-matched candidate.
 
-## Persistence and catalog evolution
+## MVP catalog replacement and persistence
 
-`presetId`, preset revision, macro values, macro-mapping version and the complete resolved patch
-remain stored together. New projects use the reviewed catalog revision. Existing projects keep
-their exact resolved sound after an application update, even when the preset with the same name is
-improved.
+Stage 8 owns one current catalog, patch model and render path:
 
-If a patch-model revision is required:
-
-- protocol, TypeScript and Rust validation change together;
-- V2 -> next-version migration is deterministic and preserves the old audible patch rather than
-  silently substituting the new catalog;
-- an optional future `Update sound to latest version` is an explicit previewable project command,
-  never a load-time side effect;
-- old-version rendering remains supported for the documented compatibility window or is converted
-  once into an acoustically equivalent new patch with retained golden evidence;
+- protocol, TypeScript, Rust validation, project state, fixtures and seed content change together;
+- no alternate runtime branches, validators, preset registries or catalog corpora are retained;
+- development-only projects/fixtures are generated from the current schema;
+- the current format still round-trips deterministically and stores enough resolved patch/macro
+  state for reproducible playback in the MVP;
 - catalog names and descriptions are finalized after the audio identity is frozen, so copy cannot
   compensate for a misleading sound.
-
-An entry removed from the new-user chooser becomes a recognized legacy preset ID rather than an
-invalid project value. Active catalog membership and decode/render compatibility are separate
-registries: the former may shrink after review, while the latter retains every supported old ID and
-its resolved-patch path for the compatibility window.
 
 ## Implementation stages and branch sequence
 
@@ -336,19 +351,19 @@ All stages use the primary worktree and merge sequentially into
 `feature/perceptual-sound-quality`. Heavy Rust, WASM, render-matrix and packaging checks never run
 concurrently.
 
-### SQ-A — Research, baseline corpus and listening protocol
+### SQ-A — Research and listening protocol
 
 **Branch:** `feature/sound-quality-baseline`.
 
-- write the cited research synthesis and versioned quality profile;
-- render the complete current catalog matrix without changing sound;
-- retain baseline descriptors, selected WAV witnesses, hashes and known-problem annotations;
+- write the cited research synthesis and frozen quality profile;
+- define the complete current catalog stimulus matrix and objective gates;
+- retain current analyzer references, hashes and documented approximation limits;
 - design the randomized level-matched listening study, pilot, power analysis and frozen decision
   thresholds;
 - document role ranges and positive-control drums.
 
-**Exit:** every current preset has reproducible baseline audio/metrics and no candidate work begins
-before the defect thresholds and subjective protocol are frozen.
+**Exit:** every current role has reproducible stimuli and no candidate work begins before the
+defect thresholds and subjective protocol are frozen.
 
 ### SQ-B — Offline perceptual analysis lab
 
@@ -361,8 +376,8 @@ before the defect thresholds and subjective protocol are frozen.
 - keep the lab offline and out of application/runtime bundles;
 - verify reference signals and approximations against documented fixtures.
 
-**Exit:** one command under the lifecycle owner produces a bounded catalog report and rejects
-known synthetic defects without loading the UI or allocating in the audio callback.
+**Exit:** the bounded analyzer rejects known synthetic defects without loading the UI or allocating
+in the audio callback; full current-catalog reports are generated during SQ-D through SQ-F.
 
 ### SQ-C — High-return DSP quality primitives
 
@@ -371,7 +386,7 @@ known synthetic defects without loading the UI or allocating in the audio callba
 - implement and bake off band-limited Square/Pulse/Triangle plus alias-controlled nonlinear colour;
 - improve click-safe envelope/retrigger, key tracking and velocity response;
 - measure native/WASM determinism, CPU, allocations and sample-rate behaviour;
-- update the patch model only for accepted primitives and retain old-patch compatibility.
+- replace the patch model and shared render path cleanly for accepted primitives.
 
 **Exit:** adopted primitives beat the current level-matched baseline in blind artifact tests, meet
 the frozen objective profile and preserve callback budgets on native and WASM.
@@ -382,7 +397,7 @@ the frozen objective profile and preserve callback budgets on native and WASM.
 
 - run the secondary-oscillator/unison and bounded-space-effect bake-offs;
 - adopt only the minimum topology expansion required by accepted family briefs;
-- replace the global linear macro resolver with versioned perceptual curve mappings;
+- replace the global linear macro resolver with explicit perceptual curve mappings;
 - implement loudness compensation and continuous smoothing across every macro path;
 - add correlation, reversal, discontinuity and dangerous-corner tests.
 
@@ -403,6 +418,10 @@ inside artifact, headroom, mono and CPU limits.
 **Exit:** every visible default and macro surface passes internal technical review and is ready for
 blind creator testing; no placeholder/filler sound remains.
 
+**Result (14 August 2026):** exit achieved. All 27 retained current defaults pass the bounded
+technical matrix. Technical-neighbour pairs remain explicitly flagged for the blind panel; no
+preset was auto-deleted from objective distance alone.
+
 ### SQ-F — Cross-target preference acceptance and catalog freeze
 
 **Branch:** `feature/sound-quality-acceptance`.
@@ -418,6 +437,11 @@ blind creator testing; no placeholder/filler sound remains.
 **Exit:** every retained visible sound clears the desirability/role-fit floor, has no repeated
 critical artifact report, passes the mathematical profile and reproduces through native and WASM.
 
+**Deferred validation (14 August 2026):** the reproducible blinded package is ready, but
+trained-listener and target-creator observations do not exist. The product owner approved Stage 8
+engineering closure and squash merge without treating missing observations as a pass. The SQ-F
+preference exit remains open and catalog freeze is not claimed.
+
 ## Edge cases and failure policy
 
 - A candidate is preferred only before loudness matching: reject the comparison and correct gain.
@@ -425,7 +449,7 @@ critical artifact report, passes the mathematical profile and reproduces through
 - A default passes but one macro corner clips, whistles, collapses in mono or explodes in release:
   the whole published surface fails.
 - Dirt or resonance creates intentional roughness that an alias metric misclassifies: inspect the
-  spectrum/listening evidence and change the versioned metric profile openly; do not silently waive
+  spectrum/listening evidence and change the frozen metric profile openly; do not silently waive
   one candidate.
 - A high-quality primitive misses the Web callback deadline: optimize or reject it; Desktop does
   not receive a private better synth fork.
@@ -437,9 +461,10 @@ critical artifact report, passes the mathematical profile and reproduces through
   mapping range.
 - Noise/random phase makes evidence non-repeatable: seed deterministically per voice identity while
   retaining perceptually appropriate variation.
-- Existing projects change after catalog update: block release and repair resolved-patch migration.
-- A removed weak preset makes an old project fail validation: restore it to the legacy-ID registry;
-  hiding a new choice never invalidates saved content.
+- More than one patch or render path remains active: finish the single-current-path cutover before
+  acceptance.
+- A development fixture references a removed preset/schema: regenerate the fixture against the
+  current MVP catalog rather than adding an alternate production path.
 - Listening results disagree between trained and target users: retain both reports, investigate the
   attribute/device interaction and do not average away a critical artifact.
 - No candidate for a named slot clears the gate: remove the slot or improve the engine; do not ship
@@ -457,21 +482,21 @@ critical artifact report, passes the mathematical profile and reproduces through
 | Stereo | Correlation, side/low-side energy, mono fold-down and ordinary speaker review |
 | Polyphony | Chords, repeated notes, release overlap, voice stealing and output-guard counters |
 | Runtime | Same patch/PCM tolerance in offline, native and WASM; zero callback allocations |
-| Persistence | Old resolved patches reopen unchanged; new catalog revision round-trips deterministically |
+| Persistence | Current MVP catalog/patch state round-trips deterministically through one runtime path |
 | Subjective | Randomized name-hidden level-matched panel, power analysis, intervals/effect sizes and artifact log |
 | Product | Every Sound Chooser entry invites replay/use and behaves truthfully in Sound Sculpt |
 
 ## Definition of done
 
 - The research synthesis, quality profile, stimulus matrix and listening analysis plan are reviewed
-  and versioned before candidate ranking.
+  and frozen before candidate ranking.
 - Every retained synth preset has a distinct role, accepted default, safe macro surface, expressive
   velocity/register behaviour and small-mix evidence.
 - Band-limited waveforms and nonlinear colour meet the frozen alias profile at target rates; no
   accidental digital harshness is hidden by filtering or gain.
 - Catalog switching is level-controlled, true-peak safe and free of output-guard clamps,
   non-finite values, stuck tails and unbounded DC.
-- Macro mappings are perceptually directional, continuous, gain-compensated, versioned and exactly
+- Macro mappings are perceptually directional, continuous, gain-compensated and exactly
   reproducible from saved project state.
 - Weak or duplicate presets are improved or removed; catalog size is a result, not a goal.
 - The current drums retain their approved identity and pass regression/mix evidence.
@@ -479,8 +504,9 @@ critical artifact report, passes the mathematical profile and reproduces through
   and role-fit gates under blind level-matched conditions.
 - Desktop native and Web/WASM render the same catalog within documented deterministic tolerances
   and callback budgets.
-- Existing projects retain their resolved sound after the catalog/patch revision.
-- Stage 9 V4 source work and recording begin only after the catalog and patch model are frozen.
+- The accepted catalog uses one clean current patch/render path and current project state
+  round-trips deterministically.
+- Stage 9 source work and recording begin only after the catalog and patch model are frozen.
 - All heavy analysis, Rust/WASM checks, builds and packaged acceptance run sequentially through the
   fail-fast lifecycle owner with one lock, bounded per-stage timeouts, heartbeats, signal handling
   and exact task-owned process-tree cleanup.

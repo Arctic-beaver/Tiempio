@@ -14,7 +14,7 @@ multi-note editing or recording the live A-L audition performance into timed not
 | A - commands and history  | `feature/note-editor-command-history`     | `6eedf87`            | Atomic note commands, bounded Undo/Redo, history grouping and physical shortcut contracts                        |
 | B - direct manipulation   | `feature/note-editor-direct-manipulation` | `9d8f36d`            | Canonical projection, truthful empty state, exact add/remove, movement, duration and four-point focus affordance |
 | C - expression and keys   | `feature/note-editor-expression-and-keys` | `4cb3fd0`            | Symmetric velocity, meter hierarchy, layout-independent keyboard editing and repeat coalescing                   |
-| D - shortcut settings     | `feature/keyboard-shortcut-settings`      | `1cad5af`            | Themed remapping UI, conflict/reserved handling, reset, migration and persistence                                |
+| D - shortcut settings     | `feature/keyboard-shortcut-settings`      | `1cad5af`            | Themed remapping UI, conflict/reserved handling, reset and current persistence                                   |
 | E - integrated acceptance | `feature/note-editor-acceptance`          | This evidence commit | Short-note hit-zone disambiguation, deferred Settings chunk, final validation and acceptance record              |
 
 ## Reproducible automated evidence
@@ -23,7 +23,7 @@ The complete lifecycle-owned `npm run check:quick` workflow passed all 19 stages
 
 - formatting, lint, import boundaries, UI-foundation, CSP and package-content policies passed;
 - 124 compiled contract tests passed, including note geometry, keyboard editing, command registry,
-  physical-key capture, persisted shortcut migration and bounded ProjectSession history;
+  physical-key capture, current-only shortcut persistence and bounded ProjectSession history;
 - 86 repository-policy tests passed;
 - Node and Web typechecks passed;
 - Rust format, workspace check, Clippy and all workspace tests passed.

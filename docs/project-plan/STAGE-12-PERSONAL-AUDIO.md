@@ -254,13 +254,13 @@ by the reviewed save/asset policy, never from the audio callback.
 ### Canonical records
 
 ```text
-AudioAssetV1
+AudioAsset
   assetId / contentHash / encodedByteLength
   channels / sourceSampleRate / sourceSampleFormat / sourceFrames
   canonicalSampleRate / canonicalFrames
   decoderVersion / resamplerVersion
 
-SampleInstrumentSourceV1
+SampleInstrumentSource
   assetId
   rootPitch
   trimStartFrame / trimEndFrame
@@ -269,14 +269,14 @@ SampleInstrumentSourceV1
   attackFrames / releaseFrames
   maxTransposeDown / maxTransposeUp
 
-AudioPhraseSourceV1
+AudioPhraseSource
   assetId
   trimStartFrame / trimEndFrame
   gain
   attackFrames / releaseFrames
   timeBehavior: fixedSamples
 
-AudioBrickMaterialV1
+AudioBrickMaterial
   materialFrames
   tailRestFrames
 ```
@@ -325,7 +325,7 @@ AudioCaptureDraft
 
 Capture buffers are written in bounded segments outside React and outside the output callback.
 Permission/session handles, live meters, count-in and unfinished take files are transient. Only
-`Use recording` creates the portable `AudioAssetV1` and `AudioPhraseSourceV1` command group.
+`Use recording` creates the portable `AudioAsset` and `AudioPhraseSource` command group.
 
 ### Desktop and Web ownership
 
@@ -381,8 +381,8 @@ integration branch.
 
 0. **Product/design gate:** discuss and approve recorder flow with the user; update AS-TO-BE docs,
    prototype reference, shortcuts, responsive states and acceptance decisions before recorder code;
-1. `feature/personal-audio-asset-domain` — versioned `AudioAssetV1`, sample-instrument/audio-phrase
-   schemas, archive portability, migration and grouped command/Undo contract;
+1. `feature/personal-audio-asset-domain` — current `AudioAsset`, sample-instrument/audio-phrase
+   current schemas, archive portability, strict validation and grouped command/Undo contract;
 2. `feature/bounded-wav-decoder` — shared RIFF validation, deterministic decode/resample/hash/peaks,
    hostile fixtures, ceilings and cancellation;
 3. `feature/personal-audio-engine` — native/WASM immutable asset registration, preallocated sample
@@ -413,7 +413,7 @@ Automated evidence includes:
   pause, trim, envelope, velocity and voice-stealing DSP tests;
 - no callback allocation/I/O plus native/WASM real-time and offline-render parity;
 - draft cancel/reselect/stale generation/project-revision conflict and one-command Undo/Redo;
-- archive deduplication, save/reopen/recovery, missing/corrupt asset and future-version failures;
+- archive deduplication, save/reopen/recovery, missing/corrupt asset and non-current-format failures;
 - imported-sample participation in keyboard/recording plus audio-phrase participation in fixed-time
   preview; both work in linked song instances and post-gate WAV export;
 - microphone permission allow/deny/revoke, no-device/device-loss, input-rate/channel changes,

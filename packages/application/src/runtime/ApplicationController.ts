@@ -10,7 +10,7 @@ import {
 	type ProjectDocument,
 	type PreparedProjectTransaction,
 	type ProjectSession,
-	type SynthInstrumentStateV2
+	type SynthInstrumentState
 } from '../../../project-core/src/index.js'
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
 import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
@@ -37,11 +37,11 @@ export interface OpenedApplicationProject {
 
 export interface DraftAuditionLayer {
 	readonly draftId: string
-	readonly instrument: SynthInstrumentStateV2
+	readonly instrument: SynthInstrumentState
 }
 
 export interface AuditionInstrumentPreview {
-	readonly instrument: SynthInstrumentStateV2
+	readonly instrument: SynthInstrumentState
 	readonly layerId: string
 }
 
