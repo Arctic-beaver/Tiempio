@@ -350,6 +350,8 @@ describe('ApplicationRuntimeController', () => {
 		const healthListeners = new Set<(health: AudioHealthSnapshot) => void>()
 		const closeListeners = new Set<() => void>()
 		const unavailableError = applicationError('OPERATION_UNAVAILABLE', 'Unavailable in test.')
+		let holdNextPlan = false
+		const heldPlan = { release: null as (() => void) | null }
 		let connects = 0
 		let disconnects = 0
 		const engine: EngineRuntime = Object.freeze({
@@ -370,6 +372,13 @@ describe('ApplicationRuntimeController', () => {
 			},
 			send: async (command: AnyEngineCommandEnvelope) => {
 				commands.push(command)
+				if (holdNextPlan && command.type === 'load-render-plan') {
+					holdNextPlan = false
+					await new Promise<void>((resolve) => {
+						heldPlan.release = resolve
+					})
+					heldPlan.release = null
+				}
 				return Object.freeze({
 					ok: true as const,
 					value: Object.freeze({ accepted: true as const })
@@ -741,13 +750,94 @@ describe('ApplicationRuntimeController', () => {
 				commands.filter((command) => command.type === 'load-render-plan').length,
 				plansBeforeCommit
 			)
+			const createdLayer = session
+				.getSnapshot()
+				.project.layers.find((layer) => layer.id === 'layer.created')
+			if (createdLayer?.source.type !== 'synth') {
+				throw new Error('Created synth is required for audition preview coverage.')
+			}
+			const brightInstrument = createSynthInstrument(
+				createdLayer.source.instrument.presetId,
+				{ ...createdLayer.source.instrument.macros, brightness: 0.95 }
+			)
+			holdNextPlan = true
+			const previewPlan = controller.setAuditionInstrumentPreview({
+				layerId: createdLayer.id,
+				instrument: brightInstrument
+			})
+			await flush()
+			const previewLoad = commands.at(-1)
+			assert.equal(previewLoad?.type, 'load-render-plan')
+			if (previewLoad?.type === 'load-render-plan') {
+				const previewLayer = previewLoad.payload.plan.layers.find(
+					(layer) => layer.id === createdLayer.id
+				)
+				assert.equal(
+					previewLayer?.source.type === 'subtractive-synth'
+						? previewLayer.source.patch.filter.cutoffHz
+						: null,
+					brightInstrument.resolvedPatch.filter.cutoffHz
+				)
+			}
+			controller.performanceInput.activate(
+				'sound-chooser',
+				createdLayer.id,
+				performanceMapping(
+					{ tonic: 9, mode: 'minor' },
+					{ layout: 'compact', rotation: 0, tonicMidi: 45 }
+				)
+			)
+			const canceledSource = performanceSourceId('keyboard', 'KeyA')
+			const notesBeforeCanceledPlan = commands.filter(
+				(command) => command.type === 'note-on'
+			).length
+			controller.performanceInput.pressCode('sound-chooser', canceledSource, 'KeyA')
+			controller.performanceInput.releaseSource(canceledSource)
+			heldPlan.release?.()
+			assert.equal(await previewPlan, true)
+			await flush()
+			assert.equal(
+				commands.filter((command) => command.type === 'note-on').length,
+				notesBeforeCanceledPlan
+			)
+
+			const heldSource = performanceSourceId('keyboard', 'KeyS')
+			controller.performanceInput.pressCode('sound-chooser', heldSource, 'KeyS')
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'note-on')
+			const noteOffsBeforeMacro = commands.filter(
+				(command) => command.type === 'note-off'
+			).length
+			session.dispatch({
+				type: 'layer.macro.commit',
+				baseRevision: 2,
+				layerId: createdLayer.id,
+				macro: 'brightness',
+				value: 0.95
+			})
+			await flush()
+			await controller.setAuditionInstrumentPreview(null)
+			assert.deepEqual(
+				controller.performanceInput.getSnapshot().heldKeys.map(({ code }) => code),
+				['KeyS']
+			)
+			assert.equal(
+				commands.filter((command) => command.type === 'note-off').length,
+				noteOffsBeforeMacro
+			)
+			controller.performanceInput.releaseSource(heldSource)
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'note-off')
+			const plansBeforeDrum = commands.filter(
+				(command) => command.type === 'load-render-plan'
+			).length
 
 			controller.auditionDrum('layer.drums', 'openHat')
 			await flush()
 			await flush()
 			assert.equal(
 				commands.filter((command) => command.type === 'load-render-plan').length,
-				plansBeforeCommit
+				plansBeforeDrum
 			)
 			const drumAudition = commands.at(-1)
 			assert.equal(drumAudition?.type, 'note-on')

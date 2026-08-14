@@ -40,6 +40,11 @@ export interface DraftAuditionLayer {
 	readonly instrument: SynthInstrumentStateV2
 }
 
+export interface AuditionInstrumentPreview {
+	readonly instrument: SynthInstrumentStateV2
+	readonly layerId: string
+}
+
 export const silentApplicationMeter = Object.freeze<ApplicationMeterSnapshot>({
 	leftPeak: 0,
 	rightPeak: 0
@@ -54,6 +59,7 @@ export interface ApplicationController {
 	bindProjectSession(session: ProjectSession, handle?: ProjectHandle | null): void
 	preactivateProject(prepared: PreparedProjectTransaction): Promise<boolean>
 	restoreProjectPlan(): Promise<void>
+	setAuditionInstrumentPreview(preview: AuditionInstrumentPreview | null): Promise<boolean>
 	setDraftAuditionLayer(layer: DraftAuditionLayer | null): Promise<boolean>
 	openProject?(): Promise<ApplicationResult<OpenedApplicationProject>>
 	retryAudio(): Promise<void>
@@ -100,6 +106,7 @@ export function createUnavailableApplicationController(
 		bindProjectSession: () => undefined,
 		preactivateProject: async () => false,
 		restoreProjectPlan: async () => undefined,
+		setAuditionInstrumentPreview: async () => false,
 		setDraftAuditionLayer: async () => false,
 		retryAudio: async () => undefined,
 		seek: () => undefined,

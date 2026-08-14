@@ -24,14 +24,15 @@ import {
 } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
 import { songPalette } from '../../../../music-theory/src/index.js'
-import type {
-	LayerPerformanceMapping,
-	ProjectKey,
-	SemanticSynthMacrosV2,
-	SoundFamily,
-	SynthMacroId,
-	SynthPresetId,
-	SynthInstrumentStateV2
+import {
+	createSynthInstrument,
+	type LayerPerformanceMapping,
+	type ProjectKey,
+	type SemanticSynthMacrosV2,
+	type SoundFamily,
+	type SynthMacroId,
+	type SynthPresetId,
+	type SynthInstrumentStateV2
 } from '../../../../project-core/src/index.js'
 import { PerformanceKeyboard } from '../../performance/PerformanceKeyboard.js'
 import type { LayersProjection, ProjectedLayerItem } from '../../project/projections/types.js'
@@ -148,6 +149,15 @@ export function SoundChooserView({
 		[key.mode]
 	)
 	const soundDemoActive = preview.active && preview.kind === 'sound'
+	const auditionPreviewInstrument = useMemo(() => {
+		if (!axes.some((axis) => macroPreview[axis.id] !== undefined)) return null
+		const macros = { ...selectedMacros }
+		for (const axis of axes) {
+			const next = macroPreview[axis.id]
+			if (next !== undefined) macros[axis.id] = next / 100
+		}
+		return createSynthInstrument(selectedPresetId, macros)
+	}, [macroPreview, selectedMacros, selectedPresetId])
 	useEffect(() => {
 		if (auditionInstrument === null || layerId === null) return
 		let active = true
@@ -162,6 +172,18 @@ export function SoundChooserView({
 			void controller.setDraftAuditionLayer(null)
 		}
 	}, [auditionInstrument, controller, layerId])
+	useEffect(() => {
+		void controller.setAuditionInstrumentPreview(
+			layerId === null || auditionPreviewInstrument === null
+				? null
+				: { layerId, instrument: auditionPreviewInstrument }
+		)
+	}, [auditionPreviewInstrument, controller, layerId])
+	useEffect(() => {
+		return () => {
+			void controller.setAuditionInstrumentPreview(null)
+		}
+	}, [controller])
 	const auditionLayerId =
 		auditionInstrument === null || acceptedDraftInstrument === auditionInstrument
 			? layerId
@@ -532,8 +554,13 @@ export function SoundChooserView({
 											[axis.id]: nextValue
 										}))
 									}
+									onCancel={() => {
+										setMacroPreview((current) => ({
+											...current,
+											[axis.id]: undefined
+										}))
+									}}
 									onCommit={(nextValue) => {
-										releaseForMappingChange()
 										onCommitMacro(axis.id, nextValue / 100)
 										setMacroPreview((current) => ({
 											...current,
