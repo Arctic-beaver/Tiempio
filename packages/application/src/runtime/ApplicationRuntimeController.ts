@@ -1063,6 +1063,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	#releasePerformanceInputBound = (): void => {
+		this.previewCoordinator.interrupt()
 		this.performanceInput.releaseAll()
 	}
 

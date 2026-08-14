@@ -1,5 +1,5 @@
 import { ArrowLeft, Check, Pause, Play, X } from 'lucide-react'
-import type { JSX } from 'react'
+import type { JSX, KeyboardEvent } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
 import { useLayerCreation } from './LayerCreationContext.js'
 import { useLayerCreationActions } from './useLayerCreationActions.js'
@@ -31,10 +31,18 @@ export function LayerCreationCard({ instanceId }: LayerCreationCardProperties): 
 				: t('layerCreation.ready', { name: draft.displayName ?? '' })
 	return (
 		<section
+			aria-busy={snapshot.commitPending || undefined}
 			aria-labelledby={headingId}
 			className="layer-creation-card"
 			data-step={draft.step}
 			data-suspended={draft.suspended || undefined}
+			onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
+				if (event.key !== 'Escape') return
+				event.preventDefault()
+				event.stopPropagation()
+				if (draft.step === 'choosing-role') actions.cancel()
+				else actions.backToRole()
+			}}
 		>
 			<header>
 				<div>
@@ -64,6 +72,7 @@ export function LayerCreationCard({ instanceId }: LayerCreationCardProperties): 
 					<button
 						className="layer-creation-card__primary"
 						data-layer-draft-focus
+						disabled={snapshot.commitPending}
 						onClick={actions.continueDraft}
 						type="button"
 					>
@@ -81,6 +90,7 @@ export function LayerCreationCard({ instanceId }: LayerCreationCardProperties): 
 						<button
 							data-layer-draft-role
 							data-layer-draft-focus
+							disabled={snapshot.commitPending}
 							key={role}
 							onClick={() => actions.chooseRole(role)}
 							type="button"
@@ -95,6 +105,7 @@ export function LayerCreationCard({ instanceId }: LayerCreationCardProperties): 
 						<button
 							className="layer-creation-card__primary"
 							data-layer-draft-focus
+							disabled={snapshot.commitPending}
 							onClick={actions.continueDraft}
 							type="button"
 						>
@@ -105,7 +116,7 @@ export function LayerCreationCard({ instanceId }: LayerCreationCardProperties): 
 						<button
 							className="layer-creation-card__primary"
 							data-layer-draft-focus
-							disabled={actions.commitPending}
+							disabled={snapshot.commitPending}
 							onClick={() => void actions.commitDraft()}
 							type="button"
 						>
@@ -115,6 +126,7 @@ export function LayerCreationCard({ instanceId }: LayerCreationCardProperties): 
 					) : null}
 					<button
 						className="layer-creation-card__secondary"
+						disabled={snapshot.commitPending}
 						onClick={actions.backToRole}
 						type="button"
 					>

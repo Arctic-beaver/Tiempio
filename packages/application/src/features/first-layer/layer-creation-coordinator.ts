@@ -35,6 +35,7 @@ export interface LayerCreationDraft {
 
 export interface LayerCreationSnapshot {
 	readonly announcement: string | null
+	readonly commitPending: boolean
 	readonly draft: LayerCreationDraft | null
 	readonly revision: number
 }
@@ -99,6 +100,7 @@ export class LayerCreationCoordinator {
 	#draftSequence = 0
 	#snapshot: LayerCreationSnapshot = Object.freeze({
 		announcement: null,
+		commitPending: false,
 		draft: null,
 		revision: 0
 	})
@@ -135,7 +137,7 @@ export class LayerCreationCoordinator {
 			suspended: false,
 			error: null
 		})
-		this.#publish(draft, 'Adding a brick. Existing bricks remain available.')
+		this.#publish(draft, 'Adding a brick. Existing bricks remain available.', false)
 		return draft
 	}
 
@@ -243,10 +245,21 @@ export class LayerCreationCoordinator {
 		})
 	}
 
+	public beginCommit(): boolean {
+		if (this.#snapshot.draft === null || this.#snapshot.commitPending) return false
+		this.#publish(this.#snapshot.draft, this.#snapshot.announcement, true)
+		return true
+	}
+
+	public endCommit(): void {
+		if (!this.#snapshot.commitPending) return
+		this.#publish(this.#snapshot.draft, this.#snapshot.announcement, false)
+	}
+
 	public cancel(): boolean {
 		if (this.#snapshot.draft === null) return false
 		this.#onAuditionInvalidated()
-		this.#publish(null, null)
+		this.#publish(null, null, false)
 		return true
 	}
 
@@ -288,10 +301,15 @@ export class LayerCreationCoordinator {
 		this.#publish(ownedDraft(draft), this.#snapshot.announcement)
 	}
 
-	#publish(draft: LayerCreationDraft | null, announcement: string | null): void {
+	#publish(
+		draft: LayerCreationDraft | null,
+		announcement: string | null,
+		commitPending = this.#snapshot.commitPending
+	): void {
 		this.#snapshot = Object.freeze({
 			draft,
 			announcement,
+			commitPending,
 			revision: this.#snapshot.revision + 1
 		})
 		for (const listener of this.#listeners) listener()

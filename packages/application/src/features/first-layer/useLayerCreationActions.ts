@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { useLocalization } from '../../../../localization/src/index.js'
 import { layerId, type LayerId } from '../../../../project-core/src/index.js'
 import { useCommands } from '../../commands/CommandContext.js'
@@ -41,7 +41,6 @@ export function useLayerCreationActions(): {
 	const projectSession = useProjectSession()
 	const controller = useApplicationRuntimeController()
 	const { coordinator, snapshot: creation } = useLayerCreation()
-	const [commitPending, setCommitPending] = useState(false)
 
 	const navigateToSelected = useCallback((): void => {
 		const selected = projectSession.projections.layers.items.find(
@@ -128,11 +127,13 @@ export function useLayerCreationActions(): {
 	)
 
 	const commitDraft = useCallback(async (): Promise<boolean> => {
-		if (commitPending) return false
+		if (!coordinator.beginCommit()) return false
 		const draft = coordinator.getSnapshot().draft
 		const current = projectSession.getSnapshot()
-		if (draft === null || draft.projectId !== current.project.projectId) return false
-		setCommitPending(true)
+		if (draft === null || draft.projectId !== current.project.projectId) {
+			coordinator.endCommit()
+			return false
+		}
 		let prepared: ReturnType<typeof projectSession.prepareTransaction> | null = null
 		try {
 			const canonicalLayerId = layerId(projectSession.nextId('layer.ui'))
@@ -141,9 +142,16 @@ export function useLayerCreationActions(): {
 			)
 			if (!(await controller.preactivateProject(prepared))) {
 				projectSession.discardTransaction(prepared)
-				coordinator.reportError(
-					'Audio could not accept the new brick. Try again or cancel.'
-				)
+				if (coordinator.getSnapshot().draft === draft) {
+					coordinator.reportError(
+						'Audio could not accept the new brick. Try again or cancel.'
+					)
+				}
+				return false
+			}
+			if (coordinator.getSnapshot().draft !== draft) {
+				projectSession.discardTransaction(prepared)
+				await controller.restoreProjectPlan()
 				return false
 			}
 			projectSession.commitTransaction(prepared)
@@ -155,21 +163,23 @@ export function useLayerCreationActions(): {
 		} catch (error) {
 			if (prepared !== null) projectSession.discardTransaction(prepared)
 			await controller.restoreProjectPlan()
-			coordinator.reportError(
-				error instanceof Error ? error.message : 'The brick could not be created.'
-			)
+			if (coordinator.getSnapshot().draft === draft) {
+				coordinator.reportError(
+					error instanceof Error ? error.message : 'The brick could not be created.'
+				)
+			}
 			return false
 		} finally {
-			setCommitPending(false)
+			coordinator.endCommit()
 		}
-	}, [commitPending, controller, coordinator, execute, projectSession])
+	}, [controller, coordinator, execute, projectSession])
 
 	return {
 		backToRole,
 		cancel,
 		chooseRole,
 		commitDraft,
-		commitPending,
+		commitPending: creation.commitPending,
 		continueDraft,
 		openOrFocus,
 		selectExistingLayer

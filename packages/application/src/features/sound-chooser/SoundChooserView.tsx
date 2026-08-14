@@ -173,6 +173,18 @@ export function SoundChooserView({
 			}
 		}
 	}, [controller])
+	useEffect(() => {
+		if (auditionInstrument === null) return
+		const handleEscape = (event: globalThis.KeyboardEvent): void => {
+			if (event.defaultPrevented || event.key !== 'Escape') return
+			const target = event.target as { closest?: (selector: string) => unknown } | null
+			if (target?.closest?.('dialog, [role="dialog"], [aria-modal="true"]') != null) return
+			event.preventDefault()
+			onBack()
+		}
+		document.addEventListener('keydown', handleEscape)
+		return () => document.removeEventListener('keydown', handleEscape)
+	}, [auditionInstrument, onBack])
 	const toggleSoundDemo = (): void => {
 		if (soundDemoActive) {
 			controller.previewCoordinator.interrupt()
