@@ -173,7 +173,13 @@ describe('performance input events', () => {
 			key({ shiftKey: true }),
 			key({ isComposing: true }),
 			key({ target: { tagName: 'INPUT' } }),
-			key({ target: { closest: () => ({ role: 'dialog' }), tagName: 'BUTTON' } })
+			key({
+				target: {
+					closest: (selector: string) =>
+						selector.includes('dialog') ? { role: 'dialog' } : null,
+					tagName: 'BUTTON'
+				}
+			})
 		]) {
 			assert.equal(performanceKeyDown(session, 'surface', blocked), false)
 		}
