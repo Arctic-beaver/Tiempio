@@ -2,13 +2,17 @@
 
 ## Status and scope
 
-**Status:** implementation plan for the approved Stage 7A and Stage 7B gates, 2026-08-14.
+**Status:** implemented and verified on `feature/stage-7`, 2026-08-14; ready for the explicitly
+authorized merge into `main`.
 
 This document records the implementation-specific architecture audit and execution sequence. Product
 behavior and acceptance authority remain in:
 
 - [`STAGE-7A-CONTEXTUAL-BRICK-CREATION.md`](STAGE-7A-CONTEXTUAL-BRICK-CREATION.md);
 - [`STAGE-7B-FOCUS-SAFE-AUDITION.md`](STAGE-7B-FOCUS-SAFE-AUDITION.md).
+
+Combined implementation and verification evidence is recorded in
+[`../evidence/STAGE-7.md`](../evidence/STAGE-7.md).
 
 Stage 7A completes and is verified before Stage 7B begins. No recording, V4 source/instance model,
 linked-brick scheduling, starter-catalog expansion or repository-hosted automation is in scope.
@@ -37,39 +41,39 @@ copying fake rows into onboarding or creating provisional project layers.
 ## Stage 7A implementation stages
 
 1. **Atomic project transaction foundation**
-   - add an immutable prepared transaction to `ProjectSession`;
-   - reduce and validate every command against a private candidate document;
-   - commit only when the base session/revision still matches;
-   - publish the candidate once, create one Undo entry and expose no partial state on rejection.
+    - add an immutable prepared transaction to `ProjectSession`;
+    - reduce and validate every command against a private candidate document;
+    - commit only when the base session/revision still matches;
+    - publish the candidate once, create one Undo entry and expose no partial state on rejection.
 2. **Creation workflow ownership**
-   - add a branded, bounded `LayerCreationDraft` and `LayerCreationCoordinator`;
-   - keep one draft per exact project ID, with open/focus, role, sound, performance, suspend,
-     resume, back, cancel, failure and commit states;
-   - keep draft state outside `ProjectDocument`, persistence, recovery and history.
+    - add a branded, bounded `LayerCreationDraft` and `LayerCreationCoordinator`;
+    - keep one draft per exact project ID, with open/focus, role, sound, performance, suspend,
+      resume, back, cancel, failure and commit states;
+    - keep draft state outside `ProjectDocument`, persistence, recovery and history.
 3. **Transient audition target**
-   - let the application runtime publish one bounded draft instrument as an event-free transient
-     engine-plan layer;
-   - rebuild it from the selected preset/macros without changing the project revision;
-   - release draft-owned notes and remove the transient layer on suspend, cancel, project switch,
-     blur and teardown;
-   - pre-activate the final candidate render plan before committing the prepared project transaction.
+    - let the application runtime publish one bounded draft instrument as an event-free transient
+      engine-plan layer;
+    - rebuild it from the selected preset/macros without changing the project revision;
+    - release draft-owned notes and remove the transient layer on suspend, cancel, project switch,
+      blur and teardown;
+    - pre-activate the final candidate render plan before committing the prepared project transaction.
 4. **Context-preserving UI**
-   - guard the full first-layer screen by a true zero-layer project;
-   - route add actions to `creation.open-or-focus`;
-   - render the real layer list and inline draft card in one shared themed scroll surface;
-   - keep the selected editor and song dock until role selection, then render Sound Chooser beside
-     the same persistent project column;
-   - selecting a real row suspends the draft, while Continue restores its chooser state.
+    - guard the full first-layer screen by a true zero-layer project;
+    - route add actions to `creation.open-or-focus`;
+    - render the real layer list and inline draft card in one shared themed scroll surface;
+    - keep the selected editor and song dock until role selection, then render Sound Chooser beside
+      the same persistent project column;
+    - selecting a real row suspends the draft, while Continue restores its chooser state.
 5. **Creation commits**
-   - synth commit adds the selected role, preset, macros and performance as one transaction;
-   - kit-only drum commit creates an empty rhythm layer; pattern events exist only after an explicit
-     named-pattern choice;
-   - one Undo removes the entire committed brick and Redo restores it;
-   - stale revision, ceiling, validation and engine rejection retain an actionable draft.
+    - synth commit adds the selected role, preset, macros and performance as one transaction;
+    - kit-only drum commit creates an empty rhythm layer; pattern events exist only after an explicit
+      named-pattern choice;
+    - one Undo removes the entire committed brick and Redo restores it;
+    - stale revision, ceiling, validation and engine rejection retain an actionable draft.
 6. **Accessibility, responsive layout and evidence**
-   - predictable focus entry/return, live status, labelled draft region and non-color state;
-   - persistent desktop column and compact Layers drawer projection;
-   - light/dark/constrained-height prototype delta and targeted Desktop/Web regression evidence.
+    - predictable focus entry/return, live status, labelled draft region and non-color state;
+    - persistent desktop column and compact Layers drawer projection;
+    - light/dark/constrained-height prototype delta and targeted Desktop/Web regression evidence.
 
 ## Stage 7B implementation stages
 
