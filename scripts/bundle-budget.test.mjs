@@ -3,8 +3,9 @@ import { describe, it } from 'node:test'
 import {
 	emptyShellBundleBudgets,
 	evaluateBundleClass,
-	evaluateWebStage6Artifacts,
-	webStage6ArtifactBudgets
+	evaluateWebArtifacts,
+	stage7FeatureGrowthBudgets,
+	webArtifactBudgets
 } from './bundle-budget.mjs'
 
 describe('empty-shell bundle budgets', () => {
@@ -12,14 +13,22 @@ describe('empty-shell bundle budgets', () => {
 		assert.deepEqual(emptyShellBundleBudgets, {
 			'desktop-main': { root: 'dist/desktop/main', maxBytes: 229_376 },
 			'desktop-preload': { root: 'dist/desktop/preload', maxBytes: 61_440 },
-			'desktop-renderer': { root: 'dist/desktop/renderer', maxBytes: 622_592 },
-			web: { root: 'dist/web', maxBytes: 585_728 }
+			'desktop-renderer': { root: 'dist/desktop/renderer', maxBytes: 655_360 },
+			web: { root: 'dist/web', maxBytes: 606_208 }
 		})
 	})
 
-	it('owns separate Stage 6 Web artifact ceilings', () => {
-		assert.deepEqual(webStage6ArtifactBudgets, {
-			initialJavaScript: 425_984,
+	it('owns explicit Stage 7 feature-growth envelopes', () => {
+		assert.deepEqual(stage7FeatureGrowthBudgets, {
+			desktopRenderer: 32_768,
+			webInitialJavaScript: 24_576,
+			webShellOutput: 20_480
+		})
+	})
+
+	it('owns separate Web artifact ceilings', () => {
+		assert.deepEqual(webArtifactBudgets, {
+			initialJavaScript: 450_560,
 			deferredApplication: 81_920,
 			webRuntimeJavaScript: 196_608,
 			workletJavaScript: 65_536,
@@ -97,7 +106,7 @@ describe('empty-shell bundle budgets', () => {
 		}
 		const wasmBytes = 600_000
 		const encodedWasmBytes = Math.ceil(wasmBytes / 3) * 4
-		const result = evaluateWebStage6Artifacts({
+		const result = evaluateWebArtifacts({
 			attribution,
 			wasmBytes,
 			files: [
