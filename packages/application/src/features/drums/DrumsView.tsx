@@ -60,6 +60,7 @@ function DrumSwingControl({
 						max={35}
 						min={0}
 						onChange={setPreview}
+						onCancel={() => setPreview(null)}
 						onCommit={(next) => {
 							onCommit(next / 100)
 							setPreview(null)
@@ -223,6 +224,7 @@ export function DrumsView({
 										max={100}
 										min={0}
 										onChange={setDensityPreview}
+										onCancel={() => setDensityPreview(null)}
 										onCommit={(next) => {
 											onSetDensity(next / 100)
 											setDensityPreview(null)

@@ -84,6 +84,10 @@ function MetronomeControls({
 								setDraftVolume(value)
 								controller.setMetronomeVolume(value)
 							}}
+							onCancel={() => {
+								controller.setMetronomeVolume(settings.metronomeVolume)
+								setDraftVolume(null)
+							}}
 							onCommit={(value) => {
 								settings.setMetronomeVolume(value)
 								setDraftVolume(null)
