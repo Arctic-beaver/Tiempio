@@ -32,20 +32,108 @@ export interface PerformancePointerEvent {
 	preventDefault(): void
 }
 
-function editableTarget(target: EventTarget | null): boolean {
-	if (target === null || typeof target !== 'object') return false
-	const candidate = target as {
-		readonly closest?: (selectors: string) => unknown
-		readonly isContentEditable?: boolean
-		readonly tagName?: string
+export type PerformanceFocusTarget =
+	| 'text-editing'
+	| 'range-adjustment'
+	| 'action-control'
+	| 'performance-surface'
+	| 'modal-or-capture'
+
+interface SemanticEventTarget {
+	readonly closest?: (selectors: string) => unknown
+	readonly getAttribute?: (name: string) => string | null
+	readonly isContentEditable?: boolean
+	readonly role?: string
+	readonly tagName?: string
+	readonly type?: string
+}
+
+const modalOrCaptureSelector =
+	'dialog, [role="dialog"], [aria-modal="true"], [data-capturing="true"], [data-performance-routing="blocked"]'
+const delegatedPerformanceSelector = '[data-performance-routing="allow"]'
+const textInputTypes = new Set([
+	'',
+	'date',
+	'datetime-local',
+	'email',
+	'month',
+	'number',
+	'password',
+	'search',
+	'tel',
+	'text',
+	'time',
+	'url',
+	'week'
+])
+const actionInputTypes = new Set([
+	'button',
+	'checkbox',
+	'color',
+	'file',
+	'hidden',
+	'image',
+	'radio',
+	'reset',
+	'submit'
+])
+const textEditingRoles = new Set(['combobox', 'searchbox', 'spinbutton', 'textbox'])
+const actionRoles = new Set([
+	'button',
+	'checkbox',
+	'link',
+	'menuitem',
+	'menuitemcheckbox',
+	'menuitemradio',
+	'option',
+	'radio',
+	'switch',
+	'tab'
+])
+
+function targetAttribute(target: SemanticEventTarget, name: string): string | null {
+	const value = target.getAttribute?.(name)
+	if (typeof value === 'string') return value.toLowerCase()
+	if (name === 'role' && typeof target.role === 'string') return target.role.toLowerCase()
+	if (name === 'type' && typeof target.type === 'string') return target.type.toLowerCase()
+	return null
+}
+
+export function classifyPerformanceFocusTarget(target: EventTarget | null): PerformanceFocusTarget {
+	if (target === null || typeof target !== 'object') return 'performance-surface'
+	const candidate = target as SemanticEventTarget
+	if (
+		candidate.closest?.(modalOrCaptureSelector) != null &&
+		candidate.closest?.(delegatedPerformanceSelector) == null
+	) {
+		return 'modal-or-capture'
 	}
-	return (
+	const tagName = candidate.tagName?.toUpperCase() ?? ''
+	const role = targetAttribute(candidate, 'role')
+	const contentEditable = targetAttribute(candidate, 'contenteditable')
+	if (
 		candidate.isContentEditable === true ||
-		candidate.tagName === 'INPUT' ||
-		candidate.tagName === 'TEXTAREA' ||
-		candidate.tagName === 'SELECT' ||
-		candidate.closest?.('dialog, [role="dialog"], [aria-modal="true"]') != null
-	)
+		(contentEditable !== null && contentEditable !== 'false') ||
+		tagName === 'TEXTAREA' ||
+		tagName === 'SELECT' ||
+		(role !== null && textEditingRoles.has(role))
+	) {
+		return 'text-editing'
+	}
+	if (tagName === 'INPUT') {
+		const inputType = targetAttribute(candidate, 'type') ?? ''
+		if (inputType === 'range') return 'range-adjustment'
+		if (textInputTypes.has(inputType)) return 'text-editing'
+		if (actionInputTypes.has(inputType)) return 'action-control'
+		return 'text-editing'
+	}
+	if (tagName === 'BUTTON' || tagName === 'A' || (role !== null && actionRoles.has(role))) {
+		return 'action-control'
+	}
+	if (candidate.closest?.('[data-performance-surface="true"]') != null) {
+		return 'performance-surface'
+	}
+	return 'performance-surface'
 }
 
 export function keyboardPerformanceSource(code: string): PerformanceSourceId {
@@ -64,6 +152,7 @@ export function performanceKeyDown(
 	ownerId: string,
 	event: PerformanceKeyboardEvent
 ): boolean {
+	const focusTarget = classifyPerformanceFocusTarget(event.target)
 	if (
 		event.defaultPrevented === true ||
 		event.repeat ||
@@ -72,7 +161,8 @@ export function performanceKeyDown(
 		event.metaKey ||
 		event.altKey ||
 		event.shiftKey ||
-		editableTarget(event.target)
+		focusTarget === 'text-editing' ||
+		focusTarget === 'modal-or-capture'
 	) {
 		return false
 	}

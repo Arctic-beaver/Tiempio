@@ -94,6 +94,12 @@ export function SoundSculptView({
 												[axis.id]: nextValue
 											}))
 										}
+										onCancel={() => {
+											setPreview((current) => ({
+												...current,
+												[axis.id]: undefined
+											}))
+										}}
 										onCommit={(nextValue) => {
 											onCommit(axis.id, nextValue)
 											setPreview((current) => ({

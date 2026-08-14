@@ -26,6 +26,7 @@
 	--ti-accent-ink: #3d1712;
 	--ti-danger: #b83f3f;
 	--ti-focus: #296fbb;
+	--ti-focus-ring: 0 0 0 0.16rem var(--ti-focus);
 	--ti-selection: rgb(223 104 72 / 24%);
 	--ti-track-bass: #d85f45;
 	--ti-track-drum: #302e2a;
@@ -472,6 +473,12 @@ button {
 	cursor: pointer;
 }
 
+.ti-slider input[type="range"]:focus-visible {
+	border-radius: var(--ti-radius-sm);
+	box-shadow: var(--ti-focus-ring);
+	outline: 0;
+}
+
 .ti-slider input[type="range"]:disabled {
 	cursor: not-allowed;
 	opacity: 0.45;
@@ -499,5 +506,13 @@ button {
 		transition-duration: 0.01ms !important;
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
+	}
+}
+
+@media (forced-colors: active) {
+	.ti-slider input[type="range"]:focus-visible {
+		box-shadow: none;
+		outline: 0.16rem solid Highlight;
+		outline-offset: 0.16rem;
 	}
 }

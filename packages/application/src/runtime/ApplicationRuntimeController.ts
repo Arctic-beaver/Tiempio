@@ -26,6 +26,7 @@ import {
 	type ProjectSessionSnapshot
 } from '../../../project-core/src/index.js'
 import {
+	type AuditionInstrumentPreview,
 	type ApplicationController,
 	type ApplicationControllerSnapshot,
 	type DraftAuditionLayer,
@@ -130,6 +131,39 @@ function draftWirePlan(
 	return validation.ok ? validation.value : null
 }
 
+function auditionWirePlan(
+	plan: EngineWireRenderPlan,
+	draft: DraftAuditionLayer | null,
+	preview: AuditionInstrumentPreview | null
+): EngineWireRenderPlan | null {
+	const withDraft = draftWirePlan(plan, draft)
+	if (withDraft === null || preview === null) return withDraft
+	let replaced = false
+	const candidate = cloneAndFreeze({
+		...withDraft,
+		layers: withDraft.layers.map((layer) => {
+			if (layer.id !== preview.layerId || layer.source.type !== 'subtractive-synth') {
+				return layer
+			}
+			replaced = true
+			return {
+				...layer,
+				source: {
+					type: 'subtractive-synth' as const,
+					patch: compileEngineWireSynthPatch(preview.instrument.resolvedPatch)
+				}
+			}
+		})
+	})
+	if (!replaced) return null
+	const validation = validateEngineWireRenderPlan(candidate)
+	return validation.ok ? validation.value : null
+}
+
+interface PendingPerformanceNote {
+	released: boolean
+}
+
 export class ApplicationRuntimeController implements ApplicationController {
 	#client: EngineClient | null = null
 	readonly #listeners = new Set<() => void>()
@@ -141,6 +175,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	#disposed = false
 	#drumAuditionSequence = 0
 	#audioRetry: Promise<void> | null = null
+	#auditionInstrumentPreview: AuditionInstrumentPreview | null = null
 	#draftAuditionLayer: DraftAuditionLayer | null = null
 	readonly #ignoredPlanGenerations = new Set<number>()
 	#latestPlanGeneration = 0
@@ -159,6 +194,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	#projectGeneration = 0
 	#projectSession: ProjectSession
 	#projectUnsubscribe: (() => void) | null = null
+	readonly #pendingPerformanceNotes = new Map<string, PendingPerformanceNote>()
 	#recoveryDrain: Promise<void> | null = null
 	#sentPlanGeneration = 0
 	#runtimeHealthUnsubscribe: (() => void) | null = null
@@ -186,12 +222,10 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.performanceInput = new PerformanceInputSession({
 			noteOn: (auditionId, layerId, pitch, velocity) => {
 				this.previewCoordinator.interrupt()
-				if (this.#snapshot.available) {
-					void this.#send('note-on', { auditionId, layerId, pitch, velocity })
-				}
+				this.#beginPerformanceNote(auditionId, layerId, pitch, velocity)
 			},
 			noteOff: (auditionId) => {
-				if (this.#snapshot.available) void this.#send('note-off', { auditionId })
+				this.#endPerformanceNote(auditionId)
 			}
 		})
 		this.previewCoordinator = new AuditionPreviewCoordinator({
@@ -225,6 +259,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.performanceInput.releaseAll()
 		this.#finishPendingProjectPlanActivation(false, false)
 		this.#preactivatedProjectPlan = null
+		this.#auditionInstrumentPreview = null
 		this.#draftAuditionLayer = null
 		this.#projectUnsubscribe?.()
 		this.#projectGeneration += 1
@@ -240,6 +275,44 @@ export class ApplicationRuntimeController implements ApplicationController {
 			else this.#scheduleRecovery(true)
 			this.#schedulePlanPublish()
 		}
+	}
+
+	public async setAuditionInstrumentPreview(
+		preview: AuditionInstrumentPreview | null
+	): Promise<boolean> {
+		if (this.#disposed) return false
+		const owned =
+			preview === null
+				? null
+				: Object.freeze({ layerId: preview.layerId, instrument: preview.instrument })
+		if (owned !== null) {
+			const canonicalLayer = this.#projectSession
+				.getSnapshot()
+				.project.layers.find((layer) => layer.id === owned.layerId)
+			const targetsSynth = canonicalLayer?.source.type === 'synth'
+			const targetsDraft = this.#draftAuditionLayer?.draftId === owned.layerId
+			if (!targetsSynth && !targetsDraft) return false
+		}
+		if (
+			owned?.layerId === this.#auditionInstrumentPreview?.layerId &&
+			owned?.instrument === this.#auditionInstrumentPreview?.instrument
+		) {
+			return (
+				this.#publishedPlanGeneration === this.#projectGeneration &&
+				this.#publishedPlanRevision === this.#projectSession.getSnapshot().revision &&
+				this.#publishedPlanVariant === this.#latestRequestedPlanVariant
+			)
+		}
+		this.#auditionInstrumentPreview = owned
+		this.#latestRequestedPlanVariant += 1
+		const requestedVariant = this.#latestRequestedPlanVariant
+		await this.#publishLatestPlan()
+		return (
+			requestedVariant === this.#latestRequestedPlanVariant &&
+			this.#publishedPlanGeneration === this.#projectGeneration &&
+			this.#publishedPlanRevision === this.#projectSession.getSnapshot().revision &&
+			this.#publishedPlanVariant === requestedVariant
+		)
 	}
 
 	public async setDraftAuditionLayer(layer: DraftAuditionLayer | null): Promise<boolean> {
@@ -271,6 +344,12 @@ export class ApplicationRuntimeController implements ApplicationController {
 		}
 		this.#finishPendingProjectPlanActivation(false, false)
 		this.#preactivatedProjectPlan = null
+		if (
+			this.#auditionInstrumentPreview !== null &&
+			this.#auditionInstrumentPreview.layerId !== owned?.draftId
+		) {
+			this.#auditionInstrumentPreview = null
+		}
 		this.#draftAuditionLayer = owned
 		this.#latestRequestedPlanVariant += 1
 		const requestedVariant = this.#latestRequestedPlanVariant
@@ -315,6 +394,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.performanceInput.deactivate('sound-chooser')
 		this.#finishPendingProjectPlanActivation(false, false)
 		this.#preactivatedProjectPlan = null
+		this.#auditionInstrumentPreview = null
 		const activation = await this.#sendPlanForActivation(wire.plan, {
 			baseProject: current.project,
 			baseRevision: current.revision,
@@ -327,6 +407,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	public async restoreProjectPlan(): Promise<void> {
 		this.#finishPendingProjectPlanActivation(false, false)
 		this.#preactivatedProjectPlan = null
+		this.#auditionInstrumentPreview = null
 		this.#draftAuditionLayer = null
 		this.#latestRequestedPlanRevision = this.#projectSession.getSnapshot().revision
 		this.#latestRequestedPlanVariant += 1
@@ -648,6 +729,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 				preactivated.revision === snapshot.revision
 			) {
 				this.#preactivatedProjectPlan = null
+				this.#auditionInstrumentPreview = null
 				this.#draftAuditionLayer = null
 				this.#observedProjectRevision = snapshot.revision
 				this.#latestRequestedPlanRevision = snapshot.revision
@@ -666,7 +748,6 @@ export class ApplicationRuntimeController implements ApplicationController {
 			this.#finishPendingProjectPlanActivation(false, false)
 			this.#preactivatedProjectPlan = null
 			this.previewCoordinator.interrupt()
-			this.performanceInput.releaseAll()
 			this.#observedProjectRevision = snapshot.revision
 			this.#latestRequestedPlanRevision = snapshot.revision
 			this.#latestPlanGeneration = this.#projectGeneration
@@ -716,10 +797,14 @@ export class ApplicationRuntimeController implements ApplicationController {
 				this.#setDiagnostic(applicationError('ENGINE_UNAVAILABLE', wire.message))
 				return
 			}
-			const plan = draftWirePlan(wire.plan, this.#draftAuditionLayer)
+			const plan = auditionWirePlan(
+				wire.plan,
+				this.#draftAuditionLayer,
+				this.#auditionInstrumentPreview
+			)
 			if (plan === null) {
 				this.#setDiagnostic(
-					applicationError('ENGINE_UNAVAILABLE', 'The draft audition plan is invalid.')
+					applicationError('ENGINE_UNAVAILABLE', 'The audition render plan is invalid.')
 				)
 				return
 			}
@@ -1030,6 +1115,46 @@ export class ApplicationRuntimeController implements ApplicationController {
 			const oldest = this.#ignoredPlanGenerations.values().next().value as number | undefined
 			if (oldest === undefined) break
 			this.#ignoredPlanGenerations.delete(oldest)
+		}
+	}
+
+	#beginPerformanceNote(
+		auditionId: string,
+		layerId: string,
+		pitch: number,
+		velocity: number
+	): void {
+		if (!this.#snapshot.available || this.#disposed) return
+		const pending: PendingPerformanceNote = { released: false }
+		this.#pendingPerformanceNotes.set(auditionId, pending)
+		void this.#publishLatestPlan().then(async () => {
+			if (this.#pendingPerformanceNotes.get(auditionId) !== pending) return
+			if (pending.released || !this.#snapshot.available || this.#disposed) {
+				this.#pendingPerformanceNotes.delete(auditionId)
+				return
+			}
+			const accepted = await this.#send('note-on', {
+				auditionId,
+				layerId,
+				pitch,
+				velocity
+			})
+			if (this.#pendingPerformanceNotes.get(auditionId) !== pending) return
+			this.#pendingPerformanceNotes.delete(auditionId)
+			if (accepted && pending.released && this.#snapshot.available && !this.#disposed) {
+				await this.#send('note-off', { auditionId })
+			}
+		})
+	}
+
+	#endPerformanceNote(auditionId: string): void {
+		const pending = this.#pendingPerformanceNotes.get(auditionId)
+		if (pending !== undefined) {
+			pending.released = true
+			return
+		}
+		if (this.#snapshot.available && !this.#disposed) {
+			void this.#send('note-off', { auditionId })
 		}
 	}
 

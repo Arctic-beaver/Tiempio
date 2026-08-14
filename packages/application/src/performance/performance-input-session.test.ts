@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { performanceMapping } from '../../../music-theory/src/index.js'
 import {
+	classifyPerformanceFocusTarget,
 	keyboardPerformanceSource,
 	performanceKeyDown,
 	performanceKeyUp,
@@ -44,6 +45,52 @@ const aMinor = performanceMapping(
 )
 
 describe('performance input session', () => {
+	it('classifies semantic focus targets and fails closed for unknown inputs', () => {
+		const target = (
+			tagName: string,
+			attributes: Readonly<Record<string, string>> = {},
+			insideModal = false
+		): EventTarget =>
+			({
+				tagName,
+				getAttribute: (name: string) => attributes[name] ?? null,
+				closest: (selector: string) =>
+					insideModal && selector.includes('dialog') ? { role: 'dialog' } : null
+			}) as unknown as EventTarget
+
+		assert.equal(
+			classifyPerformanceFocusTarget(target('INPUT', { type: 'range' })),
+			'range-adjustment'
+		)
+		assert.equal(
+			classifyPerformanceFocusTarget(target('INPUT', { type: 'text' })),
+			'text-editing'
+		)
+		assert.equal(
+			classifyPerformanceFocusTarget(target('INPUT', { type: 'future-editor' })),
+			'text-editing'
+		)
+		assert.equal(
+			classifyPerformanceFocusTarget(target('DIV', { role: 'combobox' })),
+			'text-editing'
+		)
+		assert.equal(
+			classifyPerformanceFocusTarget(target('DIV', { contenteditable: 'true' })),
+			'text-editing'
+		)
+		assert.equal(classifyPerformanceFocusTarget(target('BUTTON')), 'action-control')
+		assert.equal(classifyPerformanceFocusTarget(target('BUTTON', {}, true)), 'modal-or-capture')
+		assert.equal(
+			classifyPerformanceFocusTarget({
+				tagName: 'BUTTON',
+				closest: (selector: string) =>
+					selector.includes('dialog') || selector.includes('routing="allow"') ? {} : null
+			} as unknown as EventTarget),
+			'action-control'
+		)
+		assert.equal(classifyPerformanceFocusTarget(null), 'performance-surface')
+	})
+
 	it('source-counts physical and pointer holds without an early note-off', () => {
 		const { events, session } = testSession()
 		session.activate('sound-chooser', 'layer.bass', aMinor)
@@ -126,12 +173,53 @@ describe('performance input events', () => {
 			key({ shiftKey: true }),
 			key({ isComposing: true }),
 			key({ target: { tagName: 'INPUT' } }),
-			key({ target: { closest: () => ({ role: 'dialog' }), tagName: 'BUTTON' } })
+			key({
+				target: {
+					closest: (selector: string) =>
+						selector.includes('dialog') ? { role: 'dialog' } : null,
+					tagName: 'BUTTON'
+				}
+			})
 		]) {
 			assert.equal(performanceKeyDown(session, 'surface', blocked), false)
 		}
 		assert.equal(prevented, 2)
 		assert.equal(session.releaseSource(keyboardPerformanceSource('KeyA')), false)
+	})
+
+	it('routes mapped physical codes through ranges and releases by note-on ownership', () => {
+		const { events, session } = testSession()
+		session.activate('surface', 'layer.bass', aMinor)
+		let prevented = 0
+		const range = {
+			tagName: 'INPUT',
+			type: 'range',
+			closest: () => null
+		} as unknown as EventTarget
+		const key = (code: string, target: EventTarget | null): PerformanceKeyboardEvent => ({
+			code,
+			altKey: false,
+			ctrlKey: false,
+			metaKey: false,
+			shiftKey: false,
+			repeat: false,
+			isComposing: false,
+			target,
+			preventDefault: () => (prevented += 1)
+		})
+
+		assert.equal(performanceKeyDown(session, 'surface', key('KeyA', range)), true)
+		assert.equal(performanceKeyDown(session, 'surface', key('ArrowRight', range)), false)
+		assert.deepEqual(
+			session.getSnapshot().heldKeys.map(({ code }) => code),
+			['KeyA']
+		)
+		assert.equal(performanceKeyUp(session, key('KeyA', null)), true)
+		assert.deepEqual(
+			events.map(({ type }) => type),
+			['on', 'off']
+		)
+		assert.equal(prevented, 2)
 	})
 
 	it('captures independent touches, rejects secondary mouse and releases cancel paths', () => {
