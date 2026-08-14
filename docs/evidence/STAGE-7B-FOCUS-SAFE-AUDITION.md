@@ -2,9 +2,12 @@
 
 ## Result
 
-**Recorded:** 2026-08-14  
-**Integration branch:** `feature/stage-7`  
-**Implementation branch:** `fix/sound-chooser-focus-audition`  
+**Recorded:** 2026-08-14
+
+**Integration branch:** `feature/stage-7`
+
+**Implementation branch:** `fix/sound-chooser-focus-audition`
+
 **Status:** complete and accepted for integration into Stage 7.
 
 Fine Tuning range controls and physical audition now compose without refocusing the Sound Chooser.

@@ -2,9 +2,12 @@
 
 ## Result
 
-**Recorded:** 2026-08-14  
-**Integration branch:** `feature/stage-7`  
-**Implementation branch:** `fix/contextual-add-brick`  
+**Recorded:** 2026-08-14
+
+**Integration branch:** `feature/stage-7`
+
+**Implementation branch:** `fix/contextual-add-brick`
+
 **Status:** complete and accepted for integration into Stage 7.
 
 Stage 7A replaces eager project mutation with a single application-owned creation draft. The draft
