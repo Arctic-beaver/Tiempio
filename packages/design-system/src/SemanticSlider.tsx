@@ -1,8 +1,8 @@
 import {
 	useId,
-	useRef,
+	useLayoutEffect,
+	useState,
 	type ChangeEvent,
-	type FocusEvent,
 	type JSX,
 	type KeyboardEvent,
 	type PointerEvent
@@ -40,10 +40,10 @@ export function SemanticSlider({
 }: SemanticSliderProperties): JSX.Element {
 	const sliderId = useId()
 	const valueId = useId()
-	const gestureReference = useRef<SemanticSliderGesture | null>(null)
-	const gesture = gestureReference.current ?? new SemanticSliderGesture(value)
-	gestureReference.current = gesture
-	gesture.synchronize(value)
+	const [gesture] = useState(() => new SemanticSliderGesture(value))
+	useLayoutEffect(() => {
+		gesture.synchronize(value)
+	}, [gesture, value])
 	const handleChange = (event: ChangeEvent<HTMLInputElement>): void => {
 		const next = Number(event.currentTarget.value)
 		gesture.preview(next)
@@ -64,7 +64,7 @@ export function SemanticSlider({
 		onCancel?.()
 		return true
 	}
-	const handleBlur = (_event: FocusEvent<HTMLInputElement>): void => {
+	const handleBlur = (): void => {
 		commit()
 	}
 	const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
@@ -82,10 +82,10 @@ export function SemanticSlider({
 	const handlePointerDown = (event: PointerEvent<HTMLInputElement>): void => {
 		begin('pointer', Number(event.currentTarget.value))
 	}
-	const handlePointerCancel = (_event: PointerEvent<HTMLInputElement>): void => {
+	const handlePointerCancel = (): void => {
 		cancel()
 	}
-	const handlePointerUp = (_event: PointerEvent<HTMLInputElement>): void => {
+	const handlePointerUp = (): void => {
 		commit('pointer')
 	}
 
