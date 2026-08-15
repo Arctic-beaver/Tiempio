@@ -1,16 +1,16 @@
 import type {
-	DrumClip,
+	DrumMaterial,
 	LayerId,
-	MidiClip,
+	MidiMaterial,
 	ProjectLayer,
 	ProjectSessionSnapshot
 } from '../../../../project-core/src/index.js'
 
 export interface StudioProjectionContext {
 	readonly activeLayer: ProjectLayer | null
-	readonly drumClip: DrumClip | null
+	readonly drumMaterial: DrumMaterial | null
 	readonly drumLayer: ProjectLayer | null
-	readonly midiClip: MidiClip | null
+	readonly midiMaterial: MidiMaterial | null
 	readonly project: ProjectSessionSnapshot['project']
 	readonly revision: number
 	readonly tonalLayer: ProjectLayer | null
@@ -43,9 +43,9 @@ export function createProjectionContext(
 	)
 	return {
 		activeLayer,
-		drumClip: drumLayer?.clips.find((clip): clip is DrumClip => clip.kind === 'drum') ?? null,
+		drumMaterial: drumLayer?.material.kind === 'drum' ? drumLayer.material : null,
 		drumLayer,
-		midiClip: tonalLayer?.clips.find((clip): clip is MidiClip => clip.kind === 'midi') ?? null,
+		midiMaterial: tonalLayer?.material.kind === 'midi' ? tonalLayer.material : null,
 		project,
 		revision,
 		tonalLayer

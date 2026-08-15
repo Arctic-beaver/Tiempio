@@ -6,7 +6,18 @@ export type PerformanceSourceId = string & {
 	readonly [performanceSourceBrand]: true
 }
 
-export type PerformanceSourceKind = 'keyboard' | 'pointer' | 'preview'
+export type PerformanceSourceKind = 'keyboard' | 'midi' | 'pointer' | 'preview'
+
+export interface PerformanceInputEvent {
+	readonly auditionId: string
+	readonly layerId: string
+	readonly phase: 'note-on' | 'note-off'
+	readonly pitch: number
+	readonly sourceId: PerformanceSourceId
+	readonly sourceKind: PerformanceSourceKind
+	readonly sourceTimestamp: number | null
+	readonly velocity: number
+}
 
 export interface HeldPerformanceKey {
 	readonly code: string | null
@@ -23,14 +34,18 @@ export interface PerformanceInputSnapshot {
 }
 
 export interface PerformanceVoiceSink {
-	noteOff(auditionId: string): void
-	noteOn(auditionId: string, layerId: string, pitch: number, velocity: number): void
+	input(event: PerformanceInputEvent): void
 }
 
 interface HeldSource {
 	readonly auditionId: string
 	readonly code: string | null
+	readonly layerId: string
 	readonly pitch: number
+	readonly sourceId: PerformanceSourceId
+	readonly sourceKind: PerformanceSourceKind
+	readonly sourceTimestamp: number | null
+	readonly velocity: number
 }
 
 function assertBoundedIdentity(value: string, label: string): void {
@@ -75,6 +90,25 @@ export function performanceSourceId(
 	const value = `${kind}:${String(identity)}`
 	assertBoundedIdentity(value, 'Performance source ID')
 	return value as PerformanceSourceId
+}
+
+export function performanceSourceKind(sourceId: PerformanceSourceId): PerformanceSourceKind {
+	const separator = sourceId.indexOf(':')
+	const kind = separator < 0 ? '' : sourceId.slice(0, separator)
+	if (kind === 'keyboard' || kind === 'midi' || kind === 'pointer' || kind === 'preview') {
+		return kind
+	}
+	throw new TypeError('Performance source ID has an unknown source kind.')
+}
+
+function normalizedSourceTimestamp(sourceTimestamp: number | null): number | null {
+	return sourceTimestamp !== null && Number.isFinite(sourceTimestamp) && sourceTimestamp >= 0
+		? sourceTimestamp
+		: null
+}
+
+function freezeInputEvent(event: PerformanceInputEvent): PerformanceInputEvent {
+	return Object.freeze(event)
 }
 
 export class PerformanceInputSession {
@@ -156,13 +190,14 @@ export class PerformanceInputSession {
 		ownerId: string,
 		sourceId: PerformanceSourceId,
 		code: string,
-		velocity = 102
+		velocity = 102,
+		sourceTimestamp: number | null = null
 	): boolean {
 		if (this.#ownerId !== ownerId) return false
 		const key = this.#mapping.find((candidate) => candidate.code === code)
 		return key === undefined
 			? false
-			: this.pressPitch(ownerId, sourceId, key.midi, key.code, velocity)
+			: this.pressPitch(ownerId, sourceId, key.midi, key.code, velocity, sourceTimestamp)
 	}
 
 	public pressPitch(
@@ -170,7 +205,8 @@ export class PerformanceInputSession {
 		sourceId: PerformanceSourceId,
 		pitch: number,
 		code: string | null = null,
-		velocity = 102
+		velocity = 102,
+		sourceTimestamp: number | null = null
 	): boolean {
 		if (this.#ownerId !== ownerId || this.#layerId === null || this.#heldSources.has(sourceId))
 			return false
@@ -180,19 +216,45 @@ export class PerformanceInputSession {
 		if (!Number.isInteger(velocity) || velocity < 1 || velocity > 127) {
 			throw new RangeError('Performance velocity must be an integer from 1 through 127.')
 		}
+		if (this.#auditionSequence >= Number.MAX_SAFE_INTEGER) return false
 		this.#auditionSequence += 1
 		const auditionId = `performance-${String(this.#auditionSequence)}`
-		this.#heldSources.set(sourceId, { auditionId, code, pitch })
-		this.#sink.noteOn(auditionId, this.#layerId, pitch, velocity)
+		const sourceKind = performanceSourceKind(sourceId)
+		const held: HeldSource = {
+			auditionId,
+			code,
+			layerId: this.#layerId,
+			pitch,
+			sourceId,
+			sourceKind,
+			sourceTimestamp: normalizedSourceTimestamp(sourceTimestamp),
+			velocity
+		}
+		this.#heldSources.set(sourceId, held)
+		this.#sink.input(
+			freezeInputEvent({
+				auditionId: held.auditionId,
+				layerId: held.layerId,
+				phase: 'note-on',
+				pitch: held.pitch,
+				sourceId: held.sourceId,
+				sourceKind: held.sourceKind,
+				sourceTimestamp: held.sourceTimestamp,
+				velocity: held.velocity
+			})
+		)
 		this.#publish()
 		return true
 	}
 
-	public releaseSource(sourceId: PerformanceSourceId): boolean {
+	public releaseSource(
+		sourceId: PerformanceSourceId,
+		sourceTimestamp: number | null = null
+	): boolean {
 		const held = this.#heldSources.get(sourceId)
 		if (held === undefined) return false
 		this.#heldSources.delete(sourceId)
-		this.#sink.noteOff(held.auditionId)
+		this.#publishNoteOff(held, sourceTimestamp)
 		this.#publish()
 		return true
 	}
@@ -205,9 +267,24 @@ export class PerformanceInputSession {
 	}
 
 	#releaseHeld(publish: boolean): void {
-		for (const { auditionId } of this.#heldSources.values()) this.#sink.noteOff(auditionId)
+		for (const held of this.#heldSources.values()) this.#publishNoteOff(held, null)
 		this.#heldSources.clear()
 		if (publish) this.#publish()
+	}
+
+	#publishNoteOff(held: HeldSource, sourceTimestamp: number | null): void {
+		this.#sink.input(
+			freezeInputEvent({
+				auditionId: held.auditionId,
+				layerId: held.layerId,
+				phase: 'note-off',
+				pitch: held.pitch,
+				sourceId: held.sourceId,
+				sourceKind: held.sourceKind,
+				sourceTimestamp: normalizedSourceTimestamp(sourceTimestamp),
+				velocity: held.velocity
+			})
+		)
 	}
 
 	#publish(): void {

@@ -1,7 +1,6 @@
 import { cloneAndFreeze } from './immutable.js'
 import {
 	assetId,
-	clipId,
 	defaultTicksPerQuarter,
 	drumEventId,
 	engineModelVersion,
@@ -12,12 +11,12 @@ import {
 	projectSchemaVersion,
 	projectTick,
 	sectionId,
+	songInstanceId,
 	type AssetId,
-	type ClipId,
-	type DrumClip,
+	type DrumMaterial,
 	type DrumEvent,
 	type LayerId,
-	type MidiClip,
+	type MidiMaterial,
 	type MidiNote,
 	type ProjectAssetReference,
 	type ProjectDocument,
@@ -26,6 +25,8 @@ import {
 	type ProjectLayer,
 	type ProjectRole,
 	type ProjectSection,
+	type SongInstance,
+	type SongInstanceId,
 	type SectionId,
 	type SemanticSynthMacros,
 	type LayerPerformanceMapping,
@@ -57,6 +58,7 @@ export function createProject(input: CreateProjectInput): ProjectDocument {
 			}
 		},
 		sections: [],
+		song: { instances: [] },
 		layers: [],
 		assets: []
 	})
@@ -112,7 +114,16 @@ export function createLayer(input: CreateLayerInput): ProjectLayer {
 		solo: false,
 		exportIncluded: input.role !== 'reference',
 		source,
-		clips: []
+		material:
+			input.role === 'rhythm'
+				? createDrumMaterial({ materialLengthTicks: 0 })
+				: input.role === 'reference'
+					? {
+							kind: 'reference' as const,
+							materialLengthTicks: projectTick(0),
+							tailRestTicks: projectTick(0)
+						}
+					: createMidiMaterial({ materialLengthTicks: 0 })
 	})
 }
 
@@ -152,23 +163,17 @@ export function createMidiNote(input: CreateMidiNoteInput): MidiNote {
 	})
 }
 
-export interface CreateMidiClipInput {
-	readonly id: ClipId | string
-	readonly lengthTicks: number
-	readonly loop?: boolean
+export interface CreateMidiMaterialInput {
+	readonly materialLengthTicks: number
 	readonly notes?: readonly MidiNote[]
-	readonly sectionId?: SectionId | null
-	readonly startTick: number
+	readonly tailRestTicks?: number
 }
 
-export function createMidiClip(input: CreateMidiClipInput): MidiClip {
+export function createMidiMaterial(input: CreateMidiMaterialInput): MidiMaterial {
 	return cloneAndFreeze({
 		kind: 'midi',
-		id: typeof input.id === 'string' ? clipId(input.id) : input.id,
-		startTick: projectTick(input.startTick),
-		lengthTicks: projectTick(input.lengthTicks),
-		sectionId: input.sectionId ?? null,
-		loop: input.loop ?? true,
+		materialLengthTicks: projectTick(input.materialLengthTicks),
+		tailRestTicks: projectTick(input.tailRestTicks ?? 0),
 		notes: input.notes ?? []
 	})
 }
@@ -189,28 +194,22 @@ export function createDrumEvent(input: CreateDrumEventInput): DrumEvent {
 	})
 }
 
-export interface CreateDrumClipInput {
-	readonly character?: DrumClip['character']
+export interface CreateDrumMaterialInput {
+	readonly character?: DrumMaterial['character']
 	readonly density?: number
 	readonly events?: readonly DrumEvent[]
-	readonly id: ClipId | string
-	readonly lengthTicks: number
-	readonly loop?: boolean
-	readonly sectionId?: SectionId | null
-	readonly startTick: number
+	readonly materialLengthTicks: number
 	readonly stepCount?: number
 	readonly stepsPerQuarter?: 1 | 2 | 4 | 8
 	readonly swing?: number
+	readonly tailRestTicks?: number
 }
 
-export function createDrumClip(input: CreateDrumClipInput): DrumClip {
+export function createDrumMaterial(input: CreateDrumMaterialInput): DrumMaterial {
 	return cloneAndFreeze({
 		kind: 'drum',
-		id: typeof input.id === 'string' ? clipId(input.id) : input.id,
-		startTick: projectTick(input.startTick),
-		lengthTicks: projectTick(input.lengthTicks),
-		sectionId: input.sectionId ?? null,
-		loop: input.loop ?? true,
+		materialLengthTicks: projectTick(input.materialLengthTicks),
+		tailRestTicks: projectTick(input.tailRestTicks ?? 0),
 		character: input.character ?? 'custom',
 		density: input.density ?? 0.38,
 		swing: input.swing ?? 0.08,
@@ -219,6 +218,24 @@ export function createDrumClip(input: CreateDrumClipInput): DrumClip {
 			stepsPerQuarter: input.stepsPerQuarter ?? 4
 		},
 		events: input.events ?? []
+	})
+}
+
+export interface CreateSongInstanceInput {
+	readonly durationTicks: number
+	readonly id: SongInstanceId | string
+	readonly sourceLayerId: LayerId
+	readonly sourceOffsetTicks?: number
+	readonly startTick: number
+}
+
+export function createSongInstance(input: CreateSongInstanceInput): SongInstance {
+	return cloneAndFreeze({
+		id: typeof input.id === 'string' ? songInstanceId(input.id) : input.id,
+		sourceLayerId: input.sourceLayerId,
+		startTick: projectTick(input.startTick),
+		durationTicks: projectTick(input.durationTicks),
+		sourceOffsetTicks: projectTick(input.sourceOffsetTicks ?? 0)
 	})
 }
 

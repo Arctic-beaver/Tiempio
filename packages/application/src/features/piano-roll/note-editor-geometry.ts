@@ -25,6 +25,7 @@ export interface PianoGridMetrics {
 	readonly gridTicks: number
 	readonly height: number
 	readonly pitchValues: readonly number[]
+	readonly rowHeight: number
 	readonly totalTicks: number
 	readonly width: number
 }
@@ -54,12 +55,13 @@ function snap(value: number, interval: number): number {
 export function geometryForNote(
 	note: PianoNoteViewModel,
 	totalTicks: number,
-	height = noteHeightForVelocity(note.velocity)
+	height = noteHeightForVelocity(note.velocity),
+	rowHeight: number = pianoRowHeight
 ): NoteGeometry {
 	return {
 		leftPercent: (note.startTick / totalTicks) * 100,
 		widthPercent: (note.durationTicks / totalTicks) * 100,
-		top: note.row * pianoRowHeight + (pianoRowHeight - height) / 2,
+		top: note.row * rowHeight + (rowHeight - height) / 2,
 		height
 	}
 }
@@ -101,7 +103,7 @@ export function noteAtGridPoint(
 	defaultVelocity = 80
 ): EditableNoteValues {
 	const row = clamp(
-		Math.floor((clientY - gridTop) / pianoRowHeight),
+		Math.floor((clientY - gridTop) / metrics.rowHeight),
 		0,
 		metrics.pitchValues.length - 1
 	)
@@ -148,7 +150,7 @@ export function editNoteFromPointer(
 		return { ...gesture.note, durationTicks: endTick - gesture.note.startTick }
 	}
 
-	const rowDelta = Math.round((clientY - gesture.originClientY) / pianoRowHeight)
+	const rowDelta = Math.round((clientY - gesture.originClientY) / metrics.rowHeight)
 	const originRow = metrics.pitchValues.indexOf(gesture.note.pitch)
 	const nextRow = clamp(originRow + rowDelta, 0, metrics.pitchValues.length - 1)
 	const maximumStart = Math.max(0, metrics.totalTicks - gesture.note.durationTicks)

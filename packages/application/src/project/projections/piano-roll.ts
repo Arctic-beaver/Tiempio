@@ -4,32 +4,31 @@ import { noteName, pianoPitches } from './shared.js'
 import type { PianoRollProjection } from './types.js'
 
 export function projectPianoRoll({
-	midiClip,
+	midiMaterial,
 	project,
 	revision,
 	tonalLayer
 }: StudioProjectionContext): PianoRollProjection {
-	const pitches = pianoPitches(
-		tonalLayer,
-		midiClip?.kind === 'midi' ? midiClip.notes.map(({ pitch }) => pitch) : []
-	)
+	const pitches = pianoPitches()
 	const ticksPerQuarter = project.transport.ticksPerQuarter
 	const meter = project.transport.meterMap[0] ?? { numerator: 4, denominator: 4 }
 	const ticksPerBeat = (ticksPerQuarter * 4) / meter.denominator
 	const ticksPerBar = ticksPerBeat * meter.numerator
 	const defaultLengthTicks = ticksPerQuarter * 16
-	const totalTicks = midiClip?.lengthTicks ?? defaultLengthTicks
+	const totalTicks = Math.max(midiMaterial?.materialLengthTicks ?? 0, defaultLengthTicks)
 	const performance = tonalLayer?.source.type === 'synth' ? tonalLayer.source.performance : null
 	return {
 		revision,
 		layerId: tonalLayer?.id ?? null,
-		clipId: midiClip?.id ?? null,
 		bars: Math.max(1, totalTicks / ticksPerBar),
 		gridTicks: ticksPerQuarter / 4,
 		meterDenominator: meter.denominator,
 		meterNumerator: meter.numerator,
+		materialEndTick: midiMaterial?.materialLengthTicks ?? 0,
+		performanceOctave: performance?.octave ?? 3,
 		palette: songPalette(performance?.key ?? project.transport.key),
-		startTick: midiClip?.startTick ?? 0,
+		recommendedPitch: tonalLayer?.role === 'bass' ? 36 : 60,
+		startTick: 0,
 		ticksPerBar,
 		ticksPerBeat,
 		ticksPerQuarter,
@@ -40,8 +39,9 @@ export function projectPianoRoll({
 			black: [1, 3, 6, 8, 10].includes(pitch % 12)
 		})),
 		notes:
-			midiClip?.kind === 'midi'
-				? midiClip.notes.flatMap((note) => {
+			midiMaterial === null
+				? []
+				: midiMaterial.notes.flatMap((note) => {
 						const row = pitches.indexOf(note.pitch)
 						return row < 0
 							? []
@@ -57,6 +57,5 @@ export function projectPianoRoll({
 									}
 								]
 					})
-				: []
 	}
 }

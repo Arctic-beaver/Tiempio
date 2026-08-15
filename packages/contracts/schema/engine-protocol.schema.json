@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 1,
-	"engineProtocolVersion": 8,
+	"engineProtocolVersion": 9,
 	"limits": {
 		"maxFrameBytes": 262144,
 		"maxPayloadBytes": 196608,
@@ -21,7 +21,10 @@
 		"maxOfflineSeconds": 600,
 		"maxPreviewEvents": 64,
 		"maxPreviewChordSize": 8,
-		"maxPreviewDurationMs": 5000
+		"maxPreviewDurationMs": 5000,
+		"maxRecordingHeldInputs": 64,
+		"maxRecordingCountInBars": 4,
+		"maxRecordingCountInBeats": 64
 	},
 	"capabilities": [
 		"protocol.typed-json",
@@ -34,6 +37,7 @@
 		"drums.procedural",
 		"audition.notes",
 		"preview.programs",
+		"recording.engine-clock",
 		"diagnostics.health",
 		"render.offline",
 		"supervision.heartbeat",
@@ -52,6 +56,7 @@
 		"drums.procedural",
 		"audition.notes",
 		"preview.programs",
+		"recording.engine-clock",
 		"diagnostics.health"
 	],
 	"audibleOutputCapabilities": ["audio.native.shared", "audio.web.worklet"],
@@ -66,6 +71,7 @@
 		"drums.procedural",
 		"audition.notes",
 		"preview.programs",
+		"recording.engine-clock",
 		"diagnostics.health",
 		"supervision.heartbeat",
 		"audio.native.shared",
@@ -82,6 +88,7 @@
 		"drums.procedural",
 		"audition.notes",
 		"preview.programs",
+		"recording.engine-clock",
 		"diagnostics.health",
 		"audio.web.worklet"
 	],
@@ -102,6 +109,10 @@
 		"note-off",
 		"start-preview",
 		"cancel-preview",
+		"start-recording",
+		"recording-note-on",
+		"recording-note-off",
+		"stop-recording",
 		"preview-macro",
 		"commit-macro",
 		"request-diagnostics",
@@ -120,6 +131,9 @@
 		"preview-started",
 		"preview-state",
 		"preview-ended",
+		"recording-state",
+		"recording-input-applied",
+		"recording-stopped",
 		"audio-devices-changed",
 		"active-device-changed",
 		"midi-captured",

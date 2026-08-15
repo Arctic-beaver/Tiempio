@@ -3,9 +3,9 @@ import { createLayer, createProject } from './factories.js'
 import {
 	drumEventId,
 	midiPitch,
+	projectLimits,
 	projectTick,
 	type AssetId,
-	type ClipId,
 	type DrumEvent,
 	type DrumInstrument,
 	type DrumPatternCharacter,
@@ -14,12 +14,13 @@ import {
 	type LayerPerformanceMapping,
 	type MidiNote,
 	type NoteId,
-	type ProjectClip,
 	type ProjectDocument,
 	type ProjectId,
 	type ProjectKey,
 	type ProjectRole,
 	type ProjectSection,
+	type SongInstance,
+	type SongInstanceId,
 	type SemanticSynthMacros,
 	type SynthInstrumentState,
 	type SynthMacroId,
@@ -90,15 +91,13 @@ export interface CommitMacroCommand extends RevisionedProjectCommand {
 }
 
 export interface AddNoteCommand extends RevisionedProjectCommand {
-	readonly clipId: ClipId
-	readonly clipWhenMissing?: Extract<ProjectClip, { readonly kind: 'midi' }>
+	readonly instanceWhenMissing?: SongInstance
 	readonly layerId: LayerId
 	readonly note: MidiNote
 	readonly type: 'note.add'
 }
 
 export interface UpdateNoteCommand extends RevisionedProjectCommand {
-	readonly clipId: ClipId
 	readonly durationTicks: number
 	readonly layerId: LayerId
 	readonly noteId: NoteId
@@ -109,7 +108,6 @@ export interface UpdateNoteCommand extends RevisionedProjectCommand {
 }
 
 export interface MoveNoteCommand extends RevisionedProjectCommand {
-	readonly clipId: ClipId
 	readonly layerId: LayerId
 	readonly noteId: NoteId
 	readonly pitch: number
@@ -118,7 +116,6 @@ export interface MoveNoteCommand extends RevisionedProjectCommand {
 }
 
 export interface ResizeNoteCommand extends RevisionedProjectCommand {
-	readonly clipId: ClipId
 	readonly durationTicks: number
 	readonly layerId: LayerId
 	readonly noteId: NoteId
@@ -126,17 +123,35 @@ export interface ResizeNoteCommand extends RevisionedProjectCommand {
 }
 
 export interface DeleteNoteCommand extends RevisionedProjectCommand {
-	readonly clipId: ClipId
 	readonly layerId: LayerId
 	readonly noteId: NoteId
 	readonly type: 'note.delete'
 }
 
 export interface TransposeOctaveCommand extends RevisionedProjectCommand {
-	readonly clipId: ClipId
 	readonly direction: -1 | 1
 	readonly layerId: LayerId
-	readonly type: 'clip.transpose-octave'
+	readonly type: 'material.transpose-octave'
+}
+
+export interface BeginSourceNoteCommand extends RevisionedProjectCommand {
+	readonly instanceWhenMissing?: SongInstance
+	readonly layerId: LayerId
+	readonly note: MidiNote
+	readonly type: 'source.note.begin'
+}
+
+export interface FinalizeSourceNoteCommand extends RevisionedProjectCommand {
+	readonly endTick: number
+	readonly layerId: LayerId
+	readonly noteId: NoteId
+	readonly type: 'source.note.finalize'
+}
+
+export interface ExtendSourceMaterialCommand extends RevisionedProjectCommand {
+	readonly layerId: LayerId
+	readonly throughTick: number
+	readonly type: 'source.material.extend'
 }
 
 export interface SetLayerMuteCommand extends RevisionedProjectCommand {
@@ -179,20 +194,29 @@ export interface AddSectionCommand extends RevisionedProjectCommand {
 	readonly type: 'section.add'
 }
 
-export interface PlaceClipCommand extends RevisionedProjectCommand {
-	readonly clip: ProjectClip
-	readonly layerId: LayerId
-	readonly type: 'clip.place'
+export interface PlaceSongInstanceCommand extends RevisionedProjectCommand {
+	readonly instance: SongInstance
+	readonly type: 'song-instance.place'
 }
 
-export interface DeleteClipCommand extends RevisionedProjectCommand {
-	readonly clipId: ClipId
-	readonly layerId: LayerId
-	readonly type: 'clip.delete'
+export interface DeleteSongInstanceCommand extends RevisionedProjectCommand {
+	readonly instanceId: SongInstanceId
+	readonly type: 'song-instance.delete'
+}
+
+export interface MoveSongInstanceCommand extends RevisionedProjectCommand {
+	readonly instanceId: SongInstanceId
+	readonly startTick: number
+	readonly type: 'song-instance.move'
+}
+
+export interface ResizeSongInstanceCommand extends RevisionedProjectCommand {
+	readonly durationTicks: number
+	readonly instanceId: SongInstanceId
+	readonly type: 'song-instance.resize'
 }
 
 export interface ToggleDrumEventCommand extends RevisionedProjectCommand {
-	readonly clipId: ClipId
 	readonly eventWhenAdded: DrumEvent
 	readonly layerId: LayerId
 	readonly type: 'drum-event.toggle'
@@ -207,20 +231,17 @@ export interface SelectDrumVoiceCommand extends RevisionedProjectCommand {
 
 export interface SetDrumPatternCommand extends RevisionedProjectCommand {
 	readonly character: Exclude<DrumPatternCharacter, 'custom'>
-	readonly clipId: ClipId
 	readonly layerId: LayerId
 	readonly type: 'drum.pattern.set'
 }
 
 export interface SetDrumDensityCommand extends RevisionedProjectCommand {
-	readonly clipId: ClipId
 	readonly density: number
 	readonly layerId: LayerId
 	readonly type: 'drum.density.set'
 }
 
 export interface SetDrumSwingCommand extends RevisionedProjectCommand {
-	readonly clipId: ClipId
 	readonly layerId: LayerId
 	readonly swing: number
 	readonly type: 'drum.swing.set'
@@ -238,6 +259,9 @@ export type ProjectCommand =
 	| ResizeNoteCommand
 	| DeleteNoteCommand
 	| TransposeOctaveCommand
+	| BeginSourceNoteCommand
+	| FinalizeSourceNoteCommand
+	| ExtendSourceMaterialCommand
 	| SetLayerMuteCommand
 	| SetLayerSoloCommand
 	| SetLayerGainCommand
@@ -245,8 +269,10 @@ export type ProjectCommand =
 	| SetKeyCommand
 	| SetLoopCommand
 	| AddSectionCommand
-	| PlaceClipCommand
-	| DeleteClipCommand
+	| PlaceSongInstanceCommand
+	| DeleteSongInstanceCommand
+	| MoveSongInstanceCommand
+	| ResizeSongInstanceCommand
 	| ToggleDrumEventCommand
 	| SelectDrumVoiceCommand
 	| SetDrumPatternCommand
@@ -340,46 +366,100 @@ function updateLayer(
 	return { ...project, layers }
 }
 
-function updateClip(
+function updateMaterial(
 	project: ProjectDocument,
 	layerId: LayerId,
-	clipId: ClipId,
-	update: (clip: ProjectClip) => ProjectClip
+	update: (
+		material: ProjectDocument['layers'][number]['material']
+	) => ProjectDocument['layers'][number]['material']
 ): ProjectDocument {
 	return updateLayer(project, layerId, (layer) => {
-		const index = layer.clips.findIndex((clip) => clip.id === clipId)
-		if (index < 0) fail('NOT_FOUND', `Clip ${clipId} was not found in layer ${layerId}.`)
-		const current = layer.clips[index]
-		if (current === undefined) fail('NOT_FOUND', `Clip ${clipId} was not found.`)
-		const updated = update(current)
-		if (updated === current) return layer
-		const clips = [...layer.clips]
-		clips[index] = updated
-		return { ...layer, clips }
+		const updated = update(layer.material)
+		return updated === layer.material ? layer : { ...layer, material: updated }
 	})
 }
 
 function updateMidiNote(
 	project: ProjectDocument,
 	layerId: LayerId,
-	clipId: ClipId,
 	noteId: NoteId,
 	update: (note: MidiNote) => MidiNote | null
 ): ProjectDocument {
-	return updateClip(project, layerId, clipId, (clip) => {
-		if (clip.kind !== 'midi')
-			fail('INCOMPATIBLE_TARGET', 'MIDI note commands require a MIDI clip.')
-		const index = clip.notes.findIndex((note) => note.id === noteId)
+	return updateMaterial(project, layerId, (material) => {
+		if (material.kind !== 'midi')
+			fail('INCOMPATIBLE_TARGET', 'MIDI note commands require MIDI source material.')
+		const index = material.notes.findIndex((note) => note.id === noteId)
 		if (index < 0) fail('NOT_FOUND', `Note ${noteId} was not found.`)
-		const current = clip.notes[index]
+		const current = material.notes[index]
 		if (current === undefined) fail('NOT_FOUND', `Note ${noteId} was not found.`)
 		const updated = update(current)
-		if (updated === current) return clip
-		const notes = [...clip.notes]
+		if (updated === current) return material
+		const notes = [...material.notes]
 		if (updated === null) notes.splice(index, 1)
 		else notes[index] = updated
-		return { ...clip, notes }
+		return updated === null
+			? { ...material, notes }
+			: {
+					...extendMaterialThrough(material, updated.startTick + updated.durationTicks),
+					notes
+				}
 	})
+}
+
+function extendMaterialThrough(
+	material: ProjectDocument['layers'][number]['material'],
+	throughTick: number
+): ProjectDocument['layers'][number]['material'] {
+	if (throughTick > projectLimits.maxMaterialTick) {
+		fail(
+			'INVALID_COMMAND',
+			`Source material cannot extend beyond tick ${String(projectLimits.maxMaterialTick)}.`
+		)
+	}
+	const through = projectTick(throughTick)
+	if (through <= material.materialLengthTicks) return material
+	const previousCycle = material.materialLengthTicks + material.tailRestTicks
+	return {
+		...material,
+		materialLengthTicks: through,
+		tailRestTicks: projectTick(Math.max(0, previousCycle - through))
+	}
+}
+
+function requireMissingInstance(
+	project: ProjectDocument,
+	layerId: LayerId,
+	instance: SongInstance | undefined
+): ProjectDocument {
+	if (project.song.instances.some((candidate) => candidate.sourceLayerId === layerId))
+		return project
+	if (instance === undefined || instance.sourceLayerId !== layerId) {
+		fail(
+			'INVALID_COMMAND',
+			`The first authored material for ${layerId} requires a song instance.`
+		)
+	}
+	if (project.song.instances.some((candidate) => candidate.id === instance.id)) {
+		fail('DUPLICATE_ID', `Song instance ${instance.id} already exists.`)
+	}
+	return { ...project, song: { instances: [...project.song.instances, instance] } }
+}
+
+function updateSongInstance(
+	project: ProjectDocument,
+	instanceId: SongInstanceId,
+	update: (instance: SongInstance) => SongInstance | null
+): ProjectDocument {
+	const index = project.song.instances.findIndex((instance) => instance.id === instanceId)
+	if (index < 0) fail('NOT_FOUND', `Song instance ${instanceId} was not found.`)
+	const current = project.song.instances[index]
+	if (current === undefined) fail('NOT_FOUND', `Song instance ${instanceId} was not found.`)
+	const updated = update(current)
+	if (updated === current) return project
+	const instances = [...project.song.instances]
+	if (updated === null) instances.splice(index, 1)
+	else instances[index] = updated
+	return { ...project, song: { instances } }
 }
 
 interface DrumPatternPoint {
@@ -465,7 +545,7 @@ function stableTextHash(value: string): string {
 }
 
 function generatedDrumEvents(
-	clipIdValue: ClipId,
+	materialIdValue: LayerId,
 	stepCount: number,
 	character: Exclude<DrumPatternCharacter, 'custom'>,
 	density: number
@@ -480,7 +560,7 @@ function generatedDrumEvents(
 		used.add(key)
 		events.push({
 			id: drumEventId(
-				`event.pattern.${stableTextHash(clipIdValue)}.${character}.${point.instrument}.${String(step)}`
+				`event.pattern.${stableTextHash(materialIdValue)}.${character}.${point.instrument}.${String(step)}`
 			),
 			instrument: point.instrument,
 			step,
@@ -583,103 +663,75 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 				}
 			})
 		case 'note.add': {
-			const layer = project.layers.find((candidate) => candidate.id === command.layerId)
-			if (layer === undefined) fail('NOT_FOUND', `Layer ${command.layerId} was not found.`)
-			const targetClip = layer.clips.find((clip) => clip.id === command.clipId)
-			if (targetClip === undefined) {
-				const clip = command.clipWhenMissing
-				if (clip === undefined || clip.id !== command.clipId) {
-					fail(
-						'NOT_FOUND',
-						`Clip ${command.clipId} was not found in layer ${command.layerId}.`
-					)
-				}
-				if (
-					project.layers.some((candidate) =>
-						candidate.clips.some((candidateClip) => candidateClip.id === clip.id)
-					)
-				) {
-					fail('DUPLICATE_ID', `Clip ${clip.id} already exists.`)
-				}
-				if (clip.notes.some((note) => note.id === command.note.id)) {
+			let candidate = requireMissingInstance(
+				project,
+				command.layerId,
+				command.instanceWhenMissing
+			)
+			candidate = updateMaterial(candidate, command.layerId, (material) => {
+				if (material.kind !== 'midi')
+					fail('INCOMPATIBLE_TARGET', 'Notes can only be added to MIDI source material.')
+				if (material.notes.some((note) => note.id === command.note.id)) {
 					fail('DUPLICATE_ID', `Note ${command.note.id} already exists.`)
 				}
-				return updateLayer(project, command.layerId, (candidate) => ({
-					...candidate,
-					clips: [...candidate.clips, { ...clip, notes: [...clip.notes, command.note] }]
-				}))
-			}
-			return updateClip(project, command.layerId, command.clipId, (clip) => {
-				if (clip.kind !== 'midi')
-					fail('INCOMPATIBLE_TARGET', 'Notes can only be added to MIDI clips.')
-				if (clip.notes.some((note) => note.id === command.note.id)) {
-					fail('DUPLICATE_ID', `Note ${command.note.id} already exists.`)
-				}
-				return { ...clip, notes: [...clip.notes, command.note] }
+				const extended = extendMaterialThrough(
+					material,
+					command.note.startTick + command.note.durationTicks
+				)
+				return { ...extended, notes: [...material.notes, command.note] }
 			})
+			return candidate
 		}
 		case 'note.update':
-			return updateMidiNote(
-				project,
-				command.layerId,
-				command.clipId,
-				command.noteId,
-				(note) =>
-					note.startTick === command.startTick &&
-					note.pitch === command.pitch &&
-					note.durationTicks === command.durationTicks &&
-					note.velocity === command.velocity
-						? note
-						: {
-								...note,
-								startTick: projectTick(command.startTick),
-								pitch: midiPitch(command.pitch),
-								durationTicks: projectTick(command.durationTicks),
-								velocity: command.velocity
-							}
-			)
+			return updateMaterial(project, command.layerId, (material) => {
+				if (material.kind !== 'midi')
+					fail('INCOMPATIBLE_TARGET', 'Note updates require MIDI source material.')
+				const index = material.notes.findIndex((note) => note.id === command.noteId)
+				if (index < 0) fail('NOT_FOUND', `Note ${command.noteId} was not found.`)
+				const note = material.notes[index] as MidiNote
+				const updated = {
+					...note,
+					startTick: projectTick(command.startTick),
+					pitch: midiPitch(command.pitch),
+					durationTicks: projectTick(command.durationTicks),
+					velocity: command.velocity
+				}
+				if (semanticEqual(note, updated)) return material
+				const notes = [...material.notes]
+				notes[index] = updated
+				return {
+					...extendMaterialThrough(material, updated.startTick + updated.durationTicks),
+					notes
+				}
+			})
 		case 'note.move':
-			return updateMidiNote(
-				project,
-				command.layerId,
-				command.clipId,
-				command.noteId,
-				(note) =>
-					note.startTick === command.startTick && note.pitch === command.pitch
-						? note
-						: {
-								...note,
-								startTick: projectTick(command.startTick),
-								pitch: midiPitch(command.pitch)
-							}
+			return updateMidiNote(project, command.layerId, command.noteId, (note) =>
+				note.startTick === command.startTick && note.pitch === command.pitch
+					? note
+					: {
+							...note,
+							startTick: projectTick(command.startTick),
+							pitch: midiPitch(command.pitch)
+						}
 			)
 		case 'note.resize':
-			return updateMidiNote(
-				project,
-				command.layerId,
-				command.clipId,
-				command.noteId,
-				(note) =>
-					note.durationTicks === command.durationTicks
-						? note
-						: { ...note, durationTicks: projectTick(command.durationTicks) }
+			return updateMidiNote(project, command.layerId, command.noteId, (note) =>
+				note.durationTicks === command.durationTicks
+					? note
+					: { ...note, durationTicks: projectTick(command.durationTicks) }
 			)
 		case 'note.delete':
-			return updateMidiNote(
-				project,
-				command.layerId,
-				command.clipId,
-				command.noteId,
-				() => null
-			)
-		case 'clip.transpose-octave':
-			return updateClip(project, command.layerId, command.clipId, (clip) => {
-				if (clip.kind !== 'midi')
-					fail('INCOMPATIBLE_TARGET', 'Only MIDI clips can be transposed.')
-				if (clip.notes.length === 0) return clip
+			return updateMidiNote(project, command.layerId, command.noteId, () => null)
+		case 'material.transpose-octave':
+			return updateMaterial(project, command.layerId, (material) => {
+				if (material.kind !== 'midi')
+					fail('INCOMPATIBLE_TARGET', 'Only MIDI material can be transposed.')
+				if (material.notes.length === 0) return material
 				const offset = command.direction * 12
 				if (
-					clip.notes.some((note) => note.pitch + offset < 0 || note.pitch + offset > 127)
+					material.notes.some(
+						(note) => note.pitch + offset < 0 || note.pitch + offset > 127
+					)
 				) {
 					fail(
 						'INVALID_COMMAND',
@@ -687,13 +739,48 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 					)
 				}
 				return {
-					...clip,
-					notes: clip.notes.map((note) => ({
+					...material,
+					notes: material.notes.map((note) => ({
 						...note,
 						pitch: midiPitch(note.pitch + offset)
 					}))
 				}
 			})
+		case 'source.note.begin': {
+			if (command.note.durationTicks !== 1) {
+				fail(
+					'INVALID_COMMAND',
+					'A begun source note must use the one-tick minimum duration.'
+				)
+			}
+			return applyCommand(project, {
+				...command,
+				type: 'note.add'
+			})
+		}
+		case 'source.note.finalize':
+			return updateMaterial(project, command.layerId, (material) => {
+				if (material.kind !== 'midi')
+					fail('INCOMPATIBLE_TARGET', 'Note finalization requires MIDI source material.')
+				const index = material.notes.findIndex((note) => note.id === command.noteId)
+				if (index < 0) fail('NOT_FOUND', `Note ${command.noteId} was not found.`)
+				const note = material.notes[index] as MidiNote
+				if (command.endTick < note.startTick) {
+					fail('INVALID_COMMAND', 'A note cannot end before it begins.')
+				}
+				const durationTicks = projectTick(Math.max(1, command.endTick - note.startTick))
+				if (durationTicks === note.durationTicks) return material
+				const notes = [...material.notes]
+				notes[index] = { ...note, durationTicks }
+				return {
+					...extendMaterialThrough(material, note.startTick + durationTicks),
+					notes
+				}
+			})
+		case 'source.material.extend':
+			return updateMaterial(project, command.layerId, (material) =>
+				extendMaterialThrough(material, command.throughTick)
+			)
 		case 'layer.mute.set':
 			return updateLayer(project, command.layerId, (layer) =>
 				layer.muted === command.muted ? layer : { ...layer, muted: command.muted }
@@ -755,43 +842,49 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 				fail('DUPLICATE_ID', `Section ${command.section.id} already exists.`)
 			}
 			return { ...project, sections: [...project.sections, command.section] }
-		case 'clip.place':
-			return updateLayer(project, command.layerId, (layer) => {
-				if (
-					project.layers.some((candidate) =>
-						candidate.clips.some((clip) => clip.id === command.clip.id)
-					)
-				) {
-					fail('DUPLICATE_ID', `Clip ${command.clip.id} already exists.`)
-				}
-				return { ...layer, clips: [...layer.clips, command.clip] }
-			})
-		case 'clip.delete':
-			return updateLayer(project, command.layerId, (layer) => {
-				const index = layer.clips.findIndex((clip) => clip.id === command.clipId)
-				if (index < 0) fail('NOT_FOUND', `Clip ${command.clipId} was not found.`)
-				const clips = [...layer.clips]
-				clips.splice(index, 1)
-				return { ...layer, clips }
-			})
+		case 'song-instance.place':
+			if (project.song.instances.some((instance) => instance.id === command.instance.id)) {
+				fail('DUPLICATE_ID', `Song instance ${command.instance.id} already exists.`)
+			}
+			if (!project.layers.some((layer) => layer.id === command.instance.sourceLayerId)) {
+				fail('NOT_FOUND', `Layer ${command.instance.sourceLayerId} was not found.`)
+			}
+			return {
+				...project,
+				song: { instances: [...project.song.instances, command.instance] }
+			}
+		case 'song-instance.delete':
+			return updateSongInstance(project, command.instanceId, () => null)
+		case 'song-instance.move':
+			return updateSongInstance(project, command.instanceId, (instance) =>
+				instance.startTick === command.startTick
+					? instance
+					: { ...instance, startTick: projectTick(command.startTick) }
+			)
+		case 'song-instance.resize':
+			return updateSongInstance(project, command.instanceId, (instance) =>
+				instance.durationTicks === command.durationTicks
+					? instance
+					: { ...instance, durationTicks: projectTick(command.durationTicks) }
+			)
 		case 'drum-event.toggle':
-			return updateClip(project, command.layerId, command.clipId, (clip) => {
-				if (clip.kind !== 'drum')
-					fail('INCOMPATIBLE_TARGET', 'Drum events require a drum clip.')
-				const existing = clip.events.findIndex(
+			return updateMaterial(project, command.layerId, (material) => {
+				if (material.kind !== 'drum')
+					fail('INCOMPATIBLE_TARGET', 'Drum events require drum source material.')
+				const existing = material.events.findIndex(
 					(event) =>
 						event.instrument === command.eventWhenAdded.instrument &&
 						event.step === command.eventWhenAdded.step
 				)
 				if (existing >= 0) {
-					const events = [...clip.events]
+					const events = [...material.events]
 					events.splice(existing, 1)
-					return { ...clip, character: 'custom', events }
+					return { ...material, character: 'custom', events }
 				}
 				return {
-					...clip,
+					...material,
 					character: 'custom',
-					events: [...clip.events, command.eventWhenAdded]
+					events: [...material.events, command.eventWhenAdded]
 				}
 			})
 		case 'drum.voice.select':
@@ -811,47 +904,51 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 				}
 			})
 		case 'drum.pattern.set':
-			return updateClip(project, command.layerId, command.clipId, (clip) => {
-				if (clip.kind !== 'drum') {
-					fail('INCOMPATIBLE_TARGET', 'Drum patterns require a drum clip.')
+			return updateMaterial(project, command.layerId, (material) => {
+				if (material.kind !== 'drum') {
+					fail('INCOMPATIBLE_TARGET', 'Drum patterns require drum source material.')
 				}
 				const events = generatedDrumEvents(
-					clip.id,
-					clip.pattern.stepCount,
+					command.layerId,
+					material.pattern.stepCount,
 					command.character,
-					clip.density
+					material.density
 				)
-				if (clip.character === command.character && semanticEqual(clip.events, events))
-					return clip
-				return { ...clip, character: command.character, events }
+				if (
+					material.character === command.character &&
+					semanticEqual(material.events, events)
+				)
+					return material
+				return { ...material, character: command.character, events }
 			})
 		case 'drum.density.set':
-			return updateClip(project, command.layerId, command.clipId, (clip) => {
-				if (clip.kind !== 'drum')
-					fail('INCOMPATIBLE_TARGET', 'Density requires a drum clip.')
+			return updateMaterial(project, command.layerId, (material) => {
+				if (material.kind !== 'drum')
+					fail('INCOMPATIBLE_TARGET', 'Density requires drum source material.')
 				const density = normalizedUnit(command.density, 'Drum density')
-				const character = clip.character === 'custom' ? 'straight' : clip.character
+				const character = material.character === 'custom' ? 'straight' : material.character
 				const events = generatedDrumEvents(
-					clip.id,
-					clip.pattern.stepCount,
+					command.layerId,
+					material.pattern.stepCount,
 					character,
 					density
 				)
 				if (
-					clip.density === density &&
-					clip.character === character &&
-					semanticEqual(clip.events, events)
+					material.density === density &&
+					material.character === character &&
+					semanticEqual(material.events, events)
 				) {
-					return clip
+					return material
 				}
-				return { ...clip, character, density, events }
+				return { ...material, character, density, events }
 			})
 		case 'drum.swing.set':
-			return updateClip(project, command.layerId, command.clipId, (clip) => {
-				if (clip.kind !== 'drum') fail('INCOMPATIBLE_TARGET', 'Swing requires a drum clip.')
+			return updateMaterial(project, command.layerId, (material) => {
+				if (material.kind !== 'drum')
+					fail('INCOMPATIBLE_TARGET', 'Swing requires drum source material.')
 				const swing = normalizedUnit(command.swing, 'Drum swing')
-				if (clip.swing === swing) return clip
-				return { ...clip, swing }
+				if (material.swing === swing) return material
+				return { ...material, swing }
 			})
 	}
 }

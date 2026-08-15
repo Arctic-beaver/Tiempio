@@ -15,26 +15,42 @@ export const stage7FeatureGrowthBudgets = Object.freeze({
 	webShellOutput: 20 * 1_024
 })
 
+export const stage9FeatureGrowthBudgets = Object.freeze({
+	desktopPreload: 1 * 1_024,
+	desktopRenderer: 36 * 1_024,
+	webDeferredApplication: 16 * 1_024,
+	webInitialJavaScript: 20 * 1_024,
+	webShellOutput: 44 * 1_024
+})
+
 export const emptyShellBundleBudgets = Object.freeze({
 	'desktop-main': Object.freeze({ root: 'dist/desktop/main', maxBytes: 229_376 }),
-	'desktop-preload': Object.freeze({ root: 'dist/desktop/preload', maxBytes: 61_440 }),
+	'desktop-preload': Object.freeze({
+		root: 'dist/desktop/preload',
+		maxBytes: 61_440 + stage9FeatureGrowthBudgets.desktopPreload
+	}),
 	'desktop-renderer': Object.freeze({
 		root: 'dist/desktop/renderer',
 		maxBytes:
-			acceptedStage6BundleBudgets.desktopRenderer + stage7FeatureGrowthBudgets.desktopRenderer
+			acceptedStage6BundleBudgets.desktopRenderer +
+			stage7FeatureGrowthBudgets.desktopRenderer +
+			stage9FeatureGrowthBudgets.desktopRenderer
 	}),
 	web: Object.freeze({
 		root: 'dist/web',
 		maxBytes:
-			acceptedStage6BundleBudgets.webShellOutput + stage7FeatureGrowthBudgets.webShellOutput
+			acceptedStage6BundleBudgets.webShellOutput +
+			stage7FeatureGrowthBudgets.webShellOutput +
+			stage9FeatureGrowthBudgets.webShellOutput
 	})
 })
 
 export const webArtifactBudgets = Object.freeze({
 	initialJavaScript:
 		acceptedStage6BundleBudgets.webInitialJavaScript +
-		stage7FeatureGrowthBudgets.webInitialJavaScript,
-	deferredApplication: 81_920,
+		stage7FeatureGrowthBudgets.webInitialJavaScript +
+		stage9FeatureGrowthBudgets.webInitialJavaScript,
+	deferredApplication: 81_920 + stage9FeatureGrowthBudgets.webDeferredApplication,
 	webRuntimeJavaScript: 196_608,
 	workletJavaScript: 65_536,
 	wasmRelease: 786_432

@@ -13,6 +13,7 @@ import {
 	type SynthInstrumentState
 } from '../../../project-core/src/index.js'
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
+import { PerformanceRecordingCoordinator } from '../performance/performance-recording-coordinator.js'
 import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
 
 export interface ApplicationControllerSnapshot {
@@ -53,6 +54,7 @@ export const silentApplicationMeter = Object.freeze<ApplicationMeterSnapshot>({
 export interface ApplicationController {
 	readonly performanceInput: PerformanceInputSession
 	readonly previewCoordinator: AuditionPreviewCoordinator
+	readonly recordingCoordinator: PerformanceRecordingCoordinator
 	readonly getSnapshot: () => ApplicationControllerSnapshot
 	readonly subscribe: (listener: () => void) => () => void
 	auditionDrum(layerId: string, instrument: DrumInstrument): void
@@ -71,8 +73,10 @@ export interface ApplicationController {
 	}): void
 	setMetronomeEnabled(enabled: boolean): void
 	setMetronomeVolume(volume: number): void
+	startRecording(layerId: string, startTick: number, countInBars?: number): Promise<boolean>
 	start(): Promise<void>
 	stop(): void
+	stopRecording(): boolean
 	togglePlayback(): void
 }
 
@@ -87,23 +91,33 @@ const unavailableSnapshot = Object.freeze<ApplicationControllerSnapshot>({
 })
 
 export function createUnavailableApplicationController(
-	runtime: ApplicationRuntime
+	runtime: ApplicationRuntime,
+	initialSession?: ProjectSession
 ): ApplicationController {
 	const performanceInput = new PerformanceInputSession({
-		noteOn: () => undefined,
-		noteOff: () => undefined
+		input: () => undefined
 	})
 	const previewCoordinator = new AuditionPreviewCoordinator({
 		cancel: () => undefined,
 		start: () => false
 	})
+	const recordingCoordinator = new PerformanceRecordingCoordinator({
+		engine: {
+			noteOff: async () => false,
+			noteOn: async () => false,
+			start: async () => false,
+			stop: async () => false
+		}
+	})
+	if (initialSession !== undefined) recordingCoordinator.bindSession(initialSession)
 	return Object.freeze({
 		performanceInput,
 		previewCoordinator,
+		recordingCoordinator,
 		getSnapshot: () => unavailableSnapshot,
 		subscribe: () => () => undefined,
 		auditionDrum: () => undefined,
-		bindProjectSession: () => undefined,
+		bindProjectSession: (session: ProjectSession) => recordingCoordinator.bindSession(session),
 		preactivateProject: async () => false,
 		restoreProjectPlan: async () => undefined,
 		setAuditionInstrumentPreview: async () => false,
@@ -113,12 +127,14 @@ export function createUnavailableApplicationController(
 		setLoop: () => undefined,
 		setMetronomeEnabled: () => undefined,
 		setMetronomeVolume: () => undefined,
+		startRecording: async () => false,
 		start: async () => {
 			if (runtime.lifecycle.availability === 'available') {
 				await runtime.lifecycle.api.ready()
 			}
 		},
 		stop: () => undefined,
+		stopRecording: () => false,
 		togglePlayback: () => undefined
 	})
 }

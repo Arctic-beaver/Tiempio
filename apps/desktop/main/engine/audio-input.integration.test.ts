@@ -305,7 +305,8 @@ function keyboardEvent(code: string, prevented: { count: number }): PerformanceK
 		},
 		repeat: false,
 		shiftKey: false,
-		target: null
+		target: null,
+		timeStamp: 10
 	}
 }
 
@@ -416,6 +417,8 @@ describe('Desktop audio and performance input integration', () => {
 				isPrimary: true,
 				pointerId: 17,
 				pointerType: 'mouse',
+				pressure: 0.5,
+				timeStamp: 20,
 				preventDefault: () => {
 					prevented += 1
 				}

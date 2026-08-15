@@ -11,7 +11,8 @@ use tiempio_engine_protocol::{
     AudioConfiguration, ENGINE_PROTOCOL_MAX_FRAME_BYTES, ENGINE_PROTOCOL_VERSION, EngineCommand,
     EngineEvent, HandshakePeer, NATIVE_HOST_CAPABILITY_CODES, NoteOnPayload,
     PreviewIdentifierPayload, PreviewProgramPayload, ProtocolLimits, ProtocolSession,
-    ProtocolSessionState, encode_event_body, encode_frame,
+    ProtocolSessionState, RecordingNoteOnPayload, StartRecordingPayload, encode_event_body,
+    encode_frame,
 };
 
 use crate::backend::{
@@ -19,10 +20,11 @@ use crate::backend::{
     SharedOutputBackend,
 };
 use crate::realtime::{
-    AuditionPatch, CONTROL_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY, PreparedPreview, PreviewEndReason,
-    PreviewId, RealtimeCommand, RealtimeEngine, RealtimeEvent, RetiredRealtimeAllocation,
-    StreamSignals, audition_patch_for_layer, create_engine, drum_instrument_for_pitch,
-    map_realtime_event, stable_audition_identifier, synth_patch_for_layer,
+    AuditionPatch, CONTROL_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY, PreparedPreview,
+    PreparedRecording, PreviewEndReason, PreviewId, RealtimeCommand, RealtimeEngine, RealtimeEvent,
+    RecordingIdentifier, RecordingStopReason, RetiredRealtimeAllocation, StreamSignals,
+    audition_patch_for_layer, create_engine, drum_instrument_for_pitch, map_realtime_event,
+    stable_audition_identifier, synth_patch_for_layer,
 };
 
 const RECOVERY_BASE_DELAY: Duration = Duration::from_millis(250);
@@ -52,6 +54,7 @@ pub(crate) struct HostController<Backend: OutputBackend> {
     next_recovery_at: Option<Instant>,
     metronome_enabled: bool,
     metronome_volume: f64,
+    recording_target: Option<(String, String)>,
 }
 
 impl<Backend: OutputBackend> HostController<Backend> {
@@ -75,6 +78,7 @@ impl<Backend: OutputBackend> HostController<Backend> {
             next_recovery_at: None,
             metronome_enabled: false,
             metronome_volume: 0.65,
+            recording_target: None,
         }
     }
 
@@ -108,33 +112,22 @@ impl<Backend: OutputBackend> HostController<Backend> {
             }
             EngineCommand::StartAudio => self.start_audio()?,
             EngineCommand::StopAudio => self.stop_audio()?,
-            EngineCommand::LoadRenderPlan(plan) => self.load_plan(plan)?,
-            EngineCommand::Play(payload) => {
-                self.send_realtime(RealtimeCommand::Play(payload.start_tick))?;
-            }
-            EngineCommand::Stop => self.send_realtime(RealtimeCommand::Stop)?,
-            EngineCommand::Seek(payload) => {
-                self.send_realtime(RealtimeCommand::Seek(payload.tick))?;
-            }
-            EngineCommand::SetLoop(payload) => {
-                self.send_realtime(RealtimeCommand::SetLoop {
-                    enabled: payload.enabled,
-                    start_tick: payload.start_tick,
-                    end_tick: payload.end_tick,
-                })?;
-            }
-            EngineCommand::SetMetronomeEnabled(payload) => {
-                self.metronome_enabled = payload.enabled;
-                if self.command_tx.is_some() {
-                    self.send_realtime(RealtimeCommand::SetMetronomeEnabled(payload.enabled))?;
+            EngineCommand::LoadRenderPlan(plan) => {
+                if self.recording_target.is_some() {
+                    self.emit_diagnostic(
+                        "engine.stale-revision",
+                        "Render-plan activation is held during recording.",
+                    )?;
+                } else {
+                    self.load_plan(plan)?;
                 }
             }
-            EngineCommand::SetMetronomeVolume(payload) => {
-                self.metronome_volume = payload.volume;
-                if self.command_tx.is_some() {
-                    self.send_realtime(RealtimeCommand::SetMetronomeVolume(payload.volume))?;
-                }
-            }
+            playback_command @ (EngineCommand::Play(_)
+            | EngineCommand::Stop
+            | EngineCommand::Seek(_)
+            | EngineCommand::SetLoop(_)
+            | EngineCommand::SetMetronomeEnabled(_)
+            | EngineCommand::SetMetronomeVolume(_)) => self.dispatch_playback(playback_command)?,
             EngineCommand::NoteOn(payload) => {
                 self.note_on(&payload)?;
             }
@@ -144,11 +137,16 @@ impl<Backend: OutputBackend> HostController<Backend> {
                 )))?;
             }
             EngineCommand::StartPreview(payload) => {
+                self.recording_target = None;
                 self.start_preview(payload)?;
             }
             EngineCommand::CancelPreview(payload) => {
                 self.cancel_preview(&payload)?;
             }
+            recording_command @ (EngineCommand::StartRecording(_)
+            | EngineCommand::RecordingNoteOn(_)
+            | EngineCommand::RecordingNoteOff(_)
+            | EngineCommand::StopRecording(_)) => self.dispatch_recording(recording_command)?,
             EngineCommand::RequestDiagnostics => self.emit_health()?,
             EngineCommand::RefreshDevices => self.refresh_devices()?,
             EngineCommand::Ping(payload) => {
@@ -159,6 +157,7 @@ impl<Backend: OutputBackend> HostController<Backend> {
                 self.emit_health()?;
             }
             EngineCommand::Shutdown => {
+                self.recording_target = None;
                 self.stop_audio()?;
                 return Ok(false);
             }
@@ -175,6 +174,87 @@ impl<Backend: OutputBackend> HostController<Backend> {
         }
         self.recover_audio_if_due()?;
         Ok(true)
+    }
+
+    fn dispatch_playback(&mut self, command: EngineCommand) -> Result<(), ()> {
+        match command {
+            EngineCommand::Play(payload) => {
+                self.recording_target = None;
+                self.send_realtime(RealtimeCommand::Play(payload.start_tick))
+            }
+            EngineCommand::Stop => {
+                self.recording_target = None;
+                self.send_realtime(RealtimeCommand::Stop)
+            }
+            EngineCommand::Seek(payload) => {
+                self.recording_target = None;
+                self.send_realtime(RealtimeCommand::Seek(payload.tick))
+            }
+            EngineCommand::SetLoop(payload) => self.send_realtime(RealtimeCommand::SetLoop {
+                enabled: payload.enabled,
+                start_tick: payload.start_tick,
+                end_tick: payload.end_tick,
+            }),
+            EngineCommand::SetMetronomeEnabled(payload) => {
+                self.metronome_enabled = payload.enabled;
+                if self.command_tx.is_some() {
+                    self.send_realtime(RealtimeCommand::SetMetronomeEnabled(payload.enabled))?;
+                }
+                Ok(())
+            }
+            EngineCommand::SetMetronomeVolume(payload) => {
+                self.metronome_volume = payload.volume;
+                if self.command_tx.is_some() {
+                    self.send_realtime(RealtimeCommand::SetMetronomeVolume(payload.volume))?;
+                }
+                Ok(())
+            }
+            _ => unreachable!("playback dispatcher received another command"),
+        }
+    }
+
+    fn dispatch_recording(&mut self, command: EngineCommand) -> Result<(), ()> {
+        match command {
+            EngineCommand::StartRecording(payload) => self.start_recording(&payload),
+            EngineCommand::RecordingNoteOn(payload) => self.recording_note_on(&payload),
+            EngineCommand::RecordingNoteOff(payload) => {
+                if self
+                    .recording_target
+                    .as_ref()
+                    .is_some_and(|(recording_id, _)| recording_id == &payload.recording_id)
+                {
+                    let (Some(recording_id), Some(input_id)) = (
+                        RecordingIdentifier::new(&payload.recording_id),
+                        RecordingIdentifier::new(&payload.audition_id),
+                    ) else {
+                        return Ok(());
+                    };
+                    self.send_realtime(RealtimeCommand::RecordingNoteOff {
+                        recording_id,
+                        input_id,
+                    })?;
+                }
+                Ok(())
+            }
+            EngineCommand::StopRecording(payload) => {
+                if self
+                    .recording_target
+                    .as_ref()
+                    .is_some_and(|(recording_id, _)| recording_id == &payload.recording_id)
+                {
+                    let Some(recording_id) = RecordingIdentifier::new(&payload.recording_id) else {
+                        return Ok(());
+                    };
+                    self.send_realtime(RealtimeCommand::StopRecording {
+                        recording_id,
+                        reason: RecordingStopReason::Stopped,
+                    })?;
+                    self.recording_target = None;
+                }
+                Ok(())
+            }
+            _ => unreachable!("recording dispatcher received another command"),
+        }
     }
 
     fn note_on(&mut self, payload: &NoteOnPayload) -> Result<(), ()> {
@@ -245,6 +325,84 @@ impl<Backend: OutputBackend> HostController<Backend> {
         self.send_realtime(RealtimeCommand::CancelPreview {
             preview_id,
             reason: PreviewEndReason::Canceled,
+        })
+    }
+
+    fn start_recording(&mut self, payload: &StartRecordingPayload) -> Result<(), ()> {
+        if self.recording_target.is_some() {
+            return self.emit_diagnostic(
+                "engine.limit-exceeded",
+                "Only one recording session may be active.",
+            );
+        }
+        let Some(sample_rate) = self
+            .configuration
+            .as_ref()
+            .filter(|_| self.stream.is_some())
+            .map(|configuration| configuration.negotiated.sample_rate)
+        else {
+            return self.emit_diagnostic(
+                "audio.suspended",
+                "Recording requires active shared output.",
+            );
+        };
+        let Some(plan) = self.latest_plan.as_ref() else {
+            return self.emit_diagnostic(
+                "engine.invalid-plan",
+                "Recording requires an active render plan.",
+            );
+        };
+        if synth_patch_for_layer(plan, &payload.layer_id).is_none() {
+            return self.emit_diagnostic(
+                "engine.invalid-plan",
+                "Recording requires the requested active synth layer.",
+            );
+        }
+        let Some(prepared) = PreparedRecording::prepare(payload, plan, sample_rate) else {
+            return self.emit_diagnostic(
+                "engine.invalid-plan",
+                "Recording could not bind to the requested project revision and clock.",
+            );
+        };
+        self.send_realtime(RealtimeCommand::StartRecording(prepared))?;
+        self.recording_target = Some((payload.recording_id.clone(), payload.layer_id.clone()));
+        Ok(())
+    }
+
+    fn recording_note_on(&mut self, payload: &RecordingNoteOnPayload) -> Result<(), ()> {
+        let Some((_, layer_id)) = self
+            .recording_target
+            .as_ref()
+            .filter(|(recording_id, _)| recording_id == &payload.recording_id)
+        else {
+            return Ok(());
+        };
+        let Some(patch) = self
+            .latest_plan
+            .as_ref()
+            .and_then(|plan| synth_patch_for_layer(plan, layer_id))
+        else {
+            return self.emit_diagnostic(
+                "engine.invalid-plan",
+                "Recording requires the active synth layer.",
+            );
+        };
+        let (Some(recording_id), Some(input_id)) = (
+            RecordingIdentifier::new(&payload.recording_id),
+            RecordingIdentifier::new(&payload.audition_id),
+        ) else {
+            return self.emit_diagnostic(
+                "protocol.invalid-envelope",
+                "Recording input identifiers are invalid.",
+            );
+        };
+        self.send_realtime(RealtimeCommand::RecordingNoteOn {
+            recording_id,
+            input_id,
+            voice_identifier: stable_audition_identifier(&payload.audition_id),
+            pitch: payload.pitch,
+            velocity: payload.velocity,
+            patch,
         })
     }
 
@@ -368,6 +526,7 @@ impl<Backend: OutputBackend> HostController<Backend> {
     }
 
     fn stop_stream(&mut self) {
+        self.recording_target = None;
         if let Some(sender) = self.command_tx.take() {
             let mut sender = sender;
             let _ = sender.push(RealtimeCommand::Shutdown);
@@ -606,6 +765,7 @@ impl<Backend: OutputBackend> HostController<Backend> {
                 match allocation {
                     RetiredRealtimeAllocation::Plan(plan) => drop(plan),
                     RetiredRealtimeAllocation::Preview(preview) => drop(preview),
+                    RetiredRealtimeAllocation::Recording(recording) => drop(recording),
                 }
             }
         }
@@ -964,6 +1124,41 @@ mod tests {
         plan
     }
 
+    fn assert_native_engine_clock_recording(events: &[RealtimeEvent]) {
+        assert!(events.iter().any(|event| matches!(
+            event,
+            RealtimeEvent::RecordingState {
+                state: crate::realtime::RecordingPhase::Recording,
+                source_tick: 0,
+                ..
+            }
+        )));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            RealtimeEvent::RecordingInputApplied {
+                active: true,
+                source_tick: 0,
+                ..
+            }
+        )));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            RealtimeEvent::RecordingInputApplied {
+                active: false,
+                source_tick: 2,
+                ..
+            }
+        )));
+        assert!(events.iter().any(|event| matches!(
+            event,
+            RealtimeEvent::RecordingStopped {
+                reason: RecordingStopReason::Stopped,
+                stop_tick: 2,
+                ..
+            }
+        )));
+    }
+
     #[test]
     fn framed_reader_rejects_oversized_and_truncated_input_before_dispatch() {
         let oversized = u32::try_from(ENGINE_PROTOCOL_MAX_FRAME_BYTES + 1)
@@ -1157,5 +1352,93 @@ mod tests {
             .unwrap();
         assert!(controller.metronome_enabled);
         assert!((controller.metronome_volume - 0.4).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn native_recording_adapter_routes_inputs_through_the_shared_engine_clock() {
+        let (event_tx, event_rx) = mpsc::sync_channel(EVENT_QUEUE_CAPACITY);
+        let mut controller = HostController::new(SwitchingBackend::new(true), event_tx);
+        controller
+            .dispatch(EngineCommand::ConfigureAudio(requested_configuration()))
+            .unwrap();
+        controller
+            .dispatch(EngineCommand::LoadRenderPlan(fixture_plan()))
+            .unwrap();
+        controller.dispatch(EngineCommand::StartAudio).unwrap();
+        let mut initial_output = [0.0_f32; 2];
+        controller
+            .stream
+            .as_mut()
+            .expect("controlled stream")
+            .realtime
+            .render_f32_channels(&mut initial_output, 2);
+
+        let mut realtime_events = None;
+        while let Ok(event) = event_rx.try_recv() {
+            if let WriterEvent::InstallRealtime(receiver) = event {
+                realtime_events = Some(receiver);
+            }
+        }
+        let mut realtime_events = realtime_events.expect("realtime event receiver");
+        controller
+            .dispatch(EngineCommand::StartRecording(StartRecordingPayload {
+                recording_id: "recording.native.clock".to_owned(),
+                layer_id: "layer.bass".to_owned(),
+                project_revision: 7,
+                start_tick: 0,
+                count_in_bars: 0,
+            }))
+            .unwrap();
+        controller
+            .dispatch(EngineCommand::RecordingNoteOn(RecordingNoteOnPayload {
+                recording_id: "recording.native.clock".to_owned(),
+                audition_id: "input.native.1".to_owned(),
+                pitch: 45,
+                velocity: 99,
+            }))
+            .unwrap();
+        let mut recording_output = [0.0_f32; 100];
+        controller
+            .stream
+            .as_mut()
+            .expect("controlled stream")
+            .realtime
+            .render_f32_channels(&mut recording_output, 2);
+        controller
+            .dispatch(EngineCommand::RecordingNoteOff(
+                tiempio_engine_protocol::RecordingInputIdentifierPayload {
+                    recording_id: "recording.native.clock".to_owned(),
+                    audition_id: "input.native.1".to_owned(),
+                },
+            ))
+            .unwrap();
+        let mut release_output = [0.0_f32; 2];
+        controller
+            .stream
+            .as_mut()
+            .expect("controlled stream")
+            .realtime
+            .render_f32_channels(&mut release_output, 2);
+        controller
+            .dispatch(EngineCommand::StopRecording(
+                tiempio_engine_protocol::RecordingIdentifierPayload {
+                    recording_id: "recording.native.clock".to_owned(),
+                },
+            ))
+            .unwrap();
+        let mut stop_output = [0.0_f32; 2];
+        controller
+            .stream
+            .as_mut()
+            .expect("controlled stream")
+            .realtime
+            .render_f32_channels(&mut stop_output, 2);
+        assert!(controller.recording_target.is_none());
+
+        let events: Vec<_> = std::iter::from_fn(|| realtime_events.pop().ok()).collect();
+        assert_native_engine_clock_recording(&events);
+        controller
+            .dispatch(EngineCommand::RequestDiagnostics)
+            .unwrap();
     }
 }

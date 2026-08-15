@@ -1,10 +1,9 @@
 import { useCallback } from 'react'
 import {
-	clipId,
-	createDrumClip,
 	createDrumEvent,
+	createSongInstance,
 	defaultTicksPerQuarter,
-	type ClipId,
+	songInstanceId,
 	type DrumInstrument,
 	type DrumPatternCharacter,
 	type DrumVoiceVariantId,
@@ -13,8 +12,7 @@ import {
 } from '../../../../project-core/src/index.js'
 import { useProjectSession } from '../../project/ProjectSessionContext.js'
 
-interface DrumClipTarget {
-	readonly clip: ClipId
+interface DrumMaterialTarget {
 	readonly layer: LayerId
 	readonly snapshot: ProjectSessionSnapshot
 }
@@ -28,43 +26,61 @@ export function useDrumsActions(): {
 } {
 	const projectSession = useProjectSession()
 	const { drums } = projectSession.projections
-	const ensureDrumClip = useCallback(
-		(historyGroup: string): DrumClipTarget | null => {
+	const ensureDrumMaterial = useCallback(
+		(historyGroup: string): DrumMaterialTarget | null => {
 			const layer = drums.layerId
 			if (layer === null) return null
 			let snapshot = projectSession.getSnapshot()
 			const currentLayer = snapshot.project.layers.find((candidate) => candidate.id === layer)
-			const existing = currentLayer?.clips.find((clip) => clip.kind === 'drum')
-			if (existing !== undefined) return { layer, clip: existing.id, snapshot }
-			const createdClipId = clipId(projectSession.nextId('clip.drums.ui'))
-			snapshot = projectSession.dispatch(
-				{
-					type: 'clip.place',
-					baseRevision: snapshot.revision,
-					layerId: layer,
-					clip: createDrumClip({
-						id: createdClipId,
-						startTick: 0,
-						lengthTicks: defaultTicksPerQuarter * 4
-					})
-				},
-				{ historyGroup }
-			)
-			return { layer, clip: createdClipId, snapshot }
+			if (currentLayer?.material.kind !== 'drum') return null
+			if (currentLayer.material.materialLengthTicks === 0) {
+				snapshot = projectSession.dispatch(
+					{
+						type: 'source.material.extend',
+						baseRevision: snapshot.revision,
+						layerId: layer,
+						throughTick: defaultTicksPerQuarter * 4
+					},
+					{ historyGroup }
+				)
+			}
+			if (
+				!snapshot.project.song.instances.some(
+					(instance) => instance.sourceLayerId === layer
+				)
+			) {
+				snapshot = projectSession.dispatch(
+					{
+						type: 'song-instance.place',
+						baseRevision: snapshot.revision,
+						instance: createSongInstance({
+							id: songInstanceId(projectSession.nextId('instance.drums.ui')),
+							sourceLayerId: layer,
+							startTick: 0,
+							durationTicks: Math.max(
+								defaultTicksPerQuarter * 4,
+								currentLayer.material.materialLengthTicks +
+									currentLayer.material.tailRestTicks
+							)
+						})
+					},
+					{ historyGroup }
+				)
+			}
+			return { layer, snapshot }
 		},
 		[drums.layerId, projectSession]
 	)
 	const toggleStep = useCallback(
 		(instrument: DrumInstrument, step: number): void => {
 			const historyGroup = `drums.toggle.${instrument}.${String(step)}`
-			const target = ensureDrumClip(historyGroup)
+			const target = ensureDrumMaterial(historyGroup)
 			if (target === null) return
 			projectSession.dispatch(
 				{
 					type: 'drum-event.toggle',
 					baseRevision: target.snapshot.revision,
 					layerId: target.layer,
-					clipId: target.clip,
 					eventWhenAdded: createDrumEvent({
 						id: projectSession.nextId('event.drums.ui'),
 						instrument,
@@ -75,64 +91,61 @@ export function useDrumsActions(): {
 			)
 			projectSession.endHistoryGroup(historyGroup)
 		},
-		[ensureDrumClip, projectSession]
+		[ensureDrumMaterial, projectSession]
 	)
 	const selectPattern = useCallback(
 		(character: Exclude<DrumPatternCharacter, 'custom'>): void => {
 			const historyGroup = `drums.pattern.${character}`
-			const target = ensureDrumClip(historyGroup)
+			const target = ensureDrumMaterial(historyGroup)
 			if (target === null) return
 			projectSession.dispatch(
 				{
 					type: 'drum.pattern.set',
 					baseRevision: target.snapshot.revision,
 					layerId: target.layer,
-					clipId: target.clip,
 					character
 				},
 				{ historyGroup }
 			)
 			projectSession.endHistoryGroup(historyGroup)
 		},
-		[ensureDrumClip, projectSession]
+		[ensureDrumMaterial, projectSession]
 	)
 	const setDensity = useCallback(
 		(density: number): void => {
 			const historyGroup = 'drums.density'
-			const target = ensureDrumClip(historyGroup)
+			const target = ensureDrumMaterial(historyGroup)
 			if (target === null) return
 			projectSession.dispatch(
 				{
 					type: 'drum.density.set',
 					baseRevision: target.snapshot.revision,
 					layerId: target.layer,
-					clipId: target.clip,
 					density
 				},
 				{ historyGroup }
 			)
 			projectSession.endHistoryGroup(historyGroup)
 		},
-		[ensureDrumClip, projectSession]
+		[ensureDrumMaterial, projectSession]
 	)
 	const setSwing = useCallback(
 		(swing: number): void => {
 			const historyGroup = 'drums.swing'
-			const target = ensureDrumClip(historyGroup)
+			const target = ensureDrumMaterial(historyGroup)
 			if (target === null) return
 			projectSession.dispatch(
 				{
 					type: 'drum.swing.set',
 					baseRevision: target.snapshot.revision,
 					layerId: target.layer,
-					clipId: target.clip,
 					swing
 				},
 				{ historyGroup }
 			)
 			projectSession.endHistoryGroup(historyGroup)
 		},
-		[ensureDrumClip, projectSession]
+		[ensureDrumMaterial, projectSession]
 	)
 	const selectVoiceVariant = useCallback(
 		(instrument: DrumInstrument, variantId: DrumVoiceVariantId): void => {

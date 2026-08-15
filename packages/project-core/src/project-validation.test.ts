@@ -3,12 +3,14 @@ import { describe, it } from 'node:test'
 import {
 	assetId,
 	createLayer,
-	createDrumClip,
+	createDrumMaterial,
 	createDrumEvent,
-	createMidiClip,
+	createMidiMaterial,
 	createMidiNote,
 	createProject,
 	createSection,
+	createSongInstance,
+	layerId,
 	projectLimits,
 	sectionId,
 	validateProjectDocument
@@ -49,19 +51,17 @@ describe('project validation', () => {
 			startTick: 0,
 			durationTicks: 240
 		})
-		const clip = createMidiClip({
-			id: 'clip.melody',
-			startTick: 0,
-			lengthTicks: 960,
+		const material = createMidiMaterial({
+			materialLengthTicks: 960,
 			notes: [note]
 		})
 		const layer = {
 			...createLayer({ id: 'layer.melody', name: 'Melody', role: 'melody' }),
-			clips: [clip]
+			material
 		}
 		const result = validateProjectDocument({ ...project, layers: [layer] })
 		assert.equal(result.ok, true)
-		if (result.ok) assert.equal(Object.isFrozen(result.project.layers[0]?.clips), true)
+		if (result.ok) assert.equal(Object.isFrozen(result.project.layers[0]?.material), true)
 	})
 
 	it('requires a bounded performance mapping for every pitched layer', () => {
@@ -168,7 +168,7 @@ describe('project validation', () => {
 		assert.ok(issueCodes({ ...project, layers: [reference] }).includes('MISSING_REFERENCE'))
 	})
 
-	it('rejects section cycles and unknown clip sections', () => {
+	it('rejects section cycles and song instances with unknown source layers', () => {
 		const project = createProject({ projectId: 'project.sections', title: 'Sections' })
 		const first = createSection({
 			id: 'section.first',
@@ -186,17 +186,17 @@ describe('project validation', () => {
 		})
 		assert.ok(issueCodes({ ...project, sections: [first, second] }).includes('CYCLE'))
 
-		const clip = createMidiClip({
-			id: 'clip.orphan',
+		const instance = createSongInstance({
+			id: 'instance.orphan',
+			sourceLayerId: layerId('layer.missing'),
 			startTick: 0,
-			lengthTicks: 960,
-			sectionId: sectionId('section.missing')
+			durationTicks: 960
 		})
-		const layer = {
-			...createLayer({ id: 'layer.orphan', name: 'Orphan', role: 'bass' }),
-			clips: [clip]
-		}
-		assert.ok(issueCodes({ ...project, layers: [layer] }).includes('MISSING_REFERENCE'))
+		assert.ok(
+			issueCodes({ ...project, song: { instances: [instance] } }).includes(
+				'MISSING_REFERENCE'
+			)
+		)
 	})
 
 	it('rejects non-finite values, empty durations and timeline overflow', () => {
@@ -211,35 +211,42 @@ describe('project validation', () => {
 			}).includes('INVALID_VALUE')
 		)
 
-		const clip = {
-			...createMidiClip({ id: 'clip.overflow', startTick: 0, lengthTicks: 960 }),
+		const layer = createLayer({ id: 'layer.time', name: 'Time', role: 'bass' })
+		const instance = createSongInstance({
+			id: 'instance.overflow',
+			sourceLayerId: layer.id,
 			startTick: projectLimits.maxTick,
-			lengthTicks: 1
+			durationTicks: 1
+		})
+		const nonEmptyLayer = {
+			...layer,
+			material: createMidiMaterial({ materialLengthTicks: 1 })
 		}
-		const layer = {
-			...createLayer({ id: 'layer.time', name: 'Time', role: 'bass' }),
-			clips: [clip]
-		}
-		assert.ok(issueCodes({ ...project, layers: [layer] }).includes('INVALID_TIMELINE'))
 		assert.ok(
 			issueCodes({
 				...project,
-				layers: [{ ...layer, clips: [{ ...clip, startTick: 0, lengthTicks: 0 }] }]
+				layers: [nonEmptyLayer],
+				song: { instances: [instance] }
+			}).includes('INVALID_TIMELINE')
+		)
+		assert.ok(
+			issueCodes({
+				...project,
+				layers: [nonEmptyLayer],
+				song: { instances: [{ ...instance, startTick: 0, durationTicks: 0 }] }
 			}).includes('INVALID_VALUE')
 		)
 	})
 
-	it('rejects drum events whose musical offset falls outside the clip', () => {
+	it('rejects drum events whose musical offset falls outside source material', () => {
 		const project = createProject({ projectId: 'project.drum-time', title: 'Drum time' })
-		const clip = createDrumClip({
-			id: 'clip.short',
-			startTick: 0,
-			lengthTicks: 1,
+		const material = createDrumMaterial({
+			materialLengthTicks: 1,
 			events: [createDrumEvent({ id: 'event.late', instrument: 'kick', step: 1 })]
 		})
 		const layer = {
 			...createLayer({ id: 'layer.drums', name: 'Drums', role: 'rhythm' }),
-			clips: [clip]
+			material
 		}
 		assert.ok(issueCodes({ ...project, layers: [layer] }).includes('INVALID_TIMELINE'))
 	})

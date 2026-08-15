@@ -13,6 +13,7 @@ const metrics: PianoGridMetrics = {
 	gridTicks: 240,
 	height: 650,
 	pitchValues: pitches,
+	rowHeight: 26,
 	totalTicks: 15_360,
 	width: 960
 }

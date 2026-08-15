@@ -25,16 +25,20 @@ function variantName(variantId: DrumVoiceVariantId): string {
 }
 
 export function projectDrums({
-	drumClip,
+	drumMaterial,
 	drumLayer,
 	project,
 	revision
 }: StudioProjectionContext): DrumsProjection {
 	const defaultLengthTicks = project.transport.ticksPerQuarter * 4
-	const stepCount = drumClip?.kind === 'drum' ? drumClip.pattern.stepCount : 16
+	const stepCount = drumMaterial?.pattern.stepCount ?? 16
 	const totalTicks =
-		drumClip?.kind === 'drum'
-			? (stepCount * project.transport.ticksPerQuarter) / drumClip.pattern.stepsPerQuarter
+		drumMaterial !== null
+			? Math.max(
+					drumMaterial.materialLengthTicks,
+					(stepCount * project.transport.ticksPerQuarter) /
+						drumMaterial.pattern.stepsPerQuarter
+				)
 			: defaultLengthTicks
 	const voiceVariants =
 		drumLayer?.source.type === 'drum'
@@ -43,11 +47,10 @@ export function projectDrums({
 	return {
 		revision,
 		layerId: drumLayer?.id ?? null,
-		clipId: drumClip?.id ?? null,
-		character: drumClip?.character ?? 'straight',
-		density: drumClip?.density ?? 0.38,
-		swing: drumClip?.swing ?? 0.08,
-		startTick: drumClip?.startTick ?? 0,
+		character: drumMaterial?.character ?? 'straight',
+		density: drumMaterial?.density ?? 0.38,
+		swing: drumMaterial?.swing ?? 0.08,
+		startTick: 0,
 		stepCount,
 		totalTicks,
 		rows: drumRows.map((row) => {
@@ -61,8 +64,8 @@ export function projectDrums({
 					name: variantName(variantId)
 				})),
 				activeSteps:
-					drumClip?.kind === 'drum'
-						? drumClip.events
+					drumMaterial !== null
+						? drumMaterial.events
 								.filter((event) => event.instrument === row.id)
 								.map((event) => event.step)
 								.sort((left, right) => left - right)

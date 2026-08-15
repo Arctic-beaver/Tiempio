@@ -1,9 +1,9 @@
 import { useCallback } from 'react'
 import {
-	clipId,
-	createMidiClip,
+	createSongInstance,
 	createMidiNote,
-	noteId
+	noteId,
+	songInstanceId
 } from '../../../../project-core/src/index.js'
 import { useProjectSession } from '../../project/ProjectSessionContext.js'
 import type { EditableNoteValues } from './note-editor-geometry.js'
@@ -30,19 +30,24 @@ export function usePianoRollActions(): {
 			const layer = pianoRoll.layerId
 			if (layer === null) return null
 			const snapshot = projectSession.getSnapshot()
-			const targetClipId = pianoRoll.clipId ?? clipId(projectSession.nextId('clip.midi.ui'))
 			const createdNoteId = projectSession.nextId('note.ui')
+			const hasInstance = snapshot.project.song.instances.some(
+				(instance) => instance.sourceLayerId === layer
+			)
 			projectSession.dispatch({
 				type: 'note.add',
 				baseRevision: snapshot.revision,
 				layerId: layer,
-				clipId: targetClipId,
-				...(pianoRoll.clipId === null
+				...(!hasInstance
 					? {
-							clipWhenMissing: createMidiClip({
-								id: targetClipId,
+							instanceWhenMissing: createSongInstance({
+								id: songInstanceId(projectSession.nextId('instance.material.ui')),
+								sourceLayerId: layer,
 								startTick: 0,
-								lengthTicks: pianoRoll.totalTicks
+								durationTicks: Math.max(
+									pianoRoll.totalTicks,
+									note.startTick + note.durationTicks
+								)
 							})
 						}
 					: {}),
@@ -60,14 +65,13 @@ export function usePianoRollActions(): {
 	)
 	const deleteNote = useCallback(
 		(id: string): void => {
-			const { layerId: layer, clipId: clip } = pianoRoll
-			if (layer === null || clip === null) return
+			const { layerId: layer } = pianoRoll
+			if (layer === null) return
 			const snapshot = projectSession.getSnapshot()
 			projectSession.dispatch({
 				type: 'note.delete',
 				baseRevision: snapshot.revision,
 				layerId: layer,
-				clipId: clip,
 				noteId: noteId(id)
 			})
 		},
@@ -75,8 +79,8 @@ export function usePianoRollActions(): {
 	)
 	const updateNote = useCallback(
 		(id: string, note: EditableNoteValues, options: PianoNoteUpdateOptions = {}): void => {
-			const { layerId: layer, clipId: clip } = pianoRoll
-			if (layer === null || clip === null) return
+			const { layerId: layer } = pianoRoll
+			if (layer === null) return
 			const snapshot = projectSession.getSnapshot()
 			if (
 				options.expectedRevision !== undefined &&
@@ -89,7 +93,6 @@ export function usePianoRollActions(): {
 					type: 'note.update',
 					baseRevision: snapshot.revision,
 					layerId: layer,
-					clipId: clip,
 					noteId: noteId(id),
 					pitch: note.pitch,
 					startTick: note.startTick,

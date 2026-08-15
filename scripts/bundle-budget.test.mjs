@@ -5,6 +5,7 @@ import {
 	evaluateBundleClass,
 	evaluateWebArtifacts,
 	stage7FeatureGrowthBudgets,
+	stage9FeatureGrowthBudgets,
 	webArtifactBudgets
 } from './bundle-budget.mjs'
 
@@ -12,9 +13,9 @@ describe('empty-shell bundle budgets', () => {
 	it('defines independent initial classes for both targets', () => {
 		assert.deepEqual(emptyShellBundleBudgets, {
 			'desktop-main': { root: 'dist/desktop/main', maxBytes: 229_376 },
-			'desktop-preload': { root: 'dist/desktop/preload', maxBytes: 61_440 },
-			'desktop-renderer': { root: 'dist/desktop/renderer', maxBytes: 655_360 },
-			web: { root: 'dist/web', maxBytes: 606_208 }
+			'desktop-preload': { root: 'dist/desktop/preload', maxBytes: 62_464 },
+			'desktop-renderer': { root: 'dist/desktop/renderer', maxBytes: 692_224 },
+			web: { root: 'dist/web', maxBytes: 651_264 }
 		})
 	})
 
@@ -26,10 +27,20 @@ describe('empty-shell bundle budgets', () => {
 		})
 	})
 
+	it('owns explicit Stage 9 editor and recording growth envelopes', () => {
+		assert.deepEqual(stage9FeatureGrowthBudgets, {
+			desktopPreload: 1_024,
+			desktopRenderer: 36_864,
+			webDeferredApplication: 16_384,
+			webInitialJavaScript: 20_480,
+			webShellOutput: 45_056
+		})
+	})
+
 	it('owns separate Web artifact ceilings', () => {
 		assert.deepEqual(webArtifactBudgets, {
-			initialJavaScript: 450_560,
-			deferredApplication: 81_920,
+			initialJavaScript: 471_040,
+			deferredApplication: 98_304,
 			webRuntimeJavaScript: 196_608,
 			workletJavaScript: 65_536,
 			wasmRelease: 786_432

@@ -5,14 +5,17 @@ use std::time::Instant;
 
 use rtrb::{Consumer, PopError, Producer, PushError};
 use tiempio_engine_core::{
-    CompositeVoiceBank, DrumInstrument, DrumKitPatch, DrumVoicePatch, EngineKernel, LayerSource,
-    MAX_SAFE_INTEGER, PreparedPlan, RenderPlan, SynthPatch, TransportState,
+    CompositeVoiceBank, DrumInstrument, DrumKitPatch, DrumVoicePatch, EngineControlError,
+    EngineKernel, LayerSource, MAX_SAFE_INTEGER, PreparedPlan, RenderPlan, SynthPatch,
+    TempoTimeline, TransportState,
 };
 use tiempio_engine_drums::DrumVoicePool;
 use tiempio_engine_dsp::{DspConfiguration, StereoFrame};
 use tiempio_engine_protocol::{
     ENGINE_PROTOCOL_MAX_BLOCK_FRAMES, ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES,
-    ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE, EngineEvent, PreviewProgramPayload,
+    ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE, ENGINE_PROTOCOL_MAX_RECORDING_COUNT_IN_BEATS,
+    ENGINE_PROTOCOL_MAX_RECORDING_HELD_INPUTS, EngineEvent, PreviewProgramPayload,
+    StartRecordingPayload,
 };
 use tiempio_engine_synth::SynthVoicePool;
 
@@ -22,6 +25,7 @@ pub const CONTROL_QUEUE_CAPACITY: usize = 128;
 pub const EVENT_QUEUE_CAPACITY: usize = 256;
 const MAX_COMMANDS_PER_BLOCK: usize = 64;
 const SNAPSHOTS_PER_SECOND: u64 = 30;
+const PENDING_CRITICAL_EVENT_CAPACITY: usize = ENGINE_PROTOCOL_MAX_RECORDING_HELD_INPUTS * 2 + 8;
 const PREVIEW_IDENTITY_FLAG: u64 = 1_u64 << 63;
 const PREVIEW_HASH_MASK: u64 = (1_u64 << 54) - 1;
 
@@ -98,6 +102,150 @@ impl PreviewId {
     pub fn as_str(&self) -> &str {
         std::str::from_utf8(&self.bytes[..usize::from(self.len)])
             .expect("PreviewId stores bytes copied from a UTF-8 string")
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RecordingIdentifier {
+    bytes: [u8; ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES],
+    len: u16,
+}
+
+impl RecordingIdentifier {
+    #[must_use]
+    pub fn new(value: &str) -> Option<Self> {
+        let source = value.as_bytes();
+        if source.is_empty() || source.len() > ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES {
+            return None;
+        }
+        let mut bytes = [0_u8; ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES];
+        bytes[..source.len()].copy_from_slice(source);
+        Some(Self {
+            bytes,
+            len: u16::try_from(source.len()).ok()?,
+        })
+    }
+
+    #[must_use]
+    /// Returns the validated recording identifier.
+    ///
+    /// # Panics
+    ///
+    /// Panics only if this type's private UTF-8 construction invariant is broken.
+    pub fn as_str(&self) -> &str {
+        std::str::from_utf8(&self.bytes[..usize::from(self.len)])
+            .expect("RecordingIdentifier stores validated UTF-8")
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RecordingStopReason {
+    Stopped,
+    CountInCanceled,
+    Interrupted,
+}
+
+impl RecordingStopReason {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Stopped => "stopped",
+            Self::CountInCanceled => "count-in-canceled",
+            Self::Interrupted => "interrupted",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PreparedCountInBeat {
+    frame_offset: u64,
+    downbeat: bool,
+}
+
+#[derive(Debug)]
+pub struct PreparedRecording {
+    id: RecordingIdentifier,
+    start_tick: u64,
+    anchor_timeline_sample: u64,
+    count_in_frames: u64,
+    pre_roll_delay_frames: u64,
+    pre_roll_start_tick: u64,
+    beats: Box<[PreparedCountInBeat]>,
+}
+
+impl PreparedRecording {
+    #[must_use]
+    pub fn prepare(
+        payload: &StartRecordingPayload,
+        plan: &RenderPlan,
+        sample_rate: u32,
+    ) -> Option<Self> {
+        if plan.project_revision.value() != payload.project_revision {
+            return None;
+        }
+        let id = RecordingIdentifier::new(&payload.recording_id)?;
+        let timeline = TempoTimeline::new(plan, sample_rate).ok()?;
+        let meter = plan
+            .meter_map
+            .iter()
+            .rev()
+            .find(|point| point.tick <= payload.start_tick)?;
+        let beat_numerator = u64::from(plan.ticks_per_quarter).checked_mul(4)?;
+        let denominator = u64::from(meter.denominator);
+        if denominator == 0 || beat_numerator % denominator != 0 {
+            return None;
+        }
+        let ticks_per_beat = beat_numerator / denominator;
+        let total_beats =
+            usize::from(meter.numerator).checked_mul(usize::from(payload.count_in_bars))?;
+        if total_beats > ENGINE_PROTOCOL_MAX_RECORDING_COUNT_IN_BEATS {
+            return None;
+        }
+        let count_in_ticks = ticks_per_beat.checked_mul(u64::try_from(total_beats).ok()?)?;
+        let available_ticks = payload.start_tick.min(count_in_ticks);
+        let missing_ticks = count_in_ticks.saturating_sub(available_ticks);
+        let pre_roll_start_tick = payload.start_tick.saturating_sub(available_ticks);
+        let anchor_timeline_sample = timeline.tick_to_sample(payload.start_tick).ok()?;
+        let pre_roll_start_sample = timeline.tick_to_sample(pre_roll_start_tick).ok()?;
+        let missing_end_sample = timeline
+            .tick_to_sample(payload.start_tick.checked_add(missing_ticks)?)
+            .ok()?;
+        let pre_roll_delay_frames = missing_end_sample.checked_sub(anchor_timeline_sample)?;
+        let available_frames = anchor_timeline_sample.checked_sub(pre_roll_start_sample)?;
+        let count_in_frames = pre_roll_delay_frames.checked_add(available_frames)?;
+        let mut beats = Vec::with_capacity(total_beats);
+        for beat_index in 0..total_beats {
+            let virtual_offset_ticks =
+                ticks_per_beat.checked_mul(u64::try_from(beat_index).ok()?)?;
+            let frame_offset = if virtual_offset_ticks <= missing_ticks {
+                timeline
+                    .tick_to_sample(payload.start_tick.checked_add(virtual_offset_ticks)?)
+                    .ok()?
+                    .checked_sub(anchor_timeline_sample)?
+            } else {
+                let actual_tick = pre_roll_start_tick
+                    .checked_add(virtual_offset_ticks.checked_sub(missing_ticks)?)?;
+                pre_roll_delay_frames.checked_add(
+                    timeline
+                        .tick_to_sample(actual_tick)
+                        .ok()?
+                        .checked_sub(pre_roll_start_sample)?,
+                )?
+            };
+            beats.push(PreparedCountInBeat {
+                frame_offset,
+                downbeat: beat_index % usize::from(meter.numerator) == 0,
+            });
+        }
+        Some(Self {
+            id,
+            start_tick: payload.start_tick,
+            anchor_timeline_sample,
+            count_in_frames,
+            pre_roll_delay_frames,
+            pre_roll_start_tick,
+            beats: beats.into_boxed_slice(),
+        })
     }
 }
 
@@ -190,6 +338,7 @@ impl PreviewEndReason {
 pub enum RetiredRealtimeAllocation {
     Plan(PreparedPlan),
     Preview(PreparedPreview),
+    Recording(PreparedRecording),
 }
 
 #[derive(Debug)]
@@ -197,6 +346,42 @@ struct ActivePreview {
     prepared: PreparedPreview,
     cursor: usize,
     position: u64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RecordingPhase {
+    CountIn,
+    Recording,
+}
+
+impl RecordingPhase {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::CountIn => "count-in",
+            Self::Recording => "recording",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct HeldRecordingInput {
+    id: RecordingIdentifier,
+    voice_identifier: u64,
+    pitch: u8,
+    velocity: u8,
+    acknowledged: bool,
+}
+
+#[derive(Debug)]
+struct ActiveRecording {
+    prepared: PreparedRecording,
+    phase: RecordingPhase,
+    count_in_position: u64,
+    count_in_beat_cursor: usize,
+    recording_anchor_clock: u64,
+    previous_metronome_enabled: bool,
+    pre_roll_started: bool,
+    held: [Option<HeldRecordingInput>; ENGINE_PROTOCOL_MAX_RECORDING_HELD_INPUTS],
 }
 
 fn milliseconds_to_frames(milliseconds: u32, sample_rate: u32, round_up: bool) -> Option<u64> {
@@ -252,6 +437,23 @@ pub enum RealtimeCommand {
         preview_id: PreviewId,
         reason: PreviewEndReason,
     },
+    StartRecording(PreparedRecording),
+    RecordingNoteOn {
+        recording_id: RecordingIdentifier,
+        input_id: RecordingIdentifier,
+        voice_identifier: u64,
+        pitch: u8,
+        velocity: u8,
+        patch: SynthPatch,
+    },
+    RecordingNoteOff {
+        recording_id: RecordingIdentifier,
+        input_id: RecordingIdentifier,
+    },
+    StopRecording {
+        recording_id: RecordingIdentifier,
+        reason: RecordingStopReason,
+    },
     Shutdown,
 }
 
@@ -293,11 +495,83 @@ pub enum RealtimeEvent {
         preview_id: PreviewId,
         reason: PreviewEndReason,
     },
+    RecordingState {
+        recording_id: RecordingIdentifier,
+        state: RecordingPhase,
+        sample_position: u64,
+        source_tick: u64,
+        count_in_beats_remaining: u8,
+    },
+    RecordingInputApplied {
+        recording_id: RecordingIdentifier,
+        input_id: RecordingIdentifier,
+        active: bool,
+        pitch: u8,
+        velocity: u8,
+        sample_position: u64,
+        source_tick: u64,
+    },
+    RecordingStopped {
+        recording_id: RecordingIdentifier,
+        reason: RecordingStopReason,
+        sample_position: u64,
+        stop_tick: u64,
+    },
     RealtimeDiagnostic(RealtimeDiagnostic),
+}
+
+fn map_recording_event(event: &RealtimeEvent) -> Option<EngineEvent> {
+    match event {
+        RealtimeEvent::RecordingState {
+            recording_id,
+            state,
+            sample_position,
+            source_tick,
+            count_in_beats_remaining,
+        } => Some(EngineEvent::RecordingState {
+            recording_id: recording_id.as_str().to_owned(),
+            state: state.as_str().to_owned(),
+            sample_position: *sample_position,
+            source_tick: *source_tick,
+            count_in_beats_remaining: *count_in_beats_remaining,
+        }),
+        RealtimeEvent::RecordingInputApplied {
+            recording_id,
+            input_id,
+            active,
+            pitch,
+            velocity,
+            sample_position,
+            source_tick,
+        } => Some(EngineEvent::RecordingInputApplied {
+            recording_id: recording_id.as_str().to_owned(),
+            audition_id: input_id.as_str().to_owned(),
+            phase: if *active { "note-on" } else { "note-off" }.to_owned(),
+            pitch: *pitch,
+            velocity: *velocity,
+            sample_position: *sample_position,
+            source_tick: *source_tick,
+        }),
+        RealtimeEvent::RecordingStopped {
+            recording_id,
+            reason,
+            sample_position,
+            stop_tick,
+        } => Some(EngineEvent::RecordingStopped {
+            recording_id: recording_id.as_str().to_owned(),
+            reason: reason.as_str().to_owned(),
+            sample_position: *sample_position,
+            stop_tick: *stop_tick,
+        }),
+        _ => None,
+    }
 }
 
 #[must_use]
 pub fn map_realtime_event(event: RealtimeEvent) -> EngineEvent {
+    if let Some(recording_event) = map_recording_event(&event) {
+        return recording_event;
+    }
     match event {
         RealtimeEvent::PlanAcknowledged {
             project_revision,
@@ -347,6 +621,9 @@ pub fn map_realtime_event(event: RealtimeEvent) -> EngineEvent {
             preview_id: preview_id.as_str().to_owned(),
             reason: reason.as_str().to_owned(),
         },
+        RealtimeEvent::RecordingState { .. }
+        | RealtimeEvent::RecordingInputApplied { .. }
+        | RealtimeEvent::RecordingStopped { .. } => unreachable!("recording events map first"),
         RealtimeEvent::RealtimeDiagnostic(diagnostic) => match diagnostic {
             RealtimeDiagnostic::ControlFailure => EngineEvent::Diagnostic {
                 code: "engine.invalid-plan".to_owned(),
@@ -401,8 +678,9 @@ pub struct RealtimeEngine {
     signals: Arc<StreamSignals>,
     scratch: Box<[StereoFrame]>,
     pending_reclaims: [Option<RetiredRealtimeAllocation>; 2],
-    pending_critical_events: [Option<RealtimeEvent>; 4],
+    pending_critical_events: Box<[Option<RealtimeEvent>]>,
     active_preview: Option<ActivePreview>,
+    active_recording: Option<ActiveRecording>,
     frames_since_snapshot: u64,
     last_non_finite_replacements: u64,
 }
@@ -427,8 +705,9 @@ impl RealtimeEngine {
             scratch: vec![StereoFrame::default(); ENGINE_PROTOCOL_MAX_BLOCK_FRAMES]
                 .into_boxed_slice(),
             pending_reclaims: [None, None],
-            pending_critical_events: [None, None, None, None],
+            pending_critical_events: vec![None; PENDING_CRITICAL_EVENT_CAPACITY].into_boxed_slice(),
             active_preview: None,
+            active_recording: None,
             frames_since_snapshot: 0,
             last_non_finite_replacements: 0,
         }
@@ -559,6 +838,11 @@ impl RealtimeEngine {
             };
             let result = match command {
                 RealtimeCommand::PublishPlan(plan) => {
+                    if self.active_recording.is_some() {
+                        self.retire(RetiredRealtimeAllocation::Plan(plan));
+                        self.record_control_failure();
+                        continue;
+                    }
                     self.end_preview(PreviewEndReason::Interrupted);
                     match self.engine.publish_plan_reclaiming(plan) {
                         Ok(retired) => {
@@ -571,14 +855,17 @@ impl RealtimeEngine {
                     }
                 }
                 RealtimeCommand::Play(tick) => {
+                    self.stop_active_recording(RecordingStopReason::Interrupted);
                     self.end_preview(PreviewEndReason::Interrupted);
                     self.engine.play(tick)
                 }
                 RealtimeCommand::Stop => {
+                    self.stop_active_recording(RecordingStopReason::Interrupted);
                     self.engine.stop();
                     Ok(())
                 }
                 RealtimeCommand::Seek(tick) => {
+                    self.stop_active_recording(RecordingStopReason::Interrupted);
                     self.end_preview(PreviewEndReason::Interrupted);
                     self.engine.seek(tick)
                 }
@@ -595,45 +882,22 @@ impl RealtimeEngine {
                     self.engine.set_metronome_volume(volume);
                     Ok(())
                 }
-                RealtimeCommand::NoteOn {
-                    identifier,
-                    pitch,
-                    velocity,
-                    patch,
-                } => {
-                    self.end_preview(PreviewEndReason::Interrupted);
-                    self.engine
-                        .note_on_audition(identifier, pitch, velocity, &patch);
+                performance_command @ (RealtimeCommand::NoteOn { .. }
+                | RealtimeCommand::DrumHit { .. }
+                | RealtimeCommand::NoteOff(_)
+                | RealtimeCommand::StartPreview(_)
+                | RealtimeCommand::CancelPreview { .. }) => {
+                    self.apply_performance_command(performance_command);
                     Ok(())
                 }
-                RealtimeCommand::DrumHit {
-                    identifier,
-                    instrument,
-                    velocity,
-                    patch,
-                } => {
-                    self.start_drum_audition(identifier, instrument, velocity, &patch);
-                    Ok(())
-                }
-                RealtimeCommand::NoteOff(identifier) => {
-                    self.engine.note_off_audition(identifier);
-                    Ok(())
-                }
-                RealtimeCommand::StartPreview(prepared) => {
-                    self.start_preview(prepared);
-                    Ok(())
-                }
-                RealtimeCommand::CancelPreview { preview_id, reason } => {
-                    if self
-                        .active_preview
-                        .as_ref()
-                        .is_some_and(|active| active.prepared.id == preview_id)
-                    {
-                        self.end_preview(reason);
-                    }
-                    Ok(())
+                recording_command @ (RealtimeCommand::StartRecording(_)
+                | RealtimeCommand::RecordingNoteOn { .. }
+                | RealtimeCommand::RecordingNoteOff { .. }
+                | RealtimeCommand::StopRecording { .. }) => {
+                    self.apply_recording_command(recording_command)
                 }
                 RealtimeCommand::Shutdown => {
+                    self.stop_active_recording(RecordingStopReason::Interrupted);
                     self.end_preview(PreviewEndReason::Interrupted);
                     self.engine.shutdown();
                     self.signals.shutdown.store(true, Ordering::Release);
@@ -651,6 +915,90 @@ impl RealtimeEngine {
         }
     }
 
+    fn apply_performance_command(&mut self, command: RealtimeCommand) {
+        match command {
+            RealtimeCommand::NoteOn {
+                identifier,
+                pitch,
+                velocity,
+                patch,
+            } => {
+                self.end_preview(PreviewEndReason::Interrupted);
+                self.engine
+                    .note_on_audition(identifier, pitch, velocity, &patch);
+            }
+            RealtimeCommand::DrumHit {
+                identifier,
+                instrument,
+                velocity,
+                patch,
+            } => self.start_drum_audition(identifier, instrument, velocity, &patch),
+            RealtimeCommand::NoteOff(identifier) => self.engine.note_off_audition(identifier),
+            RealtimeCommand::StartPreview(prepared) => {
+                self.stop_active_recording(RecordingStopReason::Interrupted);
+                self.start_preview(prepared);
+            }
+            RealtimeCommand::CancelPreview { preview_id, reason } => {
+                if self
+                    .active_preview
+                    .as_ref()
+                    .is_some_and(|active| active.prepared.id == preview_id)
+                {
+                    self.end_preview(reason);
+                }
+            }
+            _ => unreachable!("performance dispatcher received another command"),
+        }
+    }
+
+    fn apply_recording_command(
+        &mut self,
+        command: RealtimeCommand,
+    ) -> Result<(), EngineControlError> {
+        match command {
+            RealtimeCommand::StartRecording(prepared) => {
+                if self.active_recording.is_some() {
+                    self.retire(RetiredRealtimeAllocation::Recording(prepared));
+                    return Err(EngineControlError::RecordingConflict);
+                }
+                self.start_recording(prepared);
+            }
+            RealtimeCommand::RecordingNoteOn {
+                recording_id,
+                input_id,
+                voice_identifier,
+                pitch,
+                velocity,
+                patch,
+            } => self.recording_note_on(
+                recording_id,
+                input_id,
+                voice_identifier,
+                pitch,
+                velocity,
+                &patch,
+            ),
+            RealtimeCommand::RecordingNoteOff {
+                recording_id,
+                input_id,
+            } => self.recording_note_off(recording_id, input_id),
+            RealtimeCommand::StopRecording {
+                recording_id,
+                reason,
+            } => {
+                if self
+                    .active_recording
+                    .as_ref()
+                    .is_some_and(|active| active.prepared.id == recording_id)
+                {
+                    self.stop_active_recording(reason);
+                }
+            }
+            _ => unreachable!("recording dispatcher received another command"),
+        }
+        Ok(())
+    }
+
     fn start_drum_audition(
         &mut self,
         identifier: u64,
@@ -663,6 +1011,168 @@ impl RealtimeEngine {
             .drum_hit_audition(identifier, instrument, velocity, patch);
     }
 
+    fn start_recording(&mut self, prepared: PreparedRecording) {
+        self.end_preview(PreviewEndReason::Interrupted);
+        self.engine.stop();
+        let previous_metronome_enabled = self.engine.metronome_enabled();
+        self.active_recording = Some(ActiveRecording {
+            prepared,
+            phase: RecordingPhase::CountIn,
+            count_in_position: 0,
+            count_in_beat_cursor: 0,
+            recording_anchor_clock: 0,
+            previous_metronome_enabled,
+            pre_roll_started: false,
+            held: [None; ENGINE_PROTOCOL_MAX_RECORDING_HELD_INPUTS],
+        });
+        self.apply_recording_boundaries();
+    }
+
+    fn recording_note_on(
+        &mut self,
+        recording_id: RecordingIdentifier,
+        input_id: RecordingIdentifier,
+        voice_identifier: u64,
+        pitch: u8,
+        velocity: u8,
+        synth_patch: &SynthPatch,
+    ) {
+        let Some(active) = self
+            .active_recording
+            .as_mut()
+            .filter(|active| active.prepared.id == recording_id)
+        else {
+            return;
+        };
+        if active.held.iter().flatten().any(|held| held.id == input_id) {
+            return;
+        }
+        let Some(slot) = active.held.iter_mut().find(|slot| slot.is_none()) else {
+            self.record_control_failure();
+            return;
+        };
+        let acknowledged = active.phase == RecordingPhase::Recording;
+        *slot = Some(HeldRecordingInput {
+            id: input_id,
+            voice_identifier,
+            pitch,
+            velocity,
+            acknowledged,
+        });
+        let anchor_timeline_sample = active.prepared.anchor_timeline_sample;
+        let anchor_render_clock = active.recording_anchor_clock;
+        self.engine
+            .note_on_audition(voice_identifier, pitch, velocity, synth_patch);
+        if acknowledged {
+            let sample_position = self.engine.render_clock();
+            let source_tick = self
+                .engine
+                .recording_tick(anchor_timeline_sample, anchor_render_clock)
+                .unwrap_or(active.prepared.start_tick);
+            self.emit_critical(&RealtimeEvent::RecordingInputApplied {
+                recording_id,
+                input_id,
+                active: true,
+                pitch,
+                velocity,
+                sample_position,
+                source_tick,
+            });
+        }
+    }
+
+    fn recording_note_off(
+        &mut self,
+        recording_id: RecordingIdentifier,
+        input_id: RecordingIdentifier,
+    ) {
+        let Some(active) = self
+            .active_recording
+            .as_mut()
+            .filter(|active| active.prepared.id == recording_id)
+        else {
+            return;
+        };
+        let Some(slot) = active
+            .held
+            .iter_mut()
+            .find(|slot| slot.as_ref().is_some_and(|held| held.id == input_id))
+        else {
+            return;
+        };
+        let held = slot.take().expect("matched held recording input");
+        let anchor_timeline_sample = active.prepared.anchor_timeline_sample;
+        let anchor_render_clock = active.recording_anchor_clock;
+        let fallback_tick = active.prepared.start_tick;
+        self.engine.note_off_audition(held.voice_identifier);
+        if held.acknowledged {
+            let sample_position = self.engine.render_clock();
+            let source_tick = self
+                .engine
+                .recording_tick(anchor_timeline_sample, anchor_render_clock)
+                .unwrap_or(fallback_tick)
+                .max(fallback_tick);
+            self.emit_critical(&RealtimeEvent::RecordingInputApplied {
+                recording_id,
+                input_id,
+                active: false,
+                pitch: held.pitch,
+                velocity: held.velocity,
+                sample_position,
+                source_tick,
+            });
+        }
+    }
+
+    fn stop_active_recording(&mut self, requested_reason: RecordingStopReason) {
+        let Some(active) = self.active_recording.take() else {
+            return;
+        };
+        let reason = if active.phase == RecordingPhase::CountIn
+            && requested_reason == RecordingStopReason::Stopped
+        {
+            RecordingStopReason::CountInCanceled
+        } else {
+            requested_reason
+        };
+        let sample_position = self.engine.render_clock();
+        let stop_tick = if active.phase == RecordingPhase::Recording {
+            self.engine
+                .recording_tick(
+                    active.prepared.anchor_timeline_sample,
+                    active.recording_anchor_clock,
+                )
+                .unwrap_or(active.prepared.start_tick)
+                .max(active.prepared.start_tick)
+        } else {
+            active.prepared.start_tick
+        };
+        for held in active.held.into_iter().flatten() {
+            self.engine.note_off_audition(held.voice_identifier);
+            if held.acknowledged {
+                self.emit_critical(&RealtimeEvent::RecordingInputApplied {
+                    recording_id: active.prepared.id,
+                    input_id: held.id,
+                    active: false,
+                    pitch: held.pitch,
+                    velocity: held.velocity,
+                    sample_position,
+                    source_tick: stop_tick,
+                });
+            }
+        }
+        self.engine.stop();
+        self.engine
+            .set_metronome_enabled(active.previous_metronome_enabled);
+        self.emit_critical(&RealtimeEvent::RecordingStopped {
+            recording_id: active.prepared.id,
+            reason,
+            sample_position,
+            stop_tick,
+        });
+        self.retire(RetiredRealtimeAllocation::Recording(active.prepared));
+    }
+
     fn has_pending_delivery(&self) -> bool {
         self.pending_reclaims.iter().any(Option::is_some)
             || self.pending_critical_events.iter().any(Option::is_some)
@@ -671,10 +1181,11 @@ impl RealtimeEngine {
     fn render_with_preview(&mut self, frame_count: usize) {
         let mut rendered = 0_usize;
         while rendered < frame_count {
+            self.apply_recording_boundaries();
             self.apply_preview_actions();
             self.complete_preview_if_due();
             let remaining = frame_count - rendered;
-            let chunk = self.active_preview.as_ref().map_or(remaining, |active| {
+            let preview_chunk = self.active_preview.as_ref().map_or(remaining, |active| {
                 let next_action = active
                     .prepared
                     .actions
@@ -687,14 +1198,18 @@ impl RealtimeEngine {
                     .unwrap_or(remaining)
                     .min(remaining)
             });
+            let recording_chunk = self.recording_boundary_distance(remaining);
+            let chunk = preview_chunk.min(recording_chunk);
             if chunk == 0 {
+                self.apply_recording_boundaries();
                 self.complete_preview_if_due();
-                if self.active_preview.is_none() {
+                if self.active_preview.is_none() && self.active_recording.is_none() {
                     continue;
                 }
-                // A validated program always advances after actions at the current boundary.
+                // Validated preview and recording schedules always advance at a boundary.
                 self.record_control_failure();
                 self.end_preview(PreviewEndReason::Interrupted);
+                self.stop_active_recording(RecordingStopReason::Interrupted);
                 continue;
             }
             self.engine
@@ -704,10 +1219,165 @@ impl RealtimeEngine {
                     .position
                     .saturating_add(u64::try_from(chunk).unwrap_or(u64::MAX));
             }
+            if let Some(active) = self
+                .active_recording
+                .as_mut()
+                .filter(|active| active.phase == RecordingPhase::CountIn)
+            {
+                active.count_in_position = active
+                    .count_in_position
+                    .saturating_add(u64::try_from(chunk).unwrap_or(u64::MAX));
+            }
             rendered += chunk;
         }
+        self.apply_recording_boundaries();
         self.apply_preview_actions();
         self.complete_preview_if_due();
+    }
+
+    fn recording_boundary_distance(&self, remaining: usize) -> usize {
+        let Some(active) = self
+            .active_recording
+            .as_ref()
+            .filter(|active| active.phase == RecordingPhase::CountIn)
+        else {
+            return remaining;
+        };
+        let position = active.count_in_position;
+        let mut next = active.prepared.count_in_frames;
+        if !active.pre_roll_started {
+            next = next.min(active.prepared.pre_roll_delay_frames);
+        }
+        if let Some(beat) = active.prepared.beats.get(active.count_in_beat_cursor) {
+            next = next.min(beat.frame_offset);
+        }
+        usize::try_from(next.saturating_sub(position))
+            .unwrap_or(remaining)
+            .min(remaining)
+    }
+
+    fn apply_recording_boundaries(&mut self) {
+        loop {
+            let Some(active) = self
+                .active_recording
+                .as_ref()
+                .filter(|active| active.phase == RecordingPhase::CountIn)
+            else {
+                return;
+            };
+            let position = active.count_in_position;
+            let beat = active
+                .prepared
+                .beats
+                .get(active.count_in_beat_cursor)
+                .copied()
+                .filter(|beat| beat.frame_offset <= position);
+            if let Some(beat) = beat {
+                let (recording_id, remaining) = {
+                    let active = self
+                        .active_recording
+                        .as_mut()
+                        .expect("count-in beat requires active recording");
+                    let remaining = active
+                        .prepared
+                        .beats
+                        .len()
+                        .saturating_sub(active.count_in_beat_cursor);
+                    active.count_in_beat_cursor += 1;
+                    (
+                        active.prepared.id,
+                        u8::try_from(remaining).unwrap_or(u8::MAX),
+                    )
+                };
+                self.engine.trigger_recording_metronome(beat.downbeat);
+                let source_tick = self.engine.transport_tick().unwrap_or(0);
+                self.emit_critical(&RealtimeEvent::RecordingState {
+                    recording_id,
+                    state: RecordingPhase::CountIn,
+                    sample_position: self.engine.render_clock(),
+                    source_tick,
+                    count_in_beats_remaining: remaining,
+                });
+                continue;
+            }
+            let should_start_pre_roll = !active.pre_roll_started
+                && active.count_in_position >= active.prepared.pre_roll_delay_frames;
+            if should_start_pre_roll {
+                let start_tick = active.prepared.pre_roll_start_tick;
+                if self.engine.play(start_tick).is_err() {
+                    self.record_control_failure();
+                    self.stop_active_recording(RecordingStopReason::Interrupted);
+                    return;
+                }
+                if let Some(active) = self.active_recording.as_mut() {
+                    active.pre_roll_started = true;
+                }
+                continue;
+            }
+            if active.count_in_position >= active.prepared.count_in_frames {
+                self.begin_recording_at_boundary();
+                continue;
+            }
+            return;
+        }
+    }
+
+    fn begin_recording_at_boundary(&mut self) {
+        let Some(active) = self.active_recording.as_ref() else {
+            return;
+        };
+        let start_tick = active.prepared.start_tick;
+        if self.engine.play(start_tick).is_err() {
+            self.record_control_failure();
+            self.stop_active_recording(RecordingStopReason::Interrupted);
+            return;
+        }
+        let recording_anchor_clock = self.engine.render_clock();
+        let (recording_id, anchor_timeline_sample, previous_metronome_enabled, held_events) = {
+            let active = self
+                .active_recording
+                .as_mut()
+                .expect("recording boundary requires active recording");
+            active.phase = RecordingPhase::Recording;
+            active.recording_anchor_clock = recording_anchor_clock;
+            let mut held_events = [None; ENGINE_PROTOCOL_MAX_RECORDING_HELD_INPUTS];
+            for (slot, held) in active.held.iter_mut().enumerate() {
+                if let Some(held) = held.as_mut() {
+                    held.acknowledged = true;
+                    held_events[slot] = Some(*held);
+                }
+            }
+            (
+                active.prepared.id,
+                active.prepared.anchor_timeline_sample,
+                active.previous_metronome_enabled,
+                held_events,
+            )
+        };
+        self.engine
+            .set_metronome_enabled(previous_metronome_enabled);
+        for held in held_events.into_iter().flatten() {
+            self.emit_critical(&RealtimeEvent::RecordingInputApplied {
+                recording_id,
+                input_id: held.id,
+                active: true,
+                pitch: held.pitch,
+                velocity: held.velocity,
+                sample_position: recording_anchor_clock,
+                source_tick: start_tick,
+            });
+        }
+        let source_tick = self
+            .engine
+            .recording_tick(anchor_timeline_sample, recording_anchor_clock)
+            .unwrap_or(start_tick);
+        self.emit_critical(&RealtimeEvent::RecordingState {
+            recording_id,
+            state: RecordingPhase::Recording,
+            sample_position: recording_anchor_clock,
+            source_tick,
+            count_in_beats_remaining: 0,
+        });
     }
 
     fn apply_preview_actions(&mut self) {
@@ -779,7 +1449,7 @@ impl RealtimeEngine {
             cursor: 0,
             position: 0,
         });
-        self.emit_critical(RealtimeEvent::PreviewStarted {
+        self.emit_critical(&RealtimeEvent::PreviewStarted {
             preview_id,
             duration_frames,
         });
@@ -804,7 +1474,7 @@ impl RealtimeEngine {
             }
         }
         let preview_id = active.prepared.id;
-        self.emit_critical(RealtimeEvent::PreviewEnded { preview_id, reason });
+        self.emit_critical(&RealtimeEvent::PreviewEnded { preview_id, reason });
         self.retire(RetiredRealtimeAllocation::Preview(active.prepared));
     }
 
@@ -822,8 +1492,8 @@ impl RealtimeEngine {
         self.record_control_failure();
     }
 
-    fn emit_critical(&mut self, event: RealtimeEvent) {
-        let event = match self.event_tx.push(event) {
+    fn emit_critical(&mut self, event: &RealtimeEvent) {
+        let event = match self.event_tx.push(*event) {
             Ok(()) => return,
             Err(PushError::Full(event)) => event,
         };
@@ -855,7 +1525,7 @@ impl RealtimeEngine {
             project_revision: acknowledgement.project_revision,
             plan_generation: acknowledgement.plan_generation,
         };
-        self.emit_critical(event);
+        self.emit_critical(&event);
     }
 
     fn publish_observations(&mut self, frame_count: usize) {
@@ -898,6 +1568,39 @@ impl RealtimeEngine {
             left_peak: left_peak.clamp(0.0, 1.0),
             right_peak: right_peak.clamp(0.0, 1.0),
         });
+        let recording_snapshot = self.active_recording.as_ref().map(|active| {
+            let source_tick = if active.phase == RecordingPhase::Recording {
+                self.engine
+                    .recording_tick(
+                        active.prepared.anchor_timeline_sample,
+                        active.recording_anchor_clock,
+                    )
+                    .unwrap_or(active.prepared.start_tick)
+            } else {
+                self.engine.transport_tick().unwrap_or(0)
+            };
+            RealtimeEvent::RecordingState {
+                recording_id: active.prepared.id,
+                state: active.phase,
+                sample_position: self.engine.render_clock(),
+                source_tick,
+                count_in_beats_remaining: if active.phase == RecordingPhase::CountIn {
+                    u8::try_from(
+                        active
+                            .prepared
+                            .beats
+                            .len()
+                            .saturating_sub(active.count_in_beat_cursor),
+                    )
+                    .unwrap_or(u8::MAX)
+                } else {
+                    0
+                },
+            }
+        });
+        if let Some(event) = recording_snapshot {
+            let _ = self.event_tx.push(event);
+        }
         let revision = self.signals.project_revision.load(Ordering::Acquire);
         if revision > 0 {
             let _ = self.event_tx.push(RealtimeEvent::Transport {

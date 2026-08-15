@@ -12,10 +12,11 @@ use tiempio_engine_protocol::{
     WEB_WORKLET_CAPABILITY_CODES, encode_event_body,
 };
 use tiempio_engine_realtime::{
-    AuditionPatch, CONTROL_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY, PreparedPreview, PreviewEndReason,
-    PreviewId, RealtimeCommand, RealtimeEngine, RealtimeEvent, RetiredRealtimeAllocation,
-    StreamSignals, audition_patch_for_layer, create_engine, drum_instrument_for_pitch,
-    map_realtime_event, stable_audition_identifier, synth_patch_for_layer,
+    AuditionPatch, CONTROL_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY, PreparedPreview,
+    PreparedRecording, PreviewEndReason, PreviewId, RealtimeCommand, RealtimeEngine, RealtimeEvent,
+    RecordingIdentifier, RecordingStopReason, RetiredRealtimeAllocation, StreamSignals,
+    audition_patch_for_layer, create_engine, drum_instrument_for_pitch, map_realtime_event,
+    stable_audition_identifier, synth_patch_for_layer,
 };
 
 pub const WEB_WORKLET_ABI_VERSION: u32 = 1;
@@ -37,6 +38,7 @@ struct WebWorkletEngine {
     signals: Arc<StreamSignals>,
     latest_plan: Option<RenderPlan>,
     latest_generation: u64,
+    recording_target: Option<(String, String)>,
     pending_events: VecDeque<EngineEvent>,
     next_event_sequence: u64,
     command_buffer: Box<[u8]>,
@@ -72,6 +74,7 @@ impl WebWorkletEngine {
             signals,
             latest_plan: None,
             latest_generation: 0,
+            recording_target: None,
             pending_events: VecDeque::with_capacity(EVENT_QUEUE_CAPACITY),
             next_event_sequence: 0,
             command_buffer: vec![0_u8; ENGINE_PROTOCOL_MAX_FRAME_BYTES].into_boxed_slice(),
@@ -114,16 +117,7 @@ impl WebWorkletEngine {
         match command {
             EngineCommand::Handshake(handshake) => self.handshake(handshake.peer),
             EngineCommand::ConfigureAudio(configuration) => self.configure_audio(&configuration),
-            EngineCommand::StartAudio => {
-                if !self.configured {
-                    return self.diagnostic(
-                        "audio.configuration-unsupported",
-                        "Configure Web audio before starting output.",
-                    );
-                }
-                self.running = true;
-                self.queue_health()
-            }
+            EngineCommand::StartAudio => self.start_audio(),
             EngineCommand::StopAudio => {
                 self.running = false;
                 if self.push_realtime(RealtimeCommand::Stop) != ABI_OK {
@@ -131,23 +125,22 @@ impl WebWorkletEngine {
                 }
                 self.queue_health()
             }
-            EngineCommand::LoadRenderPlan(plan) => self.load_plan(plan),
-            EngineCommand::Play(payload) => {
-                self.push_realtime(RealtimeCommand::Play(payload.start_tick))
+            EngineCommand::LoadRenderPlan(plan) => {
+                if self.recording_target.is_some() {
+                    self.diagnostic(
+                        "engine.stale-revision",
+                        "Render-plan activation is held during recording.",
+                    )
+                } else {
+                    self.load_plan(plan)
+                }
             }
-            EngineCommand::Stop => self.push_realtime(RealtimeCommand::Stop),
-            EngineCommand::Seek(payload) => self.push_realtime(RealtimeCommand::Seek(payload.tick)),
-            EngineCommand::SetLoop(payload) => self.push_realtime(RealtimeCommand::SetLoop {
-                enabled: payload.enabled,
-                start_tick: payload.start_tick,
-                end_tick: payload.end_tick,
-            }),
-            EngineCommand::SetMetronomeEnabled(payload) => {
-                self.push_realtime(RealtimeCommand::SetMetronomeEnabled(payload.enabled))
-            }
-            EngineCommand::SetMetronomeVolume(payload) => {
-                self.push_realtime(RealtimeCommand::SetMetronomeVolume(payload.volume))
-            }
+            playback_command @ (EngineCommand::Play(_)
+            | EngineCommand::Stop
+            | EngineCommand::Seek(_)
+            | EngineCommand::SetLoop(_)
+            | EngineCommand::SetMetronomeEnabled(_)
+            | EngineCommand::SetMetronomeVolume(_)) => self.dispatch_playback(playback_command),
             EngineCommand::NoteOn(payload) => self.note_on(
                 &payload.audition_id,
                 &payload.layer_id,
@@ -158,6 +151,7 @@ impl WebWorkletEngine {
                 stable_audition_identifier(&payload.audition_id),
             )),
             EngineCommand::StartPreview(payload) => {
+                self.recording_target = None;
                 let Some(patch) = self
                     .latest_plan
                     .as_ref()
@@ -184,6 +178,10 @@ impl WebWorkletEngine {
                     reason: PreviewEndReason::Canceled,
                 })
             }
+            recording_command @ (EngineCommand::StartRecording(_)
+            | EngineCommand::RecordingNoteOn(_)
+            | EngineCommand::RecordingNoteOff(_)
+            | EngineCommand::StopRecording(_)) => self.dispatch_recording(recording_command),
             EngineCommand::RequestDiagnostics => self.queue_health(),
             EngineCommand::Ping(payload) => {
                 if self.queue_event(EngineEvent::Pong {
@@ -195,6 +193,7 @@ impl WebWorkletEngine {
                 }
             }
             EngineCommand::Shutdown => {
+                self.recording_target = None;
                 self.running = false;
                 self.push_realtime(RealtimeCommand::Shutdown)
             }
@@ -207,6 +206,124 @@ impl WebWorkletEngine {
                 "protocol.unsupported-command",
                 "Command is unavailable in the Web AudioWorklet engine.",
             ),
+        }
+    }
+
+    fn start_audio(&mut self) -> u32 {
+        if !self.configured {
+            return self.diagnostic(
+                "audio.configuration-unsupported",
+                "Configure Web audio before starting output.",
+            );
+        }
+        self.running = true;
+        self.queue_health()
+    }
+
+    fn dispatch_playback(&mut self, command: EngineCommand) -> u32 {
+        match command {
+            EngineCommand::Play(payload) => {
+                self.recording_target = None;
+                self.push_realtime(RealtimeCommand::Play(payload.start_tick))
+            }
+            EngineCommand::Stop => {
+                self.recording_target = None;
+                self.push_realtime(RealtimeCommand::Stop)
+            }
+            EngineCommand::Seek(payload) => {
+                self.recording_target = None;
+                self.push_realtime(RealtimeCommand::Seek(payload.tick))
+            }
+            EngineCommand::SetLoop(payload) => self.push_realtime(RealtimeCommand::SetLoop {
+                enabled: payload.enabled,
+                start_tick: payload.start_tick,
+                end_tick: payload.end_tick,
+            }),
+            EngineCommand::SetMetronomeEnabled(payload) => {
+                self.push_realtime(RealtimeCommand::SetMetronomeEnabled(payload.enabled))
+            }
+            EngineCommand::SetMetronomeVolume(payload) => {
+                self.push_realtime(RealtimeCommand::SetMetronomeVolume(payload.volume))
+            }
+            _ => unreachable!("playback dispatcher received another command"),
+        }
+    }
+
+    fn dispatch_recording(&mut self, command: EngineCommand) -> u32 {
+        match command {
+            EngineCommand::StartRecording(payload) => {
+                if self.recording_target.is_some() {
+                    return self.diagnostic(
+                        "engine.limit-exceeded",
+                        "Only one recording session may be active.",
+                    );
+                }
+                let Some(plan) = self.latest_plan.as_ref() else {
+                    return self.diagnostic(
+                        "engine.invalid-plan",
+                        "Recording requires an active render plan.",
+                    );
+                };
+                let Some(prepared) = PreparedRecording::prepare(&payload, plan, self.sample_rate)
+                else {
+                    return self.diagnostic(
+                        "engine.invalid-plan",
+                        "Recording could not bind to the requested project revision and clock.",
+                    );
+                };
+                let target = (payload.recording_id.clone(), payload.layer_id.clone());
+                let result = self.push_realtime(RealtimeCommand::StartRecording(prepared));
+                if result == ABI_OK {
+                    self.recording_target = Some(target);
+                }
+                result
+            }
+            EngineCommand::RecordingNoteOn(payload) => self.recording_note_on(
+                &payload.recording_id,
+                &payload.audition_id,
+                payload.pitch,
+                payload.velocity,
+            ),
+            EngineCommand::RecordingNoteOff(payload) => {
+                if self
+                    .recording_target
+                    .as_ref()
+                    .is_none_or(|(recording_id, _)| recording_id != &payload.recording_id)
+                {
+                    return ABI_INVALID;
+                }
+                let (Some(recording_id), Some(input_id)) = (
+                    RecordingIdentifier::new(&payload.recording_id),
+                    RecordingIdentifier::new(&payload.audition_id),
+                ) else {
+                    return ABI_INVALID;
+                };
+                self.push_realtime(RealtimeCommand::RecordingNoteOff {
+                    recording_id,
+                    input_id,
+                })
+            }
+            EngineCommand::StopRecording(payload) => {
+                if self
+                    .recording_target
+                    .as_ref()
+                    .is_none_or(|(recording_id, _)| recording_id != &payload.recording_id)
+                {
+                    return ABI_INVALID;
+                }
+                let Some(recording_id) = RecordingIdentifier::new(&payload.recording_id) else {
+                    return ABI_INVALID;
+                };
+                let result = self.push_realtime(RealtimeCommand::StopRecording {
+                    recording_id,
+                    reason: RecordingStopReason::Stopped,
+                });
+                if result == ABI_OK {
+                    self.recording_target = None;
+                }
+                result
+            }
+            _ => unreachable!("recording dispatcher received another command"),
         }
     }
 
@@ -295,6 +412,54 @@ impl WebWorkletEngine {
                 })
             }
         }
+    }
+
+    fn recording_note_on(
+        &mut self,
+        recording_id: &str,
+        audition_id: &str,
+        midi_pitch: u8,
+        velocity: u8,
+    ) -> u32 {
+        let Some((_, layer_id)) = self
+            .recording_target
+            .as_ref()
+            .filter(|(active_id, _)| active_id == recording_id)
+        else {
+            return ABI_INVALID;
+        };
+        let Some(voice_patch) = self
+            .latest_plan
+            .as_ref()
+            .and_then(|plan| synth_patch_for_layer(plan, layer_id))
+        else {
+            return self.diagnostic("engine.invalid-plan", "Recording requires a synth layer.");
+        };
+        self.push_recording_note_on(recording_id, audition_id, midi_pitch, velocity, voice_patch)
+    }
+
+    fn push_recording_note_on(
+        &mut self,
+        recording_id: &str,
+        audition_id: &str,
+        midi_pitch: u8,
+        velocity: u8,
+        voice_patch: tiempio_engine_core::SynthPatch,
+    ) -> u32 {
+        let (Some(recording_id), Some(input_id)) = (
+            RecordingIdentifier::new(recording_id),
+            RecordingIdentifier::new(audition_id),
+        ) else {
+            return ABI_INVALID;
+        };
+        self.push_realtime(RealtimeCommand::RecordingNoteOn {
+            recording_id,
+            input_id,
+            voice_identifier: stable_audition_identifier(audition_id),
+            pitch: midi_pitch,
+            velocity,
+            patch: voice_patch,
+        })
     }
 
     fn push_realtime(&mut self, command: RealtimeCommand) -> u32 {
@@ -600,6 +765,35 @@ mod tests {
         energy
     }
 
+    fn assert_engine_clock_recording(events: &[Value]) {
+        assert!(events.iter().any(|event| {
+            event["type"] == "recording-state"
+                && event["payload"]["state"] == "count-in"
+                && event["payload"]["countInBeatsRemaining"] == 4
+        }));
+        assert!(events.iter().any(|event| {
+            event["type"] == "recording-state"
+                && event["payload"]["state"] == "recording"
+                && event["payload"]["samplePosition"] == 96_128
+                && event["payload"]["sourceTick"] == 960
+        }));
+        assert!(events.iter().any(|event| {
+            event["type"] == "recording-input-applied"
+                && event["payload"]["phase"] == "note-on"
+                && event["payload"]["sourceTick"] == 960
+        }));
+        assert!(events.iter().any(|event| {
+            event["type"] == "recording-input-applied"
+                && event["payload"]["phase"] == "note-off"
+                && event["payload"]["sourceTick"] == 1_011
+        }));
+        assert!(events.iter().any(|event| {
+            event["type"] == "recording-stopped"
+                && event["payload"]["reason"] == "stopped"
+                && event["payload"]["stopTick"] == 1_016
+        }));
+    }
+
     #[test]
     fn raw_abi_is_bounded_and_rejects_invalid_configuration() {
         assert!(WebWorkletEngine::new(7_999, 128).is_none());
@@ -777,6 +971,99 @@ mod tests {
         );
         assert!(events.iter().any(|event| event["type"] == "preview-state"));
         assert!(events.iter().any(|event| event["type"] == "preview-ended"));
+    }
+
+    #[test]
+    fn recording_uses_the_engine_clock_across_count_in_and_held_input() {
+        let mut plan: Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/engine-protocol/valid-bass-plan.json"
+        ))
+        .unwrap();
+        plan["tempoMap"][0]["microBpm"] = json!(120_000_000);
+        let mut engine = configured_engine(48_000, 128);
+        assert_eq!(
+            send(
+                &mut engine,
+                &command(2, "load-render-plan", &json!({ "plan": plan })),
+            ),
+            ABI_OK
+        );
+        assert_eq!(
+            send(&mut engine, &command(3, "start-audio", &json!({}))),
+            ABI_OK
+        );
+        assert_eq!(engine.render(128), ABI_OK);
+        drain_events(&mut engine);
+
+        assert_eq!(
+            send(
+                &mut engine,
+                &command(
+                    4,
+                    "start-recording",
+                    &json!({
+                        "recordingId": "recording.web.clock",
+                        "layerId": "layer.bass",
+                        "projectRevision": 7,
+                        "startTick": 960,
+                        "countInBars": 1
+                    }),
+                ),
+            ),
+            ABI_OK
+        );
+        assert_eq!(engine.render(128), ABI_OK);
+        assert_eq!(
+            send(
+                &mut engine,
+                &command(
+                    5,
+                    "recording-note-on",
+                    &json!({
+                        "recordingId": "recording.web.clock",
+                        "auditionId": "input.web.1",
+                        "pitch": 45,
+                        "velocity": 101
+                    }),
+                ),
+            ),
+            ABI_OK
+        );
+        for _ in 0..749 {
+            assert_eq!(engine.render(128), ABI_OK);
+        }
+        for _ in 0..10 {
+            assert_eq!(engine.render(128), ABI_OK);
+        }
+        assert_eq!(
+            send(
+                &mut engine,
+                &command(
+                    6,
+                    "recording-note-off",
+                    &json!({
+                        "recordingId": "recording.web.clock",
+                        "auditionId": "input.web.1"
+                    }),
+                ),
+            ),
+            ABI_OK
+        );
+        assert_eq!(engine.render(128), ABI_OK);
+        assert_eq!(
+            send(
+                &mut engine,
+                &command(
+                    7,
+                    "stop-recording",
+                    &json!({ "recordingId": "recording.web.clock" }),
+                ),
+            ),
+            ABI_OK
+        );
+        assert_eq!(engine.render(128), ABI_OK);
+
+        assert_engine_clock_recording(&drain_events(&mut engine));
     }
 
     #[test]

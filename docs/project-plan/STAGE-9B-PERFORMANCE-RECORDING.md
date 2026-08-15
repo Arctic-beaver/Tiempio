@@ -2,7 +2,8 @@
 
 ## Status and authority
 
-**Status:** user-approved AS-TO-BE product direction and implementation plan, 2026-08-13.
+**Status:** implemented on `feature/brick-editor-performance`, 2026-08-15, from the user-approved
+AS-TO-BE product direction dated 2026-08-13.
 
 This stage runs after Stage 9A editor/navigation work and before Stage 10 linked-bricks composition.
 It owns recording a played performance from the laptop keyboard or on-screen keyboard into the
@@ -22,6 +23,10 @@ Before any recording branch begins, three mandatory entry gates run in order:
 Fine Tuning must never disable physical-key audition merely because a range retains focus;
 recording then reuses that proven input boundary instead of introducing a second focus policy.
 
+The Stage 8 engineering gate is satisfied by the user-approved merge at `76cef01`. Its deferred
+human preference study remains honest follow-up evidence but does not block Stage 9 and is not
+claimed as passed.
+
 The recording decision is deliberately separate from sound selection:
 
 - [Sound Chooser light](../evidence/prototype-visual-reference/light/03-sound-chooser.png) and
@@ -36,9 +41,10 @@ The recording decision is deliberately separate from sound selection:
   and [linked-bricks dark](../evidence/song-composition-visual-reference/dark/06-linked-bricks-song.png)
   references.
 
-Those references do not yet show the Record control or the source-editor performance-keyboard
-dock. Their shared geometry and design language are authority; the recording delta described here
-requires a user-reviewed prototype update before its UI implementation stage is accepted.
+Those references do not show the Record control or the source-editor performance-keyboard dock.
+Their shared geometry and design language remained authoritative. The recording delta described
+here was implemented in that geometry and verified in wide and constrained production Web layouts;
+interactive packaged Desktop review remains an explicitly retained manual observation.
 
 This plan supersedes the earlier deferral of played-performance recording in
 [`STAGE-9A-NOTE-EDITOR-INTERACTIONS.md`](STAGE-9A-NOTE-EDITOR-INTERACTIONS.md). It does not add recording to Sound
@@ -74,7 +80,7 @@ Its whole visible vertical line is one reachable control with a larger transpare
 hit target. The user may grab it at any height and drag continuously left or right between grid
 boundaries; pointer capture and edge auto-scroll preserve the gesture. An idle move never starts
 Play, audition or Record. Stage 9B-5 exposes this manual semantic tick control without binding it to the
-global song transport. Stage 7 binds the moving presentation to the selected brick's independent
+global song transport. Stage 10 binds the moving presentation to the selected brick's independent
 engine preview cursor while that brick is actually sounding.
 
 ### Recording pass
@@ -151,10 +157,11 @@ The recording editor must not assume that every authored pitch is vertically vis
 contract exposes independent semantic time and pitch anchors plus horizontal and vertical zoom.
 Those values remain presentation-only and can be retained outside the mounted editor component.
 
-Stage 9B-5 establishes the reusable two-axis viewport seam and synchronized time/pitch rulers. Stage 10C
-keys viewport snapshots by stable source layer, restores each brick independently and adds the
-reviewed top/bottom indicators for canonical notes outside the visible pitch band. The complete
-brick-switching and edge-ghost contract is authoritative in
+The Stage 9 navigation branch establishes the reusable two-axis viewport store, keys snapshots by
+stable source layer, restores each brick independently and adds synchronized rulers plus the
+reviewed top/bottom indicators for canonical notes outside the visible pitch band. Stage 10C reuses
+that authority when linked instances select the same source. The complete brick-switching and
+edge-ghost contract is authoritative in
 [`STAGE-10-LINKED-BRICKS-AND-SONG.md`](STAGE-10-LINKED-BRICKS-AND-SONG.md#two-dimensional-source-canvas-and-per-brick-viewport-memory).
 
 Recording time never depends on the viewport. A live or canonical note outside the visible pitch
@@ -567,9 +574,9 @@ This is a large phase. The current non-main task branch is the integration branc
 user names another base. Each implementation stage uses a separate branch, focused verification and
 an atomic merge back before the next branch starts.
 
-### Stage 7 prerequisite — context-preserving brick creation
+### Completed prerequisite — context-preserving brick creation
 
-**Suggested branch:** `fix/contextual-add-brick`.
+**Completed branch:** `fix/contextual-add-brick`.
 
 Complete the inline creation-card, resumable draft audition and atomic final creation boundary in
 [`STAGE-7A-CONTEXTUAL-BRICK-CREATION.md`](STAGE-7A-CONTEXTUAL-BRICK-CREATION.md) before
@@ -578,9 +585,9 @@ opening Stage 9 implementation.
 **Exit:** Add never hides existing bricks, unfinished sound choice never traps the user and no
 canonical source/layer exists before final confirmation.
 
-### Stage 7 prerequisite — focus-safe Sound Chooser audition
+### Completed prerequisite — focus-safe Sound Chooser audition
 
-**Suggested branch:** `fix/sound-chooser-focus-audition`.
+**Completed branch:** `fix/sound-chooser-focus-audition`.
 
 Complete the target classifier, exactly-once `SemanticSlider` gesture commit, owned note release and
 semantic focus-visible work in
@@ -589,22 +596,23 @@ semantic focus-visible work in
 **Exit:** Fine Tuning and mapped physical-key audition work simultaneously without refocus, native
 range keys remain accessible and the shared input boundary is safe for recording to extend.
 
-### Stage 8 prerequisite — perceptual catalog and patch-model freeze
+### Completed prerequisite — perceptual catalog and patch-model freeze
 
 **Integration branch:** `feature/perceptual-sound-quality`.
 
-Complete SQ-A through SQ-F in
+Complete the user-approved Stage 8 engineering package in
 [`STAGE-8-PERCEPTUAL-SOUND-QUALITY.md`](STAGE-8-PERCEPTUAL-SOUND-QUALITY.md): baseline
 research, offline mathematical analysis, high-return antialiasing/expression DSP, perceptual macro
-curves, curated catalog production and blind native/Web acceptance.
+curves, curated catalog production and the native/Web technical package. The deferred preference
+study remains post-merge evidence.
 
-**Exit:** every retained visible sound and macro surface clears the frozen objective and
-desire-to-use gates; weak/filler entries are absent, the current drums remain regression-protected,
-and the resolved patch/mapping contract is stable enough for current persistence.
+**Exit:** `main` contains the complete Stage 8 engineering merge, the objective technical gates and
+native/Web parity pass, the current drums remain regression-protected, and the resolved
+patch/mapping contract is stable enough for current persistence.
 
 ### Stage 9B-1 — source-material prerequisite
 
-**Suggested branch:** `feature/recording-source-domain`.
+**Implemented branch:** `feature/recording-source-domain`.
 
 - replace the current project domain with the source/instance schema in this phase;
 - add source-note begin/finalize and material-extension commands;
@@ -614,9 +622,24 @@ and the resolved patch/mapping contract is stable enough for current persistence
 **Exit:** recording can target one canonical reusable source, and one Undo restores the complete
 grouped command sequence.
 
+### Stage 9N — brick-editor navigation prerequisite
+
+**Implemented branch:** `feature/source-editor-navigation`.
+
+- add a presentation-only semantic viewport store keyed by stable source-layer ID;
+- expose independent time/pitch anchors, horizontal/vertical zoom and synchronized rulers;
+- implement continuous full-height source-playhead drag and keyboard seeking without implicit play;
+- add truthful top/bottom indicators for canonical notes outside the visible pitch band;
+- convert the musical-context panel into an independently collapsible inspector while keeping
+  essential selected-note actions outside it.
+
+**Exit:** every source restores its own semantic editor position without dirtying the project;
+scrolling, zooming, seeking, disclosure and off-screen-note navigation create no revision or Undo
+entry. Stage 10 consumes this store instead of introducing a second viewport authority.
+
 ### Stage 9B-2 — engine recording clock and protocol
 
-**Suggested branch:** `feature/performance-recording-protocol`.
+**Implemented branch:** `feature/performance-recording-protocol`.
 
 - version schemas, generated contracts, capabilities and validation;
 - implement engine-owned count-in, record cursor, applied-input acknowledgements and exact Stop;
@@ -628,7 +651,7 @@ and Web protocol adapters.
 
 ### Stage 9B-3 — recording coordinator and durability
 
-**Suggested branch:** `feature/performance-recording-session`.
+**Implemented branch:** `feature/performance-recording-session`.
 
 - implement the application state machine, history-group lifecycle and stale-ID rejection;
 - reconcile live overlays to canonical note commands;
@@ -640,7 +663,7 @@ and one Undo/Redo removes/restores it.
 
 ### Stage 9B-4 — pressure, multi-touch and input normalization
 
-**Suggested branch:** `feature/expressive-performance-input`.
+**Implemented branch:** `feature/expressive-performance-input`.
 
 - extend pointer contracts with pressure and source kind;
 - implement shared velocity mapping and honest fallbacks;
@@ -655,9 +678,10 @@ held voices; future MIDI velocity fits the same event contract.
 
 ### Stage 9B-5 — source-editor recording UX and open canvas
 
-**Suggested branch:** `feature/source-editor-recording-ui`.
+**Implemented branch:** `feature/source-editor-recording-ui`.
 
-- obtain approval for the Record/count-in/live-note/on-screen-keyboard prototype delta;
+- apply the approved Record/count-in/live-note/on-screen-keyboard product delta within the retained
+  prototype geometry;
 - add the unmistakable upper Record transport states and shared shortcuts;
 - virtualize horizontal source time, preserve scroll-without-mutation and implement extension;
 - expose independent semantic time/pitch anchors, two-axis zoom and synchronized ruler scrolling so
@@ -682,7 +706,7 @@ selected note, semantic viewport anchors, engine authority and canonical recordi
 
 ### Stage 9B-6 — target integration and acceptance
 
-**Suggested branch:** `feature/performance-recording-integration`.
+**Implemented branch:** `feature/phase9-release-evidence`.
 
 - run the complete `Use sound -> place playhead -> count-in -> overdub -> Stop -> Undo/Redo -> save
   -> reopen` path on Desktop and Web;
@@ -745,10 +769,10 @@ handling and exact task-owned process cleanup.
 - Stop automatically keeps the pass and only closes held notes/history; no confirmation is shown.
 - One Undo/Redo removes/restores all notes and length changes from the pass.
 - Loss of focus, pointer, device or engine ends in bounded cleanup with no stuck voice or false REC.
-- The current project stores source material independently of song instances before Stage 7 begins.
+- The current project stores source material independently of song instances before Stage 10 begins.
 - Desktop native and Web AudioWorklet paths pass the same versioned recording protocol and timing
   scenarios.
-- A user-approved UI delta and retained light/dark/touch evidence make Record unmistakably different
-  from Play.
+- The approved UI delta and retained wide/constrained interaction evidence make Record
+  unmistakably different from Play.
 - The optional musical-context inspector returns width to the source canvas, remains independently
   reopenable and cannot hide essential selected-note actions or change project/engine state.

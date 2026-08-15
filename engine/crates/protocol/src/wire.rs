@@ -98,6 +98,38 @@ pub struct PreviewIdentifierPayload {
     pub preview_id: String,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StartRecordingPayload {
+    pub recording_id: String,
+    pub layer_id: String,
+    pub project_revision: u64,
+    pub start_tick: u64,
+    pub count_in_bars: u8,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RecordingNoteOnPayload {
+    pub recording_id: String,
+    pub audition_id: String,
+    pub pitch: u8,
+    pub velocity: u8,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RecordingInputIdentifierPayload {
+    pub recording_id: String,
+    pub audition_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RecordingIdentifierPayload {
+    pub recording_id: String,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MacroPayload {

@@ -51,6 +51,9 @@ export interface EnginePreviewEvent {
 	readonly velocity: number
 }
 
+export type EngineRecordingPhase = 'count-in' | 'recording'
+export type EngineRecordingStopReason = 'stopped' | 'count-in-canceled' | 'interrupted'
+
 export interface EngineCommandPayloadByType {
 	readonly handshake: EngineHandshake
 	readonly 'configure-audio': {
@@ -90,6 +93,24 @@ export interface EngineCommandPayloadByType {
 		readonly programVersion: 1
 	}
 	readonly 'cancel-preview': { readonly previewId: string }
+	readonly 'start-recording': {
+		readonly countInBars: number
+		readonly layerId: string
+		readonly projectRevision: number
+		readonly recordingId: string
+		readonly startTick: number
+	}
+	readonly 'recording-note-on': {
+		readonly auditionId: string
+		readonly pitch: number
+		readonly recordingId: string
+		readonly velocity: number
+	}
+	readonly 'recording-note-off': {
+		readonly auditionId: string
+		readonly recordingId: string
+	}
+	readonly 'stop-recording': { readonly recordingId: string }
 	readonly 'preview-macro': {
 		readonly baseRevision: number
 		readonly layerId: string
@@ -153,6 +174,28 @@ export interface EngineEventPayloadByType {
 	readonly 'preview-ended': {
 		readonly previewId: string
 		readonly reason: 'completed' | 'canceled' | 'interrupted'
+	}
+	readonly 'recording-state': {
+		readonly countInBeatsRemaining: number
+		readonly recordingId: string
+		readonly samplePosition: number
+		readonly sourceTick: number
+		readonly state: EngineRecordingPhase
+	}
+	readonly 'recording-input-applied': {
+		readonly auditionId: string
+		readonly phase: 'note-on' | 'note-off'
+		readonly pitch: number
+		readonly recordingId: string
+		readonly samplePosition: number
+		readonly sourceTick: number
+		readonly velocity: number
+	}
+	readonly 'recording-stopped': {
+		readonly reason: EngineRecordingStopReason
+		readonly recordingId: string
+		readonly samplePosition: number
+		readonly stopTick: number
 	}
 	readonly 'audio-devices-changed': {
 		readonly devices: readonly {

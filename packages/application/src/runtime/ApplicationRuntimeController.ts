@@ -34,6 +34,7 @@ import {
 	silentApplicationMeter
 } from './ApplicationController.js'
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
+import { PerformanceRecordingCoordinator } from '../performance/performance-recording-coordinator.js'
 import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
 
 export interface ProjectDocumentCodec {
@@ -170,7 +171,9 @@ export class ApplicationRuntimeController implements ApplicationController {
 	readonly #runtime: ApplicationRuntime
 	public readonly performanceInput: PerformanceInputSession
 	public readonly previewCoordinator: AuditionPreviewCoordinator
+	public readonly recordingCoordinator: PerformanceRecordingCoordinator
 	#currentHandle: ProjectHandle | null = null
+	#closing = false
 	#disposed = false
 	#drumAuditionSequence = 0
 	#audioRetry: Promise<void> | null = null
@@ -218,13 +221,43 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.#runtime = runtime
 		this.#options = options
 		this.#projectSession = initialSession
-		this.performanceInput = new PerformanceInputSession({
-			noteOn: (auditionId, layerId, pitch, velocity) => {
-				this.previewCoordinator.interrupt()
-				this.#beginPerformanceNote(auditionId, layerId, pitch, velocity)
+		this.recordingCoordinator = new PerformanceRecordingCoordinator({
+			engine: {
+				noteOff: (payload) => this.#send('recording-note-off', payload),
+				noteOn: (payload) => this.#send('recording-note-on', payload),
+				start: (payload) => this.#send('start-recording', payload),
+				stop: (payload) => this.#send('stop-recording', payload)
 			},
-			noteOff: (auditionId) => {
-				this.#endPerformanceNote(auditionId)
+			onDiagnostic: (message) => {
+				this.#publish({
+					...this.#snapshot,
+					diagnostic: applicationError('PROJECT_INVALID', message)
+				})
+			},
+			onReleased: () => {
+				globalThis.queueMicrotask(() => {
+					if (!this.#closing && !this.#disposed && this.#snapshot.available) {
+						this.#schedulePlanPublish()
+					}
+				})
+			},
+			releaseInputs: () => this.performanceInput.releaseAll()
+		})
+		this.recordingCoordinator.bindSession(initialSession)
+		this.performanceInput = new PerformanceInputSession({
+			input: (event) => {
+				const { auditionId, layerId, pitch, velocity } = event
+				if (event.phase === 'note-off') {
+					if (this.recordingCoordinator.noteOff(auditionId)) return
+					this.#endPerformanceNote(auditionId)
+					return
+				}
+				this.previewCoordinator.interrupt()
+				if (this.recordingCoordinator.blocksPlanPublication()) {
+					this.recordingCoordinator.noteOn(layerId, auditionId, pitch, velocity)
+					return
+				}
+				this.#beginPerformanceNote(auditionId, layerId, pitch, velocity)
 			}
 		})
 		this.previewCoordinator = new AuditionPreviewCoordinator({
@@ -254,6 +287,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	public readonly getSnapshot = (): ApplicationControllerSnapshot => this.#snapshot
 
 	public bindProjectSession(session: ProjectSession, handle: ProjectHandle | null = null): void {
+		this.recordingCoordinator.stop()
 		this.previewCoordinator.interrupt()
 		this.performanceInput.releaseAll()
 		this.#finishPendingProjectPlanActivation(false, false)
@@ -264,6 +298,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.#projectGeneration += 1
 		this.#latestRequestedPlanVariant += 1
 		this.#projectSession = session
+		this.recordingCoordinator.bindSession(session)
 		this.#currentHandle = handle
 		this.#latestRequestedPlanRevision = session.getSnapshot().revision
 		this.#observedProjectRevision = session.getSnapshot().revision
@@ -502,6 +537,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	public togglePlayback(): void {
+		if (this.recordingCoordinator.stop()) return
 		if (this.#snapshot.playing) void this.#send('stop', {})
 		else {
 			this.previewCoordinator.interrupt()
@@ -510,11 +546,13 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	public stop(): void {
+		if (this.recordingCoordinator.stop()) return
 		void this.#send('stop', {})
 	}
 
 	public seek(tick: number): void {
 		if (!Number.isSafeInteger(tick) || tick < 0) return
+		if (this.recordingCoordinator.stop()) return
 		this.previewCoordinator.interrupt()
 		void this.#send('seek', { tick })
 	}
@@ -538,8 +576,33 @@ export class ApplicationRuntimeController implements ApplicationController {
 		void this.#send('set-metronome-volume', { volume: this.#metronomeVolume })
 	}
 
+	public async startRecording(
+		layerIdentity: string,
+		startTick: number,
+		countInBars = 1
+	): Promise<boolean> {
+		if (!this.#snapshot.available || this.#closing || this.#disposed) return false
+		if (this.#snapshot.playing) await this.#send('stop', {})
+		this.previewCoordinator.interrupt()
+		this.performanceInput.releaseAll()
+		await this.#publishLatestPlan()
+		if (!this.#snapshot.available || this.#disposed) return false
+		return this.recordingCoordinator.start({
+			countInBars,
+			layerId: layerIdentity,
+			startTick
+		})
+	}
+
+	public stopRecording(): boolean {
+		return this.recordingCoordinator.stop()
+	}
+
 	public prepareToClose(): void {
 		if (this.#disposed) return
+		this.#closing = true
+		this.recordingCoordinator.stop()
+		this.recordingCoordinator.failAtLastTrustedTick()
 		this.previewCoordinator.interrupt()
 		this.performanceInput.releaseAll()
 		this.#scheduleRecovery(true)
@@ -548,6 +611,9 @@ export class ApplicationRuntimeController implements ApplicationController {
 
 	public async dispose(): Promise<void> {
 		if (this.#disposed) return
+		this.#closing = true
+		this.recordingCoordinator.stop()
+		this.recordingCoordinator.failAtLastTrustedTick()
 		this.previewCoordinator.interrupt()
 		this.performanceInput.releaseAll()
 		this.#disposed = true
@@ -652,7 +718,6 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.#unsubscribeEngineEvents = client.onEvent((event) => this.#acceptEngineEvent(event))
 		this.#unsubscribeEngineFailures = client.onFailure((error) => {
 			this.previewCoordinator.reset()
-			this.performanceInput.releaseAll()
 			this.#setDiagnostic(error)
 		})
 	}
@@ -660,6 +725,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	async #retryAudio(activation: PreparedEngineActivation | null): Promise<void> {
 		if (this.#runtime.engine.availability !== 'available' || this.#disposed) return
 		try {
+			this.recordingCoordinator.failAtLastTrustedTick()
 			this.previewCoordinator.interrupt()
 			this.performanceInput.releaseAll()
 			this.#detachEngineListeners()
@@ -757,7 +823,15 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	#schedulePlanPublish(): void {
-		if (this.#client?.state !== 'ready' || this.#disposed || this.#planDrain !== null) return
+		if (
+			this.#client?.state !== 'ready' ||
+			this.#closing ||
+			this.#disposed ||
+			this.#planDrain !== null ||
+			this.recordingCoordinator.blocksPlanPublication()
+		) {
+			return
+		}
 		this.#planDrain = this.#drainPlans().finally(() => {
 			this.#planDrain = null
 			if (
@@ -773,10 +847,12 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	async #drainPlans(): Promise<void> {
+		if (this.recordingCoordinator.blocksPlanPublication()) return
 		let publishedGeneration = -1
 		let publishedRevision = -1
 		let publishedVariant = -1
 		do {
+			if (this.recordingCoordinator.blocksPlanPublication()) return
 			publishedGeneration = this.#projectGeneration
 			publishedRevision = this.#latestRequestedPlanRevision
 			publishedVariant = this.#latestRequestedPlanVariant
@@ -820,6 +896,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	async #publishLatestPlan(): Promise<void> {
+		if (this.recordingCoordinator.blocksPlanPublication()) return
 		this.#latestRequestedPlanRevision = this.#projectSession.getSnapshot().revision
 		this.#latestPlanGeneration = this.#projectGeneration
 		if (this.#planDrain !== null) await this.#planDrain
@@ -945,6 +1022,18 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	#acceptEngineEvent(event: AnyEngineEventEnvelope): void {
+		if (event.type === 'recording-state') {
+			this.recordingCoordinator.acceptState(event.payload)
+			return
+		}
+		if (event.type === 'recording-input-applied') {
+			this.recordingCoordinator.acceptInput(event.payload)
+			return
+		}
+		if (event.type === 'recording-stopped') {
+			this.recordingCoordinator.acceptStopped(event.payload)
+			return
+		}
 		if (event.type === 'meter-snapshot') {
 			if (!this.#snapshot.available || document.visibilityState !== 'visible') return
 			this.#publish({
@@ -1022,9 +1111,13 @@ export class ApplicationRuntimeController implements ApplicationController {
 
 	#acceptHealth(health: AudioHealthSnapshot): void {
 		const available = health.backendState === 'ready' && health.deviceState === 'available'
+		let recoveredRecording = false
 		if (!available) {
 			this.previewCoordinator.reset()
+			this.recordingCoordinator.failAtLastTrustedTick()
 			this.performanceInput.releaseAll()
+		} else {
+			recoveredRecording = this.recordingCoordinator.recover()
 		}
 		this.#publish({
 			...this.#snapshot,
@@ -1034,6 +1127,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 			meter: available ? this.#snapshot.meter : silentApplicationMeter,
 			playing: available ? this.#snapshot.playing : false
 		})
+		if (recoveredRecording) this.#schedulePlanPublish()
 	}
 
 	async #sendPlan(plan: EngineWireRenderPlan): Promise<boolean> {
@@ -1155,6 +1249,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 
 	#visibilityChanged = (): void => {
 		if (document.visibilityState === 'visible') return
+		this.recordingCoordinator.stop()
 		this.previewCoordinator.interrupt()
 		this.performanceInput.releaseAll()
 		this.#publish({ ...this.#snapshot, meter: silentApplicationMeter })
@@ -1173,12 +1268,14 @@ export class ApplicationRuntimeController implements ApplicationController {
 	}
 
 	#releasePerformanceInputBound = (): void => {
+		this.recordingCoordinator.stop()
 		this.previewCoordinator.interrupt()
 		this.performanceInput.releaseAll()
 	}
 
 	#setDiagnostic(error: ApplicationError): void {
 		this.previewCoordinator.reset()
+		this.recordingCoordinator.failAtLastTrustedTick()
 		this.performanceInput.releaseAll()
 		this.#publish({
 			...this.#snapshot,

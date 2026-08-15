@@ -12,6 +12,12 @@ ignored `artifacts/` directory.
 - `NOTE-EDITOR-INTERACTIONS.md` - retained evidence for the canonical Stage 9A note editing,
   gesture/history, meter and shortcut-settings contract
   and integrated Web acceptance evidence.
+- `STAGE-9B-RECORDING-PROTOCOL.md` - retained evidence for the bounded engine-clock recording
+  protocol, realtime count-in/input lifecycle and Native/Web AudioWorklet parity.
+- `STAGE-9B-RECORDING-SESSION.md` - retained evidence for coordinator-owned recording state,
+  grouped canonical history, recovery boundaries and render-plan publication hold.
+- `STAGE-9-RELEASE.md` - combined Stage 9 implementation, validation, browser interaction,
+  measured bundle and fresh unpacked Desktop package evidence.
 - `PRE-PHASE-6-PRODUCT-GATE.md` - collision-safe overlays, song palette and performance input,
   engine-owned previews, sound demo/wave, metronome, transport guidance, application branding and
   integrated Desktop/Web acceptance evidence.

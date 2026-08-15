@@ -6,7 +6,7 @@ import { requireLifecycleOwnership } from './lifecycle/ownership-guard.mjs'
 const ABI_OK = 0
 const ABI_INVALID = 1
 const ABI_QUEUE_FULL = 3
-const protocolVersion = 8
+const protocolVersion = 9
 const blockFrames = 128
 const webCapabilities = Object.freeze([
 	'protocol.typed-json',
@@ -19,6 +19,7 @@ const webCapabilities = Object.freeze([
 	'drums.procedural',
 	'audition.notes',
 	'preview.programs',
+	'recording.engine-clock',
 	'diagnostics.health',
 	'audio.web.worklet'
 ])
@@ -222,6 +223,60 @@ async function main() {
 		controls.destroy()
 	}
 
+	const recording = await createHarness()
+	try {
+		recording.handshakeAndConfigure()
+		recording.loadStartAndPlay(basePlan)
+		assert.equal(
+			recording.send('start-recording', {
+				recordingId: 'recording.wasm-parity',
+				layerId: 'layer.bass',
+				projectRevision: basePlan.projectRevision,
+				startTick: 960,
+				countInBars: 0
+			}),
+			ABI_OK
+		)
+		assert.equal(
+			recording.send('recording-note-on', {
+				recordingId: 'recording.wasm-parity',
+				auditionId: 'input.wasm-parity.1',
+				pitch: 45,
+				velocity: 101
+			}),
+			ABI_OK
+		)
+		recording.render(1)
+		const settledMemoryBytes = recording.memoryBytes
+		assert.equal(
+			recording.send('recording-note-off', {
+				recordingId: 'recording.wasm-parity',
+				auditionId: 'input.wasm-parity.1'
+			}),
+			ABI_OK
+		)
+		recording.render(1)
+		assert.equal(
+			recording.send('stop-recording', { recordingId: 'recording.wasm-parity' }),
+			ABI_OK
+		)
+		recording.render(1)
+		assert.equal(recording.memoryBytes, settledMemoryBytes)
+		const events = recording.drainEvents()
+		for (const required of [
+			'recording-state',
+			'recording-input-applied',
+			'recording-stopped'
+		]) {
+			assert.ok(
+				events.some((event) => event.type === required),
+				`missing ${required}`
+			)
+		}
+	} finally {
+		recording.destroy()
+	}
+
 	const failures = await createHarness()
 	try {
 		failures.handshakeAndConfigure()
@@ -253,7 +308,7 @@ async function main() {
 	}
 
 	console.log(
-		`PASS WebAssembly parity: ${String(synthMatrix.cases.length)} synth families, drums, controls and bounded failures (${String(wasmBytes.byteLength)} bytes).`
+		`PASS WebAssembly parity: ${String(synthMatrix.cases.length)} synth families, drums, controls, recording and bounded failures (${String(wasmBytes.byteLength)} bytes).`
 	)
 }
 

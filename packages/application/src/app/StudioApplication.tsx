@@ -19,6 +19,11 @@ export function StudioApplication(): JSX.Element {
 		controller.getSnapshot,
 		controller.getSnapshot
 	)
+	const recording = useSyncExternalStore(
+		controller.recordingCoordinator.subscribe,
+		controller.recordingCoordinator.getSnapshot,
+		controller.recordingCoordinator.getSnapshot
+	)
 	const projectSession = useProjectSession()
 	const navigation = useStudioNavigation()
 	const transportCommandHandlers = useTransportCommandHandlers()
@@ -58,14 +63,18 @@ export function StudioApplication(): JSX.Element {
 			canRedo: projectSession.snapshot.canRedo,
 			canUndo: projectSession.snapshot.canUndo,
 			engineAvailable: engine.available,
-			projectRevision: projectSession.snapshot.revision
+			projectRevision: projectSession.snapshot.revision,
+			recordingActive: ['starting', 'count-in', 'recording', 'stopping'].includes(
+				recording.phase
+			)
 		}),
 		[
 			navigation.state.activeDrawer,
 			projectSession.snapshot.canRedo,
 			projectSession.snapshot.canUndo,
 			projectSession.snapshot.revision,
-			engine.available
+			engine.available,
+			recording.phase
 		]
 	)
 

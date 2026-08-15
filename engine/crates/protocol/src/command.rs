@@ -9,12 +9,14 @@ use crate::render_plan::convert_render_plan;
 use crate::validation::{parse_payload, valid_identifier, validate_configuration, wire_safe};
 use crate::{
     AudioConfiguration, ENGINE_CAPABILITY_CODES, ENGINE_PROTOCOL_MAX_BATCH_ITEMS,
-    ENGINE_PROTOCOL_MAX_FRAME_BYTES, ENGINE_PROTOCOL_MAX_PAYLOAD_BYTES, ENGINE_PROTOCOL_VERSION,
-    EmptyPayload, EngineHandshake, HeartbeatPayload, IdentifierPayload, LoopPayload, MacroPayload,
+    ENGINE_PROTOCOL_MAX_FRAME_BYTES, ENGINE_PROTOCOL_MAX_PAYLOAD_BYTES,
+    ENGINE_PROTOCOL_MAX_RECORDING_COUNT_IN_BARS, ENGINE_PROTOCOL_VERSION, EmptyPayload,
+    EngineHandshake, HeartbeatPayload, IdentifierPayload, LoopPayload, MacroPayload,
     MetronomeEnabledPayload, MetronomeVolumePayload, NoteOnPayload, OfflineRenderPayload,
     PlayPayload, PreviewIdentifierPayload, PreviewProgramPayload, ProtocolDiagnostic,
-    ProtocolError, RawCommandEnvelope, RenderIdentifierPayload, RenderPlanDeltaChange,
-    RenderPlanDeltaPayload, TickPayload, WireRenderPlan,
+    ProtocolError, RawCommandEnvelope, RecordingIdentifierPayload, RecordingInputIdentifierPayload,
+    RecordingNoteOnPayload, RenderIdentifierPayload, RenderPlanDeltaChange, RenderPlanDeltaPayload,
+    StartRecordingPayload, TickPayload, WireRenderPlan,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -35,6 +37,10 @@ pub enum EngineCommand {
     NoteOff(IdentifierPayload),
     StartPreview(PreviewProgramPayload),
     CancelPreview(PreviewIdentifierPayload),
+    StartRecording(StartRecordingPayload),
+    RecordingNoteOn(RecordingNoteOnPayload),
+    RecordingNoteOff(RecordingInputIdentifierPayload),
+    StopRecording(RecordingIdentifierPayload),
     PreviewMacro(MacroPayload),
     CommitMacro(MacroPayload),
     RequestDiagnostics,
@@ -144,6 +150,35 @@ fn validate_preview(payload: &PreviewProgramPayload) -> Result<(), ProtocolError
             ));
         }
         previous_offset = event.offset_ms;
+    }
+    Ok(())
+}
+
+fn validate_recording_start(payload: &StartRecordingPayload) -> Result<(), ProtocolError> {
+    if !valid_identifier(&payload.recording_id)
+        || !valid_identifier(&payload.layer_id)
+        || !wire_safe(payload.project_revision)
+        || !wire_safe(payload.start_tick)
+        || usize::from(payload.count_in_bars) > ENGINE_PROTOCOL_MAX_RECORDING_COUNT_IN_BARS
+    {
+        return Err(ProtocolError::new(
+            ProtocolDiagnostic::InvalidEnvelope,
+            "Recording start payload is invalid.",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_recording_note_on(payload: &RecordingNoteOnPayload) -> Result<(), ProtocolError> {
+    if !valid_identifier(&payload.recording_id)
+        || !valid_identifier(&payload.audition_id)
+        || payload.pitch > 127
+        || !(1..=127).contains(&payload.velocity)
+    {
+        return Err(ProtocolError::new(
+            ProtocolDiagnostic::InvalidEnvelope,
+            "Recording note-on payload is invalid.",
+        ));
     }
     Ok(())
 }
@@ -369,6 +404,48 @@ fn decode_transport_command(
     Ok(Some(command))
 }
 
+fn decode_recording_command(
+    command_type: &str,
+    payload_value: &Value,
+) -> Result<Option<EngineCommand>, ProtocolError> {
+    let command = match command_type {
+        "start-recording" => {
+            let payload = parse_payload(payload_value, "Start recording")?;
+            validate_recording_start(&payload)?;
+            EngineCommand::StartRecording(payload)
+        }
+        "recording-note-on" => {
+            let payload = parse_payload(payload_value, "Recording note on")?;
+            validate_recording_note_on(&payload)?;
+            EngineCommand::RecordingNoteOn(payload)
+        }
+        "recording-note-off" => {
+            let payload: RecordingInputIdentifierPayload =
+                parse_payload(payload_value, "Recording note off")?;
+            if !valid_identifier(&payload.recording_id) || !valid_identifier(&payload.audition_id) {
+                return Err(ProtocolError::new(
+                    ProtocolDiagnostic::InvalidEnvelope,
+                    "Recording note-off payload is invalid.",
+                ));
+            }
+            EngineCommand::RecordingNoteOff(payload)
+        }
+        "stop-recording" => {
+            let payload: RecordingIdentifierPayload =
+                parse_payload(payload_value, "Stop recording")?;
+            if !valid_identifier(&payload.recording_id) {
+                return Err(ProtocolError::new(
+                    ProtocolDiagnostic::InvalidEnvelope,
+                    "Recording stop payload is invalid.",
+                ));
+            }
+            EngineCommand::StopRecording(payload)
+        }
+        _ => return Ok(None),
+    };
+    Ok(Some(command))
+}
+
 fn decode_service_command(
     command_type: &str,
     payload_value: &Value,
@@ -459,6 +536,7 @@ pub fn decode_command_body(body: &[u8]) -> Result<EngineCommandEnvelope, Protoco
     let raw = decode_raw_command(body)?;
     let command = decode_plan_command(&raw.command_type, &raw.payload)?
         .or(decode_transport_command(&raw.command_type, &raw.payload)?)
+        .or(decode_recording_command(&raw.command_type, &raw.payload)?)
         .or(decode_service_command(&raw.command_type, &raw.payload)?)
         .ok_or_else(|| {
             ProtocolError::new(

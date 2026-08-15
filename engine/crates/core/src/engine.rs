@@ -133,6 +133,7 @@ pub enum EngineControlError {
     ConfigurationMismatch,
     InvalidLoop,
     NoActivePlan,
+    RecordingConflict,
     StalePlan,
     Tempo(TempoError),
 }
@@ -219,6 +220,10 @@ impl MetronomeClick {
         if !self.enabled {
             return;
         }
+        self.trigger_forced(downbeat, sample_rate);
+    }
+
+    fn trigger_forced(&mut self, downbeat: bool, sample_rate: u32) {
         let frequency = if downbeat { 1_760.0 } else { 1_320.0 };
         self.phase = std::f64::consts::FRAC_PI_2;
         self.phase_increment = std::f64::consts::TAU * frequency / f64::from(sample_rate);
@@ -463,6 +468,16 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
         }
     }
 
+    #[must_use]
+    pub const fn metronome_enabled(&self) -> bool {
+        self.metronome.enabled
+    }
+
+    pub fn trigger_recording_metronome(&mut self, downbeat: bool) {
+        self.metronome
+            .trigger_forced(downbeat, self.configuration.sample_rate());
+    }
+
     pub fn set_metronome_volume(&mut self, volume: f64) {
         self.metronome.volume = volume.clamp(0.0, 1.0);
     }
@@ -510,6 +525,29 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
     #[must_use]
     pub const fn transport_sample_position(&self) -> u64 {
         self.transport.sample_position
+    }
+
+    #[must_use]
+    pub const fn render_clock(&self) -> u64 {
+        self.render_clock
+    }
+
+    /// Maps the current audio frame through a fixed recording anchor to the nearest source tick.
+    ///
+    /// # Errors
+    ///
+    /// Returns a stable error when no active plan exists or checked tempo arithmetic fails.
+    pub fn recording_tick(
+        &self,
+        anchor_timeline_sample: u64,
+        anchor_render_clock: u64,
+    ) -> Result<u64, EngineControlError> {
+        let plan = self.active_plan().ok_or(EngineControlError::NoActivePlan)?;
+        let elapsed = self.render_clock.saturating_sub(anchor_render_clock);
+        let sample = anchor_timeline_sample.saturating_add(elapsed);
+        plan.timeline()
+            .sample_to_tick_nearest(sample)
+            .map_err(EngineControlError::Tempo)
     }
 
     #[must_use]

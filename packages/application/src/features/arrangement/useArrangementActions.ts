@@ -1,10 +1,5 @@
 import { useCallback } from 'react'
-import {
-	clipId,
-	createDrumClip,
-	createMidiClip,
-	sectionId
-} from '../../../../project-core/src/index.js'
+import { createSongInstance, songInstanceId } from '../../../../project-core/src/index.js'
 import { useProjectSession } from '../../project/ProjectSessionContext.js'
 
 export function useArrangementActions(): {
@@ -19,36 +14,31 @@ export function useArrangementActions(): {
 				(candidate) => candidate.id === sectionValue
 			)
 			if (layer === undefined || section === undefined) return
-			const existing = layer.clips.find((clip) => clip.sectionId === section.id)
+			const existing = snapshot.project.song.instances.find(
+				(instance) =>
+					instance.sourceLayerId === layer.id &&
+					instance.startTick === section.startTick &&
+					instance.durationTicks === section.lengthTicks
+			)
 			if (active && existing !== undefined) {
 				projectSession.dispatch({
-					type: 'clip.delete',
+					type: 'song-instance.delete',
 					baseRevision: snapshot.revision,
-					layerId: layer.id,
-					clipId: existing.id
+					instanceId: existing.id
 				})
 				return
 			}
 			if (active) return
-			const id = clipId(projectSession.nextId('clip.arrangement.ui'))
+			const id = songInstanceId(projectSession.nextId('instance.arrangement.ui'))
 			projectSession.dispatch({
-				type: 'clip.place',
+				type: 'song-instance.place',
 				baseRevision: snapshot.revision,
-				layerId: layer.id,
-				clip:
-					layer.source.type === 'drum'
-						? createDrumClip({
-								id,
-								startTick: section.startTick,
-								lengthTicks: section.lengthTicks,
-								sectionId: sectionId(sectionValue)
-							})
-						: createMidiClip({
-								id,
-								startTick: section.startTick,
-								lengthTicks: section.lengthTicks,
-								sectionId: sectionId(sectionValue)
-							})
+				instance: createSongInstance({
+					id,
+					sourceLayerId: layer.id,
+					startTick: section.startTick,
+					durationTicks: section.lengthTicks
+				})
 			})
 		},
 		[projectSession]

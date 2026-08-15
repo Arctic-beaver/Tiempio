@@ -26,8 +26,8 @@ export interface SongPalettePanelProperties {
 function projectHasPitchedNotes(
 	project: ReturnType<typeof useProjectSession>['snapshot']['project']
 ): boolean {
-	return project.layers.some((layer) =>
-		layer.clips.some((clip) => clip.kind === 'midi' && clip.notes.length > 0)
+	return project.layers.some(
+		(layer) => layer.material.kind === 'midi' && layer.material.notes.length > 0
 	)
 }
 

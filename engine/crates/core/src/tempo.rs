@@ -111,6 +111,19 @@ impl TempoTimeline {
     ///
     /// Returns a stable error when checked inverse arithmetic overflows.
     pub fn sample_to_tick_floor(&self, sample: u64) -> Result<u64, TempoError> {
+        self.sample_to_tick(sample, false)
+    }
+
+    /// Projects an absolute sample position to the nearest deterministic musical tick.
+    ///
+    /// # Errors
+    ///
+    /// Returns a stable error when checked inverse arithmetic overflows.
+    pub fn sample_to_tick_nearest(&self, sample: u64) -> Result<u64, TempoError> {
+        self.sample_to_tick(sample, true)
+    }
+
+    fn sample_to_tick(&self, sample: u64, nearest: bool) -> Result<u64, TempoError> {
         let index = self
             .segments
             .partition_point(|segment| segment.start_sample <= sample)
@@ -126,8 +139,15 @@ impl TempoTimeline {
         let denominator = u128::from(self.sample_rate)
             .checked_mul(MICRO_MINUTE)
             .ok_or(TempoError::ArithmeticOverflow)?;
-        let delta_tick =
-            u64::try_from(numerator / denominator).map_err(|_| TempoError::ArithmeticOverflow)?;
+        let rounded_numerator = if nearest {
+            numerator
+                .checked_add(denominator / 2)
+                .ok_or(TempoError::ArithmeticOverflow)?
+        } else {
+            numerator
+        };
+        let delta_tick = u64::try_from(rounded_numerator / denominator)
+            .map_err(|_| TempoError::ArithmeticOverflow)?;
         segment
             .start_tick
             .checked_add(delta_tick)
@@ -205,6 +225,8 @@ mod tests {
         assert_eq!(timeline.tick_to_sample(960), Ok(24_000));
         assert_eq!(timeline.tick_to_sample(1_920), Ok(72_000));
         assert_eq!(timeline.sample_to_tick_floor(72_000), Ok(1_920));
+        assert_eq!(timeline.sample_to_tick_nearest(13), Ok(1));
+        assert_eq!(timeline.sample_to_tick_nearest(12), Ok(0));
     }
 
     #[test]

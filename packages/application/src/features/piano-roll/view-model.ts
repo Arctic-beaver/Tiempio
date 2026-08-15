@@ -21,9 +21,12 @@ export interface PianoRollViewModel {
 	readonly gridTicks: number
 	readonly meterDenominator: number
 	readonly meterNumerator: number
+	readonly materialEndTick: number
 	readonly notes: readonly PianoNoteViewModel[]
+	readonly performanceOctave: number
 	readonly palette: SongPalette
 	readonly pitches: readonly PianoPitchViewModel[]
+	readonly recommendedPitch: number
 	readonly startTick: number
 	readonly ticksPerBar: number
 	readonly ticksPerBeat: number
@@ -36,12 +39,15 @@ export const pianoRollViewModel: PianoRollViewModel = Object.freeze({
 	gridTicks: 240,
 	meterDenominator: 4,
 	meterNumerator: 4,
+	materialEndTick: 15_360,
 	startTick: 0,
 	ticksPerBeat: 960,
 	ticksPerBar: 3840,
 	ticksPerQuarter: 960,
 	totalTicks: 15_360,
+	performanceOctave: 3,
 	palette: songPalette({ tonic: 9, mode: 'minor' }),
+	recommendedPitch: 60,
 	pitches: Object.freeze(
 		Array.from({ length: 25 }, (_, row) => {
 			const pitch = 72 - row

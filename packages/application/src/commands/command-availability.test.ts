@@ -14,7 +14,8 @@ const baseContext: CommandAvailabilityContext = Object.freeze({
 	canRedo: false,
 	canUndo: false,
 	engineAvailable: false,
-	projectRevision: 0
+	projectRevision: 0,
+	recordingActive: false
 })
 
 const allHandlers: CommandHandlerMap = Object.freeze(
@@ -56,7 +57,8 @@ describe('command availability', () => {
 				canRedo: true,
 				canUndo: true,
 				engineAvailable: true,
-				projectRevision: 7
+				projectRevision: 7,
+				recordingActive: false
 			},
 			allHandlers
 		)
@@ -64,6 +66,12 @@ describe('command availability', () => {
 		assert.equal(ready['layout.close-drawer'].available, true)
 		assert.equal(ready['project.undo'].available, true)
 		assert.equal(ready['project.redo'].available, true)
+		const recording = resolveCommandStates(
+			{ ...baseContext, canRedo: true, canUndo: true, recordingActive: true },
+			allHandlers
+		)
+		assert.equal(recording['project.undo'].available, false)
+		assert.equal(recording['project.redo'].available, false)
 		assert.equal(
 			resolveCommandState(
 				'transport.toggle-loop',

@@ -1,5 +1,5 @@
-export const projectCoreVersion = 5 as const
-export const projectSchemaVersion = 5 as const
+export const projectCoreVersion = 6 as const
+export const projectSchemaVersion = 6 as const
 export const engineModelVersion = 4 as const
 export const patchModelVersion = 4 as const
 export const macroMappingVersion = 4 as const
@@ -7,14 +7,15 @@ export const defaultTicksPerQuarter = 960 as const
 
 export const projectLimits = Object.freeze({
 	maxAssets: 256,
-	maxClipsPerLayer: 512,
+	maxSongInstances: 4096,
 	maxDepth: 24,
-	maxDrumEventsPerClip: 4096,
+	maxDrumEventsPerMaterial: 4096,
 	maxIdLength: 128,
 	maxLayers: 128,
+	maxMaterialTick: defaultTicksPerQuarter * 4 * 4096,
 	maxNameLength: 128,
 	maxNodes: 200_000,
-	maxNotesPerClip: 8192,
+	maxNotesPerMaterial: 8192,
 	maxObjectKeys: 64,
 	maxSections: 256,
 	maxTextLength: 512,
@@ -23,7 +24,7 @@ export const projectLimits = Object.freeze({
 
 declare const projectIdBrand: unique symbol
 declare const layerIdBrand: unique symbol
-declare const clipIdBrand: unique symbol
+declare const songInstanceIdBrand: unique symbol
 declare const noteIdBrand: unique symbol
 declare const drumEventIdBrand: unique symbol
 declare const sectionIdBrand: unique symbol
@@ -33,7 +34,7 @@ declare const midiPitchBrand: unique symbol
 
 export type ProjectId = string & { readonly [projectIdBrand]: 'ProjectId' }
 export type LayerId = string & { readonly [layerIdBrand]: 'LayerId' }
-export type ClipId = string & { readonly [clipIdBrand]: 'ClipId' }
+export type SongInstanceId = string & { readonly [songInstanceIdBrand]: 'SongInstanceId' }
 export type NoteId = string & { readonly [noteIdBrand]: 'NoteId' }
 export type DrumEventId = string & { readonly [drumEventIdBrand]: 'DrumEventId' }
 export type SectionId = string & { readonly [sectionIdBrand]: 'SectionId' }
@@ -69,8 +70,8 @@ export function layerId(value: string): LayerId {
 	return opaqueId<LayerId>('LayerId', value)
 }
 
-export function clipId(value: string): ClipId {
-	return opaqueId<ClipId>('ClipId', value)
+export function songInstanceId(value: string): SongInstanceId {
+	return opaqueId<SongInstanceId>('SongInstanceId', value)
 }
 
 export function noteId(value: string): NoteId {
@@ -296,20 +297,17 @@ export interface DrumEvent {
 	readonly velocity: number
 }
 
-interface ProjectClipBase {
-	readonly id: ClipId
-	readonly lengthTicks: ProjectTick
-	readonly loop: boolean
-	readonly sectionId: SectionId | null
-	readonly startTick: ProjectTick
+interface SourceMaterialBase {
+	readonly materialLengthTicks: ProjectTick
+	readonly tailRestTicks: ProjectTick
 }
 
-export interface MidiClip extends ProjectClipBase {
+export interface MidiMaterial extends SourceMaterialBase {
 	readonly kind: 'midi'
 	readonly notes: readonly MidiNote[]
 }
 
-export interface DrumClip extends ProjectClipBase {
+export interface DrumMaterial extends SourceMaterialBase {
 	readonly character: DrumPatternCharacter
 	readonly density: number
 	readonly events: readonly DrumEvent[]
@@ -321,13 +319,29 @@ export interface DrumClip extends ProjectClipBase {
 	readonly swing: number
 }
 
-export type ProjectClip = MidiClip | DrumClip
+export interface ReferenceMaterial extends SourceMaterialBase {
+	readonly kind: 'reference'
+}
+
+export type LayerMaterial = MidiMaterial | DrumMaterial | ReferenceMaterial
+
+export interface SongInstance {
+	readonly durationTicks: ProjectTick
+	readonly id: SongInstanceId
+	readonly sourceLayerId: LayerId
+	readonly sourceOffsetTicks: ProjectTick
+	readonly startTick: ProjectTick
+}
+
+export interface ProjectSong {
+	readonly instances: readonly SongInstance[]
+}
 
 export interface ProjectLayer {
-	readonly clips: readonly ProjectClip[]
 	readonly exportIncluded: boolean
 	readonly gain: number
 	readonly id: LayerId
+	readonly material: LayerMaterial
 	readonly muted: boolean
 	readonly name: string
 	readonly pan: number
@@ -358,6 +372,7 @@ export interface ProjectDocument {
 	readonly projectId: ProjectId
 	readonly schemaVersion: typeof projectSchemaVersion
 	readonly sections: readonly ProjectSection[]
+	readonly song: ProjectSong
 	readonly title: string
 	readonly transport: ProjectTransport
 }

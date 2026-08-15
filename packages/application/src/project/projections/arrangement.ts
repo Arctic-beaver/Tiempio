@@ -23,7 +23,10 @@ export function projectArrangement({
 }: StudioProjectionContext): ArrangementProjection {
 	const endTick = project.sections.reduce(
 		(maximum, section) => Math.max(maximum, section.startTick + section.lengthTicks),
-		0
+		project.song.instances.reduce(
+			(maximum, instance) => Math.max(maximum, instance.startTick + instance.durationTicks),
+			0
+		)
 	)
 	return {
 		endTick,
@@ -51,8 +54,15 @@ export function projectArrangement({
 				id: layer.id,
 				labelKey: layerPresentation(layer).labelKey,
 				color: layerPresentation(layer).color,
-				sections: layer.clips.flatMap((clip) =>
-					clip.sectionId === null ? [] : [clip.sectionId]
+				sections: project.sections.flatMap((section) =>
+					project.song.instances.some(
+						(instance) =>
+							instance.sourceLayerId === layer.id &&
+							instance.startTick === section.startTick &&
+							instance.durationTicks === section.lengthTicks
+					)
+						? [section.id]
+						: []
 				)
 			}))
 	}

@@ -31,7 +31,7 @@ export function mountApplication(
 	const session = new ProjectSession(createSeedProject())
 	const controller =
 		options.createController?.(compatible.value, session) ??
-		createUnavailableApplicationController(compatible.value)
+		createUnavailableApplicationController(compatible.value, session)
 	createRoot(container).render(
 		createElement(ApplicationRoot, {
 			controller,

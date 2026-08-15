@@ -5,12 +5,13 @@ import {
 	compileEngineWireRenderPlan,
 	compileProjectRenderPlan,
 	createAssetReference,
-	createDrumClip,
+	createDrumMaterial,
 	createDrumEvent,
 	createLayer,
-	createMidiClip,
+	createMidiMaterial,
 	createMidiNote,
 	createProject,
+	createSongInstance,
 	type ProjectDocument
 } from './index.js'
 
@@ -18,38 +19,30 @@ function renderFixture(): ProjectDocument {
 	const base = createProject({ projectId: 'project.render', title: 'Render' })
 	const bass = {
 		...createLayer({ id: 'layer.bass', name: 'Bass', role: 'bass' }),
-		clips: [
-			createMidiClip({
-				id: 'clip.bass',
-				startTick: 960,
-				lengthTicks: 1920,
-				notes: [
-					createMidiNote({
-						id: 'note.late',
-						pitch: 40,
-						startTick: 480,
-						durationTicks: 480
-					}),
-					createMidiNote({
-						id: 'note.early',
-						pitch: 36,
-						startTick: 0,
-						durationTicks: 480
-					})
-				]
-			})
-		]
+		material: createMidiMaterial({
+			materialLengthTicks: 1920,
+			notes: [
+				createMidiNote({
+					id: 'note.late',
+					pitch: 40,
+					startTick: 480,
+					durationTicks: 480
+				}),
+				createMidiNote({
+					id: 'note.early',
+					pitch: 36,
+					startTick: 0,
+					durationTicks: 480
+				})
+			]
+		})
 	}
 	const drums = {
 		...createLayer({ id: 'layer.drums', name: 'Drums', role: 'rhythm' }),
-		clips: [
-			createDrumClip({
-				id: 'clip.drums',
-				startTick: 0,
-				lengthTicks: 3840,
-				events: [createDrumEvent({ id: 'event.kick', instrument: 'kick', step: 4 })]
-			})
-		]
+		material: createDrumMaterial({
+			materialLengthTicks: 3840,
+			events: [createDrumEvent({ id: 'event.kick', instrument: 'kick', step: 4 })]
+		})
 	}
 	const asset = createAssetReference({
 		id: 'asset.reference',
@@ -63,7 +56,27 @@ function renderFixture(): ProjectDocument {
 		role: 'reference',
 		assetId: assetId('asset.reference')
 	})
-	return { ...base, assets: [asset], layers: [reference, drums, bass] }
+	return {
+		...base,
+		assets: [asset],
+		layers: [reference, drums, bass],
+		song: {
+			instances: [
+				createSongInstance({
+					id: 'instance.drums',
+					sourceLayerId: drums.id,
+					startTick: 0,
+					durationTicks: 3840
+				}),
+				createSongInstance({
+					id: 'instance.bass',
+					sourceLayerId: bass.id,
+					startTick: 960,
+					durationTicks: 1920
+				})
+			]
+		}
+	}
 }
 
 describe('project render plan', () => {
@@ -109,7 +122,12 @@ describe('project render plan', () => {
 		const bassOnly = {
 			...fixture,
 			assets: [],
-			layers: fixture.layers.filter((layer) => layer.id === 'layer.bass')
+			layers: fixture.layers.filter((layer) => layer.id === 'layer.bass'),
+			song: {
+				instances: fixture.song.instances.filter(
+					(instance) => instance.sourceLayerId === 'layer.bass'
+				)
+			}
 		}
 		const projectPlan = compileProjectRenderPlan(bassOnly, 9)
 		assert.equal(projectPlan.status, 'ready')
@@ -122,7 +140,7 @@ describe('project render plan', () => {
 		assert.deepEqual(wire.plan.meterMap[0], { tick: 0, numerator: 4, denominator: 4 })
 		assert.equal(wire.plan.endTick, projectPlan.plan.endTick)
 		assert.equal(wire.plan.layers[0]?.source.type, 'subtractive-synth')
-		assert.equal(wire.plan.layers[0]?.events[0]?.id, 'note.early')
+		assert.match(wire.plan.layers[0]?.events[0]?.id ?? '', /^event\./u)
 	})
 
 	it('projects synth and procedural drum sources into one bounded wire plan', () => {
@@ -137,6 +155,25 @@ describe('project render plan', () => {
 			['subtractive-synth', 'procedural-drums']
 		)
 		const drumLayer = wire.plan.layers.find((layer) => layer.source.type === 'procedural-drums')
-		assert.equal(drumLayer?.events[0]?.id, 'event.kick')
+		assert.match(drumLayer?.events[0]?.id ?? '', /^event\./u)
+	})
+
+	it('loops source material across instances while retaining source identities', () => {
+		const result = compileProjectRenderPlan(renderFixture(), 1)
+		assert.equal(result.status, 'ready')
+		if (result.status !== 'ready') return
+		const bass = result.plan.layers.find((layer) => layer.id === 'layer.bass')
+		assert.equal(bass?.events.length, 2)
+		assert.deepEqual(
+			bass?.events.map((event) =>
+				event.type === 'midi-note'
+					? [event.instanceId, event.sourceEventId, event.startTick]
+					: null
+			),
+			[
+				['instance.bass', 'note.early', 960],
+				['instance.bass', 'note.late', 1440]
+			]
+		)
 	})
 })

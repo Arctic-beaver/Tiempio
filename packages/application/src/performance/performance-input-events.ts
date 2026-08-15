@@ -14,6 +14,7 @@ export interface PerformanceKeyboardEvent {
 	readonly repeat: boolean
 	readonly shiftKey: boolean
 	readonly target: EventTarget | null
+	readonly timeStamp: number
 	preventDefault(): void
 }
 
@@ -29,6 +30,8 @@ export interface PerformancePointerEvent {
 	readonly isPrimary: boolean
 	readonly pointerId: number
 	readonly pointerType: string
+	readonly pressure: number
+	readonly timeStamp: number
 	preventDefault(): void
 }
 
@@ -147,6 +150,39 @@ export function pointerPerformanceSource(pointerId: number): PerformanceSourceId
 	return performanceSourceId('pointer', pointerId)
 }
 
+export function midiPerformanceSource(
+	deviceIdentity: string,
+	channel: number,
+	pitch: number
+): PerformanceSourceId {
+	if (!Number.isSafeInteger(channel) || channel < 0 || channel > 15) {
+		throw new RangeError('MIDI channel must be an integer from 0 through 15.')
+	}
+	if (!Number.isSafeInteger(pitch) || pitch < 0 || pitch > 127) {
+		throw new RangeError('MIDI pitch must be an integer from 0 through 127.')
+	}
+	return performanceSourceId('midi', `${deviceIdentity}:${String(channel)}:${String(pitch)}`)
+}
+
+export function performancePointerVelocity(
+	pointerType: string,
+	pressure: number,
+	fallbackVelocity = 102
+): number {
+	if (!Number.isSafeInteger(fallbackVelocity) || fallbackVelocity < 1 || fallbackVelocity > 127) {
+		throw new RangeError('Fallback velocity must be an integer from 1 through 127.')
+	}
+	if (
+		(pointerType === 'touch' || pointerType === 'pen') &&
+		Number.isFinite(pressure) &&
+		pressure > 0
+	) {
+		const normalized = Math.min(1, Math.max(0, pressure))
+		return Math.min(127, Math.max(1, Math.round(1 + Math.sqrt(normalized) * 126)))
+	}
+	return fallbackVelocity
+}
+
 export function performanceKeyDown(
 	session: PerformanceInputSession,
 	ownerId: string,
@@ -166,16 +202,22 @@ export function performanceKeyDown(
 	) {
 		return false
 	}
-	const accepted = session.pressCode(ownerId, keyboardPerformanceSource(event.code), event.code)
+	const accepted = session.pressCode(
+		ownerId,
+		keyboardPerformanceSource(event.code),
+		event.code,
+		102,
+		event.timeStamp
+	)
 	if (accepted) event.preventDefault()
 	return accepted
 }
 
 export function performanceKeyUp(
 	session: PerformanceInputSession,
-	event: Pick<PerformanceKeyboardEvent, 'code' | 'preventDefault'>
+	event: Pick<PerformanceKeyboardEvent, 'code' | 'preventDefault' | 'timeStamp'>
 ): boolean {
-	const released = session.releaseSource(keyboardPerformanceSource(event.code))
+	const released = session.releaseSource(keyboardPerformanceSource(event.code), event.timeStamp)
 	if (released) event.preventDefault()
 	return released
 }
@@ -193,7 +235,17 @@ export function performancePointerDown(
 ): boolean {
 	if (!primaryPointer(event)) return false
 	const sourceId = pointerPerformanceSource(event.pointerId)
-	if (!session.pressCode(ownerId, sourceId, code)) return false
+	if (
+		!session.pressCode(
+			ownerId,
+			sourceId,
+			code,
+			performancePointerVelocity(event.pointerType, event.pressure),
+			event.timeStamp
+		)
+	) {
+		return false
+	}
 	try {
 		event.currentTarget.setPointerCapture(event.pointerId)
 	} catch {
@@ -206,9 +258,15 @@ export function performancePointerDown(
 
 export function performancePointerEnd(
 	session: PerformanceInputSession,
-	event: Pick<PerformancePointerEvent, 'currentTarget' | 'pointerId' | 'preventDefault'>
+	event: Pick<
+		PerformancePointerEvent,
+		'currentTarget' | 'pointerId' | 'preventDefault' | 'timeStamp'
+	>
 ): boolean {
-	const released = session.releaseSource(pointerPerformanceSource(event.pointerId))
+	const released = session.releaseSource(
+		pointerPerformanceSource(event.pointerId),
+		event.timeStamp
+	)
 	if (event.currentTarget.hasPointerCapture(event.pointerId)) {
 		event.currentTarget.releasePointerCapture(event.pointerId)
 	}

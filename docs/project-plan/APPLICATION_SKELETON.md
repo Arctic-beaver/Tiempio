@@ -2,10 +2,11 @@
 
 ## Status and ownership
 
-**Status:** implementation is complete through Stage 5 and the accepted product work delivered
-before Stage 6. Retained Desktop hardware/packaged observations remain documented. Stage 6 is the
-current implementation phase. Stages 7–16 are approved plans and have not started; Stage 12 recorder
-UI additionally requires its explicit user design approval before implementation.
+**Status:** implementation is complete through Stage 8 on `main`. Stage 9 is complete on the clean
+`feature/brick-editor-performance` integration branch and awaits review rather than a merge to
+`main`. Retained Desktop hardware/packaged observations remain documented. Stages 10–16 remain
+approved plans; Stage 12 recorder UI additionally requires its explicit user design approval before
+implementation.
 
 **Original planned integration branch:** `feature/application-skeleton`.
 
@@ -34,10 +35,10 @@ composite synth/drum engine rather than creating a Bass-only Web fork.
 | 3 - Project core and logical format | Complete; retained evidence exists |
 | 4 - Engine core and offline proof | Complete; retained evidence exists |
 | 5 - Desktop runtime | Implemented; automated acceptance complete, manual Windows hardware and packaged-GUI gates retained |
-| 6 - Web runtime | Implementation in progress in a separate task |
-| 7 - Creation flow and focus-safe audition | Approved plan; not started |
-| 8 - Perceptual sound quality and curated catalog | Approved plan; not started |
-| 9 - Brick editor and performance recording | Approved plan; not started |
+| 6 - Web runtime | Complete; retained evidence exists |
+| 7 - Creation flow and focus-safe audition | Complete; merged into `main` |
+| 8 - Perceptual sound quality and curated catalog | Engineering package complete; merged into `main`; human preference follow-up retained |
+| 9 - Brick editor and performance recording | Complete on `feature/brick-editor-performance`; fresh unpacked Desktop build retained |
 | 10 - Linked bricks and song composition | Approved plan; not started |
 | 11 - Empty starts, example song and rhythm library | Approved plan; not started |
 | 12 - Personal audio import and microphone recording | Approved architecture; recorder design review required |
@@ -668,15 +669,16 @@ the first note and never wraps at the old source end.
 ### Required order
 
 1. `feature/recording-source-domain` — current source material, instances and grouped commands;
-2. `feature/brick-editor-navigation` — two-axis canvas, ghosts, inspector, viewport memory and
-   continuous manual playhead;
+2. `feature/source-editor-navigation` — two-axis canvas, canonical off-screen indicators,
+   inspector, viewport memory and continuous manual playhead;
 3. `feature/performance-recording-protocol` — count-in, record cursor and applied-event acknowledgement;
 4. `feature/performance-recording-session` — coordinator, live reconciliation, history and recovery;
 5. `feature/expressive-performance-input` — configured keyboard velocity, pressure, multi-touch and
    MIDI-ready normalization;
 6. `feature/source-editor-recording-ui` — unmistakable Record states, open canvas, screen keys and
    scoped shortcuts;
-7. `feature/brick-editor-performance-integration` — Desktop/Web persistence, restart and evidence.
+7. `feature/phase9-release-evidence` — Desktop/Web persistence, restart, release evidence and a
+   fresh unpacked build.
 
 ### Exit criteria
 

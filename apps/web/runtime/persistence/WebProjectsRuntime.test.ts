@@ -327,7 +327,7 @@ describe('Web project persistence runtime', () => {
 		}
 
 		const corrupt = archiveBytes('Corrupt')
-		corrupt[Math.floor(corrupt.byteLength / 2)] ^= 0xff
+		corrupt[corrupt.byteLength - 1] ^= 0xff
 		test.files.openSelections.push({ file: new FakeFile(corrupt), handle: null })
 		const rejected = await test.projects.open()
 		assert.equal(rejected.ok, false)

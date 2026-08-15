@@ -1,6 +1,7 @@
 import { cloneAndFreeze } from './immutable.js'
 import {
 	enginePatchModelVersion,
+	engineProtocolLimits,
 	engineRenderPlanVersion,
 	engineTicksPerQuarter,
 	validateEngineWireRenderPlan,
@@ -11,7 +12,6 @@ import {
 } from '../../contracts/src/index.js'
 import {
 	defaultTicksPerQuarter,
-	type ClipId,
 	type DrumEventId,
 	type DrumInstrument,
 	type LayerId,
@@ -20,28 +20,31 @@ import {
 	type ProjectId,
 	type ProjectKey,
 	type ProjectLoop,
+	type SongInstanceId,
 	type ResolvedDrumKitPatch,
 	type ResolvedDrumVoicePatch,
 	type ResolvedSynthPatch
 } from './model.js'
 import { validateProjectDocument } from './validation.js'
 
-export const renderPlanVersion = 3 as const
+export const renderPlanVersion = 4 as const
 
 export interface RenderPlanMidiEvent {
-	readonly clipId: ClipId
 	readonly durationTicks: number
-	readonly id: NoteId
+	readonly id: string
+	readonly instanceId: SongInstanceId
 	readonly pitch: number
+	readonly sourceEventId: NoteId
 	readonly startTick: number
 	readonly type: 'midi-note'
 	readonly velocity: number
 }
 
 export interface RenderPlanDrumEvent {
-	readonly clipId: ClipId
-	readonly id: DrumEventId
+	readonly id: string
 	readonly instrument: DrumInstrument
+	readonly instanceId: SongInstanceId
+	readonly sourceEventId: DrumEventId
 	readonly startTick: number
 	readonly swing: number
 	readonly type: 'drum-hit'
@@ -141,36 +144,75 @@ function opaqueIdOrder(left: string, right: string): number {
 	return left < right ? -1 : left > right ? 1 : 0
 }
 
-function layerEvents(layer: ProjectDocument['layers'][number]): readonly RenderPlanEvent[] {
+function stableHash(value: string, seed: number): string {
+	let hash = seed >>> 0
+	for (let index = 0; index < value.length; index += 1) {
+		hash ^= value.charCodeAt(index)
+		hash = Math.imul(hash, 16_777_619)
+	}
+	return (hash >>> 0).toString(36)
+}
+
+function runtimeEventId(instanceId: string, sourceEventId: string, iteration: number): string {
+	const identity = `${instanceId}:${sourceEventId}`
+	return `event.${stableHash(identity, 2_166_136_261)}.${stableHash(identity, 3_332_777_319)}.${iteration.toString(36)}`
+}
+
+function layerEvents(
+	project: ProjectDocument,
+	layer: ProjectDocument['layers'][number]
+): readonly RenderPlanEvent[] | null {
 	const events: RenderPlanEvent[] = []
-	const clips = [...layer.clips].sort(
-		(left, right) => left.startTick - right.startTick || opaqueIdOrder(left.id, right.id)
-	)
-	for (const clip of clips) {
-		if (clip.kind === 'midi') {
-			for (const note of clip.notes) {
-				events.push({
-					type: 'midi-note',
-					id: note.id,
-					clipId: clip.id,
-					startTick: clip.startTick + note.startTick,
-					durationTicks: note.durationTicks,
-					pitch: note.pitch,
-					velocity: note.velocity
-				})
-			}
-		} else {
-			const ticksPerStep = defaultTicksPerQuarter / clip.pattern.stepsPerQuarter
-			for (const event of clip.events) {
-				events.push({
-					type: 'drum-hit',
-					id: event.id,
-					clipId: clip.id,
-					startTick: clip.startTick + event.step * ticksPerStep,
-					swing: clip.swing,
-					instrument: event.instrument,
-					velocity: event.velocity
-				})
+	const instances = project.song.instances
+		.filter((instance) => instance.sourceLayerId === layer.id)
+		.sort((left, right) => left.startTick - right.startTick || opaqueIdOrder(left.id, right.id))
+	const material = layer.material
+	const cycleTicks = material.materialLengthTicks + material.tailRestTicks
+	if (cycleTicks <= 0) return events
+	for (const instance of instances) {
+		const sourceWindowEnd = instance.sourceOffsetTicks + instance.durationTicks
+		for (let iteration = 0; iteration * cycleTicks < sourceWindowEnd; iteration += 1) {
+			const cycleStart = iteration * cycleTicks
+			if (material.kind === 'midi') {
+				for (const note of material.notes) {
+					const sourceStart = cycleStart + note.startTick
+					if (sourceStart < instance.sourceOffsetTicks || sourceStart >= sourceWindowEnd)
+						continue
+					const startTick = instance.startTick + sourceStart - instance.sourceOffsetTicks
+					const durationTicks = Math.min(
+						note.durationTicks,
+						instance.startTick + instance.durationTicks - startTick
+					)
+					if (events.length === engineProtocolLimits.maxMusicalEvents) return null
+					events.push({
+						type: 'midi-note',
+						id: runtimeEventId(instance.id, note.id, iteration),
+						instanceId: instance.id,
+						sourceEventId: note.id,
+						startTick,
+						durationTicks,
+						pitch: note.pitch,
+						velocity: note.velocity
+					})
+				}
+			} else if (material.kind === 'drum') {
+				const ticksPerStep = defaultTicksPerQuarter / material.pattern.stepsPerQuarter
+				for (const event of material.events) {
+					const sourceStart = cycleStart + event.step * ticksPerStep
+					if (sourceStart < instance.sourceOffsetTicks || sourceStart >= sourceWindowEnd)
+						continue
+					if (events.length === engineProtocolLimits.maxMusicalEvents) return null
+					events.push({
+						type: 'drum-hit',
+						id: runtimeEventId(instance.id, event.id, iteration),
+						instanceId: instance.id,
+						sourceEventId: event.id,
+						startTick: instance.startTick + sourceStart - instance.sourceOffsetTicks,
+						swing: material.swing,
+						instrument: event.instrument,
+						velocity: event.velocity
+					})
+				}
 			}
 		}
 	}
@@ -214,35 +256,48 @@ export function compileProjectRenderPlan(
 			layer.exportIncluded && layer.role !== 'reference' && layer.source.type !== 'reference'
 	)
 	const hasSolo = playable.some((layer) => layer.solo)
-	const layers: RenderPlanLayer[] = playable
-		.filter((layer) => !layer.muted && (!hasSolo || layer.solo))
-		.sort((left, right) => opaqueIdOrder(left.id, right.id))
-		.map((layer) => {
-			if (layer.source.type === 'synth') {
-				return {
-					id: layer.id,
-					gain: layer.gain,
-					pan: layer.pan,
-					source: { type: 'synth', instrument: layer.source.instrument.resolvedPatch },
-					events: layerEvents(layer)
-				}
-			}
-			if (layer.source.type === 'reference') {
-				throw new TypeError('Reference layers cannot cross the render-plan boundary.')
-			}
+	const layers: RenderPlanLayer[] = []
+	for (const layer of playable
+		.filter((candidate) => !candidate.muted && (!hasSolo || candidate.solo))
+		.sort((left, right) => opaqueIdOrder(left.id, right.id))) {
+		const events = layerEvents(validation.project, layer)
+		if (events === null) {
 			return {
+				status: 'rejected',
+				code: 'INVALID_PROJECT',
+				message: `Layer ${layer.id} expands beyond the engine musical-event limit.`
+			}
+		}
+		if (layer.source.type === 'synth') {
+			layers.push({
 				id: layer.id,
 				gain: layer.gain,
 				pan: layer.pan,
-				source: {
-					type: 'drum',
-					kitId: layer.source.kitId,
-					kitRevision: layer.source.kitRevision,
-					patch: layer.source.resolvedPatch
-				},
-				events: layerEvents(layer)
+				source: { type: 'synth', instrument: layer.source.instrument.resolvedPatch },
+				events
+			})
+			continue
+		}
+		if (layer.source.type === 'reference') {
+			return {
+				status: 'rejected',
+				code: 'INVALID_PROJECT',
+				message: 'Reference layers cannot cross the render-plan boundary.'
 			}
+		}
+		layers.push({
+			id: layer.id,
+			gain: layer.gain,
+			pan: layer.pan,
+			source: {
+				type: 'drum',
+				kitId: layer.source.kitId,
+				kitRevision: layer.source.kitRevision,
+				patch: layer.source.resolvedPatch
+			},
+			events
 		})
+	}
 	const endTick = Math.max(
 		validation.project.transport.loop.endTick,
 		...validation.project.sections.map((section) => section.startTick + section.lengthTicks),
@@ -251,8 +306,8 @@ export function compileProjectRenderPlan(
 			(point) =>
 				point.tick + (validation.project.transport.ticksPerQuarter * 4) / point.denominator
 		),
-		...validation.project.layers.flatMap((layer) =>
-			layer.clips.map((clip) => clip.startTick + clip.lengthTicks)
+		...validation.project.song.instances.map(
+			(instance) => instance.startTick + instance.durationTicks
 		)
 	)
 	return {

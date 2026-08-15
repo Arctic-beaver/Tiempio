@@ -163,6 +163,11 @@ impl ProtocolSession {
             EngineCommand::RefreshDevices if self.negotiated("audio.devices") => {}
             EngineCommand::StartPreview(_) | EngineCommand::CancelPreview(_)
                 if self.negotiated("preview.programs") => {}
+            EngineCommand::StartRecording(_)
+            | EngineCommand::RecordingNoteOn(_)
+            | EngineCommand::RecordingNoteOff(_)
+            | EngineCommand::StopRecording(_)
+                if self.negotiated("recording.engine-clock") => {}
             EngineCommand::SetMetronomeEnabled(_) | EngineCommand::SetMetronomeVolume(_)
                 if self.negotiated("metronome.clock") => {}
             EngineCommand::ApplyRenderPlanDelta(_)
@@ -174,6 +179,10 @@ impl ProtocolSession {
             | EngineCommand::RefreshDevices
             | EngineCommand::StartPreview(_)
             | EngineCommand::CancelPreview(_)
+            | EngineCommand::StartRecording(_)
+            | EngineCommand::RecordingNoteOn(_)
+            | EngineCommand::RecordingNoteOff(_)
+            | EngineCommand::StopRecording(_)
             | EngineCommand::SetMetronomeEnabled(_)
             | EngineCommand::SetMetronomeVolume(_) => {
                 return Err(ProtocolError::new(

@@ -860,6 +860,147 @@ describe('ApplicationRuntimeController', () => {
 			)
 			await flush()
 			assert.equal(commands.at(-1)?.type, 'note-on')
+			controller.performanceInput.releaseSource(performanceSourceId('keyboard', 'KeyF'))
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'note-off')
+
+			const emit = (event: AnyEngineEventEnvelope): void => {
+				for (const listener of eventListeners) listener(event)
+			}
+			const revisionBeforeRecording = session.getSnapshot().revision
+			const plansBeforeRecording = commands.filter(
+				(command) => command.type === 'load-render-plan'
+			).length
+			emit({
+				payload: {
+					playing: true,
+					projectRevision: revisionBeforeRecording,
+					samplePosition: 0,
+					tick: 4_800
+				},
+				protocolVersion: engineProtocolVersion,
+				sequence: 51,
+				type: 'transport-snapshot'
+			})
+			const commandsBeforeRecording = commands.length
+			assert.equal(await controller.startRecording('layer.created', 4_800, 1), true)
+			const startRecording = commands.at(-1)
+			assert.equal(startRecording?.type, 'start-recording')
+			const recordingCommandTypes = commands
+				.slice(commandsBeforeRecording)
+				.map(({ type }) => type)
+			assert.equal(recordingCommandTypes[0], 'stop')
+			assert.equal(
+				recordingCommandTypes.indexOf('stop') <
+					recordingCommandTypes.indexOf('start-recording'),
+				true
+			)
+			if (startRecording?.type !== 'start-recording') {
+				throw new Error('Recording start command is required for runtime coverage.')
+			}
+			const recordingId = startRecording.payload.recordingId
+			emit({
+				payload: {
+					countInBeatsRemaining: 4,
+					recordingId,
+					samplePosition: 0,
+					sourceTick: 0,
+					state: 'count-in'
+				},
+				protocolVersion: engineProtocolVersion,
+				sequence: 52,
+				type: 'recording-state'
+			})
+			assert.equal(session.getSnapshot().revision, revisionBeforeRecording)
+			const recordingSource = performanceSourceId('keyboard', 'KeyF')
+			controller.performanceInput.pressCode('sound-chooser', recordingSource, 'KeyF')
+			await flush()
+			const recordingNoteOn = commands.at(-1)
+			assert.equal(recordingNoteOn?.type, 'recording-note-on')
+			if (recordingNoteOn?.type !== 'recording-note-on') {
+				throw new Error('Recording note-on command is required for runtime coverage.')
+			}
+			emit({
+				payload: {
+					countInBeatsRemaining: 0,
+					recordingId,
+					samplePosition: 120_000,
+					sourceTick: 4_800,
+					state: 'recording'
+				},
+				protocolVersion: engineProtocolVersion,
+				sequence: 53,
+				type: 'recording-state'
+			})
+			emit({
+				payload: {
+					auditionId: recordingNoteOn.payload.auditionId,
+					phase: 'note-on',
+					pitch: recordingNoteOn.payload.pitch,
+					recordingId,
+					samplePosition: 120_000,
+					sourceTick: 4_800,
+					velocity: recordingNoteOn.payload.velocity
+				},
+				protocolVersion: engineProtocolVersion,
+				sequence: 54,
+				type: 'recording-input-applied'
+			})
+			await flush()
+			assert.equal(session.getSnapshot().revision > revisionBeforeRecording, true)
+			assert.equal(
+				commands.filter((command) => command.type === 'load-render-plan').length,
+				plansBeforeRecording
+			)
+			controller.performanceInput.releaseSource(recordingSource)
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'recording-note-off')
+			emit({
+				payload: {
+					auditionId: recordingNoteOn.payload.auditionId,
+					phase: 'note-off',
+					pitch: recordingNoteOn.payload.pitch,
+					recordingId,
+					samplePosition: 132_000,
+					sourceTick: 5_280,
+					velocity: recordingNoteOn.payload.velocity
+				},
+				protocolVersion: engineProtocolVersion,
+				sequence: 55,
+				type: 'recording-input-applied'
+			})
+			assert.equal(controller.stopRecording(), true)
+			assert.equal(commands.at(-1)?.type, 'stop-recording')
+			emit({
+				payload: {
+					reason: 'stopped',
+					recordingId,
+					samplePosition: 144_000,
+					stopTick: 5_760
+				},
+				protocolVersion: engineProtocolVersion,
+				sequence: 56,
+				type: 'recording-stopped'
+			})
+			await flush()
+			await flush()
+			assert.equal(controller.recordingCoordinator.getSnapshot().phase, 'idle')
+			assert.equal(
+				controller.recordingCoordinator.getSnapshot().lastPass?.recordingId,
+				recordingId
+			)
+			assert.equal(
+				commands.filter((command) => command.type === 'load-render-plan').length,
+				plansBeforeRecording + 1
+			)
+
+			controller.performanceInput.pressCode(
+				'sound-chooser',
+				performanceSourceId('keyboard', 'KeyG'),
+				'KeyG'
+			)
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'note-on')
 			for (const listener of closeListeners) listener()
 			await flush()
 			assert.equal(commands.at(-1)?.type, 'note-off')

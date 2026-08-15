@@ -1,15 +1,14 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
-	clipId,
-	createDrumClip,
 	createDrumEvent,
 	createLayer,
-	createMidiClip,
+	createMidiMaterial,
 	createMidiNote,
 	createProject,
 	createProjectFromCommand,
 	createSection,
+	createSongInstance,
 	layerId,
 	noteId,
 	previewBassMacro,
@@ -329,36 +328,29 @@ describe('ProjectSession', () => {
 			role: 'rhythm'
 		})
 		session.dispatch({
-			type: 'clip.place',
+			type: 'source.material.extend',
 			baseRevision: 6,
 			layerId: layerId('layer.drums'),
-			clip: createDrumClip({
-				id: 'clip.drums',
-				startTick: 960,
-				lengthTicks: 3840,
-				sectionId: section.id
-			})
+			throughTick: 3840
 		})
 		const event = createDrumEvent({ id: 'event.kick', instrument: 'kick', step: 0 })
 		session.dispatch({
 			type: 'drum-event.toggle',
 			baseRevision: 7,
 			layerId: layerId('layer.drums'),
-			clipId: clipId('clip.drums'),
 			eventWhenAdded: event
 		})
 		const removed = session.dispatch({
 			type: 'drum-event.toggle',
 			baseRevision: 8,
 			layerId: layerId('layer.drums'),
-			clipId: clipId('clip.drums'),
 			eventWhenAdded: event
 		})
 		assert.equal(removed.project.transport.tempoMap[0]?.bpm, 124)
 		assert.deepEqual(removed.project.transport.key, { tonic: 7, mode: 'minor' })
 		assert.equal(removed.project.sections[0]?.id, 'section.main')
-		const drumClip = removed.project.layers[1]?.clips[0]
-		assert.deepEqual(drumClip?.kind === 'drum' ? drumClip.events : null, [])
+		const drumMaterial = removed.project.layers[1]?.material
+		assert.deepEqual(drumMaterial?.kind === 'drum' ? drumMaterial.events : null, [])
 	})
 
 	it('applies drum character, density, swing and voice changes deterministically', () => {
@@ -373,19 +365,18 @@ describe('ProjectSession', () => {
 			role: 'rhythm'
 		})
 		session.dispatch({
-			type: 'clip.place',
+			type: 'source.material.extend',
 			baseRevision: 1,
 			layerId: layerId('layer.drums'),
-			clip: createDrumClip({ id: 'clip.drums', startTick: 0, lengthTicks: 3840 })
+			throughTick: 3840
 		})
 		const patterned = session.dispatch({
 			type: 'drum.pattern.set',
 			baseRevision: 2,
 			layerId: layerId('layer.drums'),
-			clipId: clipId('clip.drums'),
 			character: 'driving'
 		})
-		const firstEvents = patterned.project.layers[0]?.clips[0]
+		const firstEvents = patterned.project.layers[0]?.material
 		assert.equal(firstEvents?.kind === 'drum' ? firstEvents.character : null, 'driving')
 		assert.ok(firstEvents?.kind === 'drum' && firstEvents.events.length > 0)
 
@@ -393,10 +384,9 @@ describe('ProjectSession', () => {
 			type: 'drum.density.set',
 			baseRevision: 3,
 			layerId: layerId('layer.drums'),
-			clipId: clipId('clip.drums'),
 			density: 0.82
 		})
-		const denseClip = denser.project.layers[0]?.clips[0]
+		const denseClip = denser.project.layers[0]?.material
 		assert.ok(
 			denseClip?.kind === 'drum' &&
 				firstEvents?.kind === 'drum' &&
@@ -412,7 +402,6 @@ describe('ProjectSession', () => {
 			type: 'drum.swing.set',
 			baseRevision: 4,
 			layerId: layerId('layer.drums'),
-			clipId: clipId('clip.drums'),
 			swing: 0.2
 		})
 		const voiced = session.dispatch({
@@ -428,7 +417,7 @@ describe('ProjectSession', () => {
 			assert.equal(layer.source.voiceVariants.kick, 'kick.tight')
 			assert.equal(layer.source.resolvedPatch.voices.kick.variantId, 'kick.tight')
 		}
-		const finalClip = layer?.clips[0]
+		const finalClip = layer?.material
 		assert.equal(finalClip?.kind === 'drum' ? finalClip.swing : null, 0.2)
 		const undone = session.undo(6).project.layers[0]
 		assert.equal(
@@ -450,43 +439,39 @@ describe('ProjectSession', () => {
 	it('applies note placement, move, resize, octave transpose and delete atomically', () => {
 		const session = createBassSession()
 		session.dispatch({
-			type: 'clip.place',
+			type: 'note.add',
 			baseRevision: 1,
 			layerId: layerId('layer.bass'),
-			clip: createMidiClip({ id: 'clip.bass', startTick: 0, lengthTicks: 3840 })
-		})
-		session.dispatch({
-			type: 'note.add',
-			baseRevision: 2,
-			layerId: layerId('layer.bass'),
-			clipId: clipId('clip.bass'),
+			instanceWhenMissing: createSongInstance({
+				id: 'instance.bass',
+				sourceLayerId: layerId('layer.bass'),
+				startTick: 0,
+				durationTicks: 3840
+			}),
 			note: createMidiNote({ id: 'note.bass', pitch: 36, startTick: 0, durationTicks: 480 })
 		})
 		session.dispatch({
 			type: 'note.move',
-			baseRevision: 3,
+			baseRevision: 2,
 			layerId: layerId('layer.bass'),
-			clipId: clipId('clip.bass'),
 			noteId: noteId('note.bass'),
 			pitch: 38,
 			startTick: 480
 		})
 		session.dispatch({
 			type: 'note.resize',
-			baseRevision: 4,
+			baseRevision: 3,
 			layerId: layerId('layer.bass'),
-			clipId: clipId('clip.bass'),
 			noteId: noteId('note.bass'),
 			durationTicks: 960
 		})
 		const transposed = session.dispatch({
-			type: 'clip.transpose-octave',
-			baseRevision: 5,
+			type: 'material.transpose-octave',
+			baseRevision: 4,
 			layerId: layerId('layer.bass'),
-			clipId: clipId('clip.bass'),
 			direction: 1
 		})
-		const clip = transposed.project.layers[0]?.clips[0]
+		const clip = transposed.project.layers[0]?.material
 		assert.equal(clip?.kind, 'midi')
 		if (clip?.kind === 'midi') {
 			assert.deepEqual(clip.notes[0], {
@@ -499,17 +484,16 @@ describe('ProjectSession', () => {
 		}
 		const deleted = session.dispatch({
 			type: 'note.delete',
-			baseRevision: 6,
+			baseRevision: 5,
 			layerId: layerId('layer.bass'),
-			clipId: clipId('clip.bass'),
 			noteId: noteId('note.bass')
 		})
-		const deletedClip = deleted.project.layers[0]?.clips[0]
+		const deletedClip = deleted.project.layers[0]?.material
 		assert.equal(deletedClip?.kind, 'midi')
 		assert.deepEqual(deletedClip?.kind === 'midi' ? deletedClip.notes : null, [])
 	})
 
-	it('creates a missing MIDI clip with its first note in one revision', () => {
+	it('creates a first song instance with its first source note in one revision', () => {
 		const session = createBassSession()
 		const note = createMidiNote({
 			id: 'note.first',
@@ -522,54 +506,133 @@ describe('ProjectSession', () => {
 			type: 'note.add',
 			baseRevision: 1,
 			layerId: layerId('layer.bass'),
-			clipId: clipId('clip.first'),
-			clipWhenMissing: createMidiClip({
-				id: 'clip.first',
+			instanceWhenMissing: createSongInstance({
+				id: 'instance.first',
+				sourceLayerId: layerId('layer.bass'),
 				startTick: 0,
-				lengthTicks: 3840
+				durationTicks: 3840
 			}),
 			note
 		})
 		assert.equal(created.revision, 2)
-		const clip = created.project.layers[0]?.clips[0]
+		const clip = created.project.layers[0]?.material
 		assert.equal(clip?.kind, 'midi')
 		assert.deepEqual(clip?.kind === 'midi' ? clip.notes : null, [note])
-		assert.deepEqual(session.undo(2).project.layers[0]?.clips, [])
+		assert.equal(created.project.song.instances[0]?.id, 'instance.first')
+		const undone = session.undo(2).project
+		assert.deepEqual(
+			undone.layers[0]?.material.kind === 'midi' ? undone.layers[0].material.notes : null,
+			[]
+		)
+		assert.deepEqual(undone.song.instances, [])
+	})
+
+	it('groups source-note begin and finalize as one undoable press gesture', () => {
+		const session = createBassSession()
+		const historyGroup = 'performance.note.pointer-1'
+		session.dispatch(
+			{
+				type: 'source.note.begin',
+				baseRevision: 1,
+				layerId: layerId('layer.bass'),
+				instanceWhenMissing: createSongInstance({
+					id: 'instance.performance',
+					sourceLayerId: layerId('layer.bass'),
+					startTick: 0,
+					durationTicks: 3840
+				}),
+				note: createMidiNote({
+					id: 'note.performance',
+					pitch: 43,
+					startTick: 120,
+					durationTicks: 1
+				})
+			},
+			{ historyGroup }
+		)
+		const finalized = session.dispatch(
+			{
+				type: 'source.note.finalize',
+				baseRevision: 2,
+				layerId: layerId('layer.bass'),
+				noteId: noteId('note.performance'),
+				endTick: 600
+			},
+			{ historyGroup }
+		)
+		session.endHistoryGroup(historyGroup)
+		const material = finalized.project.layers[0]?.material
+		assert.equal(material?.kind === 'midi' ? material.notes[0]?.durationTicks : null, 480)
+		const undone = session.undo(3).project
+		assert.deepEqual(
+			undone.layers[0]?.material.kind === 'midi' ? undone.layers[0].material.notes : null,
+			[]
+		)
+		assert.deepEqual(undone.song.instances, [])
+	})
+
+	it('preserves an existing cycle by consuming tail rest before extending it', () => {
+		const base = createProject({ projectId: 'project.tail-rest', title: 'Tail rest' })
+		const layer = {
+			...createLayer({ id: 'layer.tail-rest', name: 'Tail rest', role: 'bass' }),
+			material: createMidiMaterial({
+				materialLengthTicks: 960,
+				tailRestTicks: 960
+			})
+		}
+		const session = new ProjectSession({ ...base, layers: [layer] })
+		let snapshot = session.dispatch({
+			type: 'source.material.extend',
+			baseRevision: 0,
+			layerId: layer.id,
+			throughTick: 1440
+		})
+		assert.deepEqual(snapshot.project.layers[0]?.material, {
+			kind: 'midi',
+			materialLengthTicks: 1440,
+			tailRestTicks: 480,
+			notes: []
+		})
+		snapshot = session.dispatch({
+			type: 'source.material.extend',
+			baseRevision: 1,
+			layerId: layer.id,
+			throughTick: 2400
+		})
+		assert.equal(snapshot.project.layers[0]?.material.tailRestTicks, 0)
 	})
 
 	it('updates note timing, pitch, duration and velocity in one history entry', () => {
 		const session = createBassSession()
 		session.dispatch({
-			type: 'clip.place',
+			type: 'note.add',
 			baseRevision: 1,
 			layerId: layerId('layer.bass'),
-			clip: createMidiClip({
-				id: 'clip.edit',
+			instanceWhenMissing: createSongInstance({
+				id: 'instance.edit',
+				sourceLayerId: layerId('layer.bass'),
 				startTick: 0,
-				lengthTicks: 3840,
-				notes: [
-					createMidiNote({
-						id: 'note.edit',
-						pitch: 36,
-						startTick: 0,
-						durationTicks: 480,
-						velocity: 80
-					})
-				]
+				durationTicks: 3840
+			}),
+			note: createMidiNote({
+				id: 'note.edit',
+				pitch: 36,
+				startTick: 0,
+				durationTicks: 480,
+				velocity: 80
 			})
 		})
 		const updated = session.dispatch({
 			type: 'note.update',
 			baseRevision: 2,
 			layerId: layerId('layer.bass'),
-			clipId: clipId('clip.edit'),
 			noteId: noteId('note.edit'),
 			pitch: 48,
 			startTick: 240,
 			durationTicks: 960,
 			velocity: 127
 		})
-		const clip = updated.project.layers[0]?.clips[0]
+		const clip = updated.project.layers[0]?.material
 		assert.deepEqual(clip?.kind === 'midi' ? clip.notes[0] : null, {
 			id: 'note.edit',
 			pitch: 48,
@@ -577,7 +640,7 @@ describe('ProjectSession', () => {
 			durationTicks: 960,
 			velocity: 127
 		})
-		const undone = session.undo(3).project.layers[0]?.clips[0]
+		const undone = session.undo(3).project.layers[0]?.material
 		assert.deepEqual(undone?.kind === 'midi' ? undone.notes[0] : null, {
 			id: 'note.edit',
 			pitch: 36,

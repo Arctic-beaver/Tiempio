@@ -67,12 +67,27 @@
 		padding: 0.5rem 0.75rem;
 	}
 
-	.topbar > .transport {
+	.topbar > .transport,
+	.topbar > .source-editor-transport {
 		max-width: 100%;
 		grid-column: 1 / -1;
 		grid-row: 2;
 		justify-self: stretch;
 		overflow-x: auto;
+	}
+
+	.topbar > .source-editor-transport > .transport {
+		min-width: 0;
+		flex: 1 1 auto;
+		overflow-x: auto;
+	}
+
+	.topbar > .source-editor-transport {
+		overflow: visible;
+	}
+
+	.topbar > .source-editor-transport > .source-recording-control {
+		flex: 0 0 auto;
 	}
 
 	.top-right {

@@ -126,6 +126,46 @@ function validPreviewPayload(value: unknown): boolean {
 	})
 }
 
+function validRecordingStartPayload(value: unknown): boolean {
+	return (
+		record(value) &&
+		exactKeys(value, [
+			'recordingId',
+			'layerId',
+			'projectRevision',
+			'startTick',
+			'countInBars'
+		]) &&
+		validIdentifier(value.recordingId) &&
+		validIdentifier(value.layerId) &&
+		safeInteger(value.projectRevision) &&
+		safeInteger(value.startTick) &&
+		safeInteger(value.countInBars) &&
+		value.countInBars <= engineProtocolLimits.maxRecordingCountInBars
+	)
+}
+
+function validRecordingInputPayload(value: unknown, active: boolean): boolean {
+	if (!record(value)) return false
+	if (!active) {
+		return (
+			exactKeys(value, ['recordingId', 'auditionId']) &&
+			validIdentifier(value.recordingId) &&
+			validIdentifier(value.auditionId)
+		)
+	}
+	return (
+		exactKeys(value, ['recordingId', 'auditionId', 'pitch', 'velocity']) &&
+		validIdentifier(value.recordingId) &&
+		validIdentifier(value.auditionId) &&
+		safeInteger(value.pitch) &&
+		value.pitch <= 127 &&
+		safeInteger(value.velocity) &&
+		value.velocity >= 1 &&
+		value.velocity <= 127
+	)
+}
+
 function validCommandPayload(
 	type: EngineCommandType,
 	value: unknown
@@ -269,6 +309,23 @@ function validCommandPayload(
 		return record(value) && exactKeys(value, ['previewId']) && validIdentifier(value.previewId)
 			? null
 			: protocolFailure('protocol.invalid-envelope', 'Preview cancellation is invalid.')
+	}
+	if (type === 'start-recording') {
+		return validRecordingStartPayload(value)
+			? null
+			: protocolFailure('protocol.invalid-envelope', 'Recording start is invalid.')
+	}
+	if (type === 'recording-note-on' || type === 'recording-note-off') {
+		return validRecordingInputPayload(value, type === 'recording-note-on')
+			? null
+			: protocolFailure('protocol.invalid-envelope', 'Recording input is invalid.')
+	}
+	if (type === 'stop-recording') {
+		return record(value) &&
+			exactKeys(value, ['recordingId']) &&
+			validIdentifier(value.recordingId)
+			? null
+			: protocolFailure('protocol.invalid-envelope', 'Recording stop is invalid.')
 	}
 	if (type === 'preview-macro' || type === 'commit-macro') {
 		return validMacroPayload(value)

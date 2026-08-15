@@ -113,7 +113,7 @@ function scanSerializableGraph(
 	}
 	seen.add(value)
 	if (Array.isArray(value)) {
-		if (value.length > projectLimits.maxNotesPerClip) {
+		if (value.length > projectLimits.maxNotesPerMaterial) {
 			issue(context, 'LIMIT_EXCEEDED', path, 'An array exceeds the project data limit.')
 			return
 		}
@@ -699,25 +699,24 @@ function validateDrumSource(
 
 interface ProjectReferences {
 	readonly assets: Set<string>
-	readonly sections: Set<string>
 }
 
 interface ProjectIdentifiers {
 	readonly assets: Set<string>
-	readonly clips: Set<string>
 	readonly drumEvents: Set<string>
+	readonly instances: Set<string>
 	readonly layers: Set<string>
 	readonly notes: Set<string>
 	readonly sections: Set<string>
 }
 
-function validateMidiClip(
-	clip: Record<string, unknown>,
+function validateMidiMaterial(
+	material: Record<string, unknown>,
 	context: ValidationContext,
 	path: string,
 	identifiers: ProjectIdentifiers
 ): void {
-	const notes = array(clip.notes, context, `${path}.notes`, projectLimits.maxNotesPerClip)
+	const notes = array(material.notes, context, `${path}.notes`, projectLimits.maxNotesPerMaterial)
 	if (notes === null) return
 	for (const [index, entry] of notes.entries()) {
 		const notePath = `${path}.notes[${String(index)}]`
@@ -734,21 +733,26 @@ function validateMidiClip(
 		if (
 			validStart &&
 			validDuration &&
-			typeof clip.lengthTicks === 'number' &&
-			startTick + durationTicks > clip.lengthTicks
+			typeof material.materialLengthTicks === 'number' &&
+			startTick + durationTicks > material.materialLengthTicks
 		) {
-			issue(context, 'INVALID_TIMELINE', notePath, 'A MIDI note must fit inside its clip.')
+			issue(
+				context,
+				'INVALID_TIMELINE',
+				notePath,
+				'A MIDI note must fit inside source material.'
+			)
 		}
 	}
 }
 
-function validateDrumClip(
-	clip: Record<string, unknown>,
+function validateDrumMaterial(
+	material: Record<string, unknown>,
 	context: ValidationContext,
 	path: string,
 	identifiers: ProjectIdentifiers
 ): void {
-	if (typeof clip.character !== 'string' || !drumPatternCharacters.has(clip.character)) {
+	if (typeof material.character !== 'string' || !drumPatternCharacters.has(material.character)) {
 		issue(
 			context,
 			'INVALID_VALUE',
@@ -756,9 +760,9 @@ function validateDrumClip(
 			'Expected a supported drum pattern character.'
 		)
 	}
-	finiteNumber(clip.density, context, `${path}.density`, 0, 1)
-	finiteNumber(clip.swing, context, `${path}.swing`, 0, 1)
-	const pattern = record(clip.pattern, context, `${path}.pattern`)
+	finiteNumber(material.density, context, `${path}.density`, 0, 1)
+	finiteNumber(material.swing, context, `${path}.swing`, 0, 1)
+	const pattern = record(material.pattern, context, `${path}.pattern`)
 	let stepCount: number | null = null
 	let stepsPerQuarter: number | null = null
 	if (pattern !== null) {
@@ -773,7 +777,12 @@ function validateDrumClip(
 			)
 		} else stepsPerQuarter = pattern.stepsPerQuarter as number
 	}
-	const events = array(clip.events, context, `${path}.events`, projectLimits.maxDrumEventsPerClip)
+	const events = array(
+		material.events,
+		context,
+		`${path}.events`,
+		projectLimits.maxDrumEventsPerMaterial
+	)
 	if (events === null) return
 	for (const [index, entry] of events.entries()) {
 		const eventPath = `${path}.events[${String(index)}]`
@@ -800,58 +809,79 @@ function validateDrumClip(
 		if (
 			validStep &&
 			stepsPerQuarter !== null &&
-			typeof clip.lengthTicks === 'number' &&
-			eventStep * (defaultTicksPerQuarter / stepsPerQuarter) >= clip.lengthTicks
+			typeof material.materialLengthTicks === 'number' &&
+			eventStep * (defaultTicksPerQuarter / stepsPerQuarter) >= material.materialLengthTicks
 		) {
 			issue(
 				context,
 				'INVALID_TIMELINE',
 				`${eventPath}.step`,
-				'A drum event must fit inside its clip.'
+				'A drum event must fit inside source material.'
 			)
 		}
 	}
 }
 
-function validateClip(
+function validateMaterial(
 	value: unknown,
 	context: ValidationContext,
 	path: string,
 	identifiers: ProjectIdentifiers,
-	references: ProjectReferences,
-	expectedKind: 'drum' | 'midi'
+	expectedKind: 'drum' | 'midi' | 'reference'
 ): void {
-	const clip = record(value, context, path)
-	if (clip === null) return
-	rememberIdentifier(clip.id, identifiers.clips, context, `${path}.id`)
-	const validStart = tick(clip.startTick, context, `${path}.startTick`)
-	const validLength = tick(clip.lengthTicks, context, `${path}.lengthTicks`, true)
-	if (validStart && validLength) safeEnd(clip.startTick, clip.lengthTicks, context, path)
-	booleanValue(clip.loop, context, `${path}.loop`)
-	if (clip.sectionId !== null) {
-		if (
-			opaqueIdentifier(clip.sectionId, context, `${path}.sectionId`) &&
-			!references.sections.has(clip.sectionId)
-		) {
-			issue(
-				context,
-				'MISSING_REFERENCE',
-				`${path}.sectionId`,
-				`Unknown section ${clip.sectionId}.`
-			)
-		}
+	const material = record(value, context, path)
+	if (material === null) return
+	const validLength = integer(
+		material.materialLengthTicks,
+		context,
+		`${path}.materialLengthTicks`,
+		0,
+		projectLimits.maxMaterialTick
+	)
+	const validRest = integer(
+		material.tailRestTicks,
+		context,
+		`${path}.tailRestTicks`,
+		0,
+		projectLimits.maxMaterialTick
+	)
+	if (validLength && validRest)
+		safeEnd(material.materialLengthTicks, material.tailRestTicks, context, path)
+	if (
+		validLength &&
+		validRest &&
+		Number(material.materialLengthTicks) + Number(material.tailRestTicks) >
+			projectLimits.maxMaterialTick
+	) {
+		issue(
+			context,
+			'INVALID_TIMELINE',
+			path,
+			`A source material cycle cannot extend beyond tick ${String(projectLimits.maxMaterialTick)}.`
+		)
 	}
-	if (clip.kind !== expectedKind) {
+	if (material.kind !== expectedKind) {
 		issue(
 			context,
 			'INCOMPATIBLE_SOURCE',
 			`${path}.kind`,
-			`Expected a ${expectedKind} clip for this layer source.`
+			`Expected ${expectedKind} source material for this layer source.`
 		)
 	}
-	if (clip.kind === 'midi') validateMidiClip(clip, context, path, identifiers)
-	else if (clip.kind === 'drum') validateDrumClip(clip, context, path, identifiers)
-	else issue(context, 'INVALID_VALUE', `${path}.kind`, 'Expected a MIDI or drum clip.')
+	if (material.kind === 'midi') validateMidiMaterial(material, context, path, identifiers)
+	else if (material.kind === 'drum') validateDrumMaterial(material, context, path, identifiers)
+	else if (material.kind === 'reference') {
+		if (material.materialLengthTicks !== 0 || material.tailRestTicks !== 0) {
+			issue(
+				context,
+				'INCOMPATIBLE_SOURCE',
+				path,
+				'Reference material is empty until personal-audio support is implemented.'
+			)
+		}
+	} else {
+		issue(context, 'INVALID_VALUE', `${path}.kind`, 'Expected source material.')
+	}
 }
 
 function validateSections(
@@ -947,7 +977,7 @@ function validateLayers(
 			issue(context, 'INVALID_VALUE', `${path}.role`, 'Expected a supported musical role.')
 
 		const source = record(layer.source, context, `${path}.source`)
-		let expectedKind: 'drum' | 'midi' = 'midi'
+		let expectedKind: 'drum' | 'midi' | 'reference' = 'midi'
 		if (source !== null && role !== null) {
 			if (role === 'rhythm') {
 				expectedKind = 'drum'
@@ -962,6 +992,7 @@ function validateLayers(
 					validateDrumSource(source, context, `${path}.source`)
 				}
 			} else if (role === 'reference') {
+				expectedKind = 'reference'
 				if (source.type !== 'reference')
 					issue(
 						context,
@@ -999,23 +1030,58 @@ function validateLayers(
 			}
 		}
 
-		const clips = array(layer.clips, context, `${path}.clips`, projectLimits.maxClipsPerLayer)
-		if (clips !== null) {
-			if (role === 'reference' && clips.length > 0)
+		validateMaterial(layer.material, context, `${path}.material`, identifiers, expectedKind)
+	}
+}
+
+function validateSong(
+	value: unknown,
+	context: ValidationContext,
+	identifiers: ProjectIdentifiers,
+	layers: ProjectDocument['layers']
+): void {
+	const song = record(value, context, '$.song')
+	if (song === null) return
+	const instances = array(
+		song.instances,
+		context,
+		'$.song.instances',
+		projectLimits.maxSongInstances
+	)
+	if (instances === null) return
+	const layerById = new Map(layers.map((layer) => [String(layer.id), layer]))
+	for (const [index, entry] of instances.entries()) {
+		const path = `$.song.instances[${String(index)}]`
+		const instance = record(entry, context, path)
+		if (instance === null) continue
+		rememberIdentifier(instance.id, identifiers.instances, context, `${path}.id`)
+		const hasLayerId = opaqueIdentifier(
+			instance.sourceLayerId,
+			context,
+			`${path}.sourceLayerId`
+		)
+		const layer = hasLayerId ? layerById.get(String(instance.sourceLayerId)) : undefined
+		if (hasLayerId && layer === undefined) {
+			issue(
+				context,
+				'MISSING_REFERENCE',
+				`${path}.sourceLayerId`,
+				`Unknown source layer ${String(instance.sourceLayerId)}.`
+			)
+		}
+		const validStart = tick(instance.startTick, context, `${path}.startTick`)
+		const validDuration = tick(instance.durationTicks, context, `${path}.durationTicks`, true)
+		const validOffset = tick(instance.sourceOffsetTicks, context, `${path}.sourceOffsetTicks`)
+		if (validStart && validDuration)
+			safeEnd(instance.startTick, instance.durationTicks, context, path)
+		if (validOffset && layer !== undefined) {
+			const cycle = layer.material.materialLengthTicks + layer.material.tailRestTicks
+			if (cycle <= 0 || Number(instance.sourceOffsetTicks) >= cycle) {
 				issue(
 					context,
-					'INCOMPATIBLE_SOURCE',
-					`${path}.clips`,
-					'Reference layers cannot contain generated clips.'
-				)
-			for (const [clipIndex, clip] of clips.entries()) {
-				validateClip(
-					clip,
-					context,
-					`${path}.clips[${String(clipIndex)}]`,
-					identifiers,
-					references,
-					expectedKind
+					'INVALID_TIMELINE',
+					`${path}.sourceOffsetTicks`,
+					'A song instance source offset must be inside a non-empty source cycle.'
 				)
 			}
 		}
@@ -1042,8 +1108,8 @@ export function validateProjectDocument(value: unknown): ProjectValidationResult
 		validateTransport(project.transport, context)
 		const identifiers: ProjectIdentifiers = {
 			assets: new Set(),
-			clips: new Set(),
 			drumEvents: new Set(),
+			instances: new Set(),
 			layers: new Set(),
 			notes: new Set(),
 			sections: new Set()
@@ -1051,9 +1117,14 @@ export function validateProjectDocument(value: unknown): ProjectValidationResult
 		validateAssets(project.assets, context, identifiers)
 		validateSections(project.sections, context, identifiers)
 		validateLayers(project.layers, context, identifiers, {
-			assets: identifiers.assets,
-			sections: identifiers.sections
+			assets: identifiers.assets
 		})
+		validateSong(
+			project.song,
+			context,
+			identifiers,
+			project.layers as ProjectDocument['layers']
+		)
 		if (context.issues.length > 0) return { ok: false, issues: Object.freeze(context.issues) }
 		return { ok: true, project: cloneAndFreeze(project as unknown as ProjectDocument) }
 	} catch (error) {

@@ -41,14 +41,8 @@ export function noteName(pitch: number): string {
 	return `${names[pitch % 12] ?? 'C'}${String(Math.floor(pitch / 12) - 1)}`
 }
 
-export function pianoPitches(
-	layer: ProjectLayer | null,
-	notePitches: readonly number[] = []
-): readonly number[] {
-	const base = layer?.role === 'bass' ? 36 : 60
-	const top = Math.max(base + 12, ...notePitches)
-	const bottom = Math.min(base - 12, ...notePitches)
-	return Array.from({ length: top - bottom + 1 }, (_, row) => top - row)
+export function pianoPitches(): readonly number[] {
+	return Array.from({ length: 128 }, (_, row) => 127 - row)
 }
 
 export function sectionPresentation(index: number): {

@@ -8,8 +8,9 @@ use crate::{
     ENGINE_CAPABILITY_CODES, ENGINE_DIAGNOSTIC_CODES, ENGINE_PROTOCOL_MAX_BATCH_ITEMS,
     ENGINE_PROTOCOL_MAX_BLOCK_FRAMES, ENGINE_PROTOCOL_MAX_FRAME_BYTES,
     ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES, ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE,
-    ENGINE_PROTOCOL_MAX_SAMPLE_RATE, ENGINE_PROTOCOL_MIN_SAMPLE_RATE, ENGINE_PROTOCOL_VERSION,
-    ProtocolDiagnostic, ProtocolError, ProtocolLimits,
+    ENGINE_PROTOCOL_MAX_RECORDING_COUNT_IN_BEATS, ENGINE_PROTOCOL_MAX_SAMPLE_RATE,
+    ENGINE_PROTOCOL_MIN_SAMPLE_RATE, ENGINE_PROTOCOL_VERSION, ProtocolDiagnostic, ProtocolError,
+    ProtocolLimits,
 };
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
@@ -61,6 +62,39 @@ pub enum EngineEvent {
         #[serde(rename = "previewId")]
         preview_id: String,
         reason: String,
+    },
+    RecordingState {
+        #[serde(rename = "recordingId")]
+        recording_id: String,
+        state: String,
+        #[serde(rename = "samplePosition")]
+        sample_position: u64,
+        #[serde(rename = "sourceTick")]
+        source_tick: u64,
+        #[serde(rename = "countInBeatsRemaining")]
+        count_in_beats_remaining: u8,
+    },
+    RecordingInputApplied {
+        #[serde(rename = "recordingId")]
+        recording_id: String,
+        #[serde(rename = "auditionId")]
+        audition_id: String,
+        phase: String,
+        pitch: u8,
+        velocity: u8,
+        #[serde(rename = "samplePosition")]
+        sample_position: u64,
+        #[serde(rename = "sourceTick")]
+        source_tick: u64,
+    },
+    RecordingStopped {
+        #[serde(rename = "recordingId")]
+        recording_id: String,
+        reason: String,
+        #[serde(rename = "samplePosition")]
+        sample_position: u64,
+        #[serde(rename = "stopTick")]
+        stop_tick: u64,
     },
     AudioDevicesChanged {
         devices: Vec<AudioDeviceDescriptor>,
@@ -225,9 +259,62 @@ fn valid_audio_devices(event: &EngineEvent) -> Option<bool> {
     )
 }
 
+fn valid_recording_event(event: &EngineEvent) -> Option<bool> {
+    match event {
+        EngineEvent::RecordingState {
+            recording_id,
+            state,
+            sample_position,
+            source_tick,
+            count_in_beats_remaining,
+        } => Some(
+            valid_identifier(recording_id)
+                && matches!(state.as_str(), "count-in" | "recording")
+                && wire_safe(*sample_position)
+                && wire_safe(*source_tick)
+                && usize::from(*count_in_beats_remaining)
+                    <= ENGINE_PROTOCOL_MAX_RECORDING_COUNT_IN_BEATS
+                && (state == "count-in" || *count_in_beats_remaining == 0),
+        ),
+        EngineEvent::RecordingInputApplied {
+            recording_id,
+            audition_id,
+            phase,
+            pitch,
+            velocity,
+            sample_position,
+            source_tick,
+        } => Some(
+            valid_identifier(recording_id)
+                && valid_identifier(audition_id)
+                && matches!(phase.as_str(), "note-on" | "note-off")
+                && *pitch <= 127
+                && (1..=127).contains(velocity)
+                && wire_safe(*sample_position)
+                && wire_safe(*source_tick),
+        ),
+        EngineEvent::RecordingStopped {
+            recording_id,
+            reason,
+            sample_position,
+            stop_tick,
+        } => Some(
+            valid_identifier(recording_id)
+                && matches!(
+                    reason.as_str(),
+                    "stopped" | "count-in-canceled" | "interrupted"
+                )
+                && wire_safe(*sample_position)
+                && wire_safe(*stop_tick),
+        ),
+        _ => None,
+    }
+}
+
 fn validate_event(event: &EngineEvent) -> Result<(), ProtocolError> {
     let valid = valid_preview_event(event)
         .or_else(|| valid_audio_devices(event))
+        .or_else(|| valid_recording_event(event))
         .unwrap_or_else(|| match event {
             EngineEvent::Ready { protocol_version } => *protocol_version == ENGINE_PROTOCOL_VERSION,
             EngineEvent::Capabilities {
@@ -269,7 +356,10 @@ fn validate_event(event: &EngineEvent) -> Result<(), ProtocolError> {
             EngineEvent::PreviewStarted { .. }
             | EngineEvent::PreviewState { .. }
             | EngineEvent::PreviewEnded { .. }
-            | EngineEvent::AudioDevicesChanged { .. } => unreachable!("validated above"),
+            | EngineEvent::AudioDevicesChanged { .. }
+            | EngineEvent::RecordingState { .. }
+            | EngineEvent::RecordingInputApplied { .. }
+            | EngineEvent::RecordingStopped { .. } => unreachable!("validated above"),
             EngineEvent::ActiveDeviceChanged { device_id } => {
                 device_id.as_deref().is_none_or(valid_identifier)
             }

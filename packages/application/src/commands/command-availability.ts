@@ -13,6 +13,7 @@ export interface CommandAvailabilityContext {
 	readonly canUndo: boolean
 	readonly engineAvailable: boolean
 	readonly projectRevision: number | null
+	readonly recordingActive: boolean
 }
 
 export type ResolvedCommandState = Readonly<
@@ -44,6 +45,12 @@ function availabilityFailure(
 	}
 	if (definition.availability === 'history-redo' && !context.canRedo) {
 		return definition.disabledReasonKey
+	}
+	if (
+		context.recordingActive &&
+		(definition.availability === 'history-undo' || definition.availability === 'history-redo')
+	) {
+		return 'command.disabled.unavailable'
 	}
 	return null
 }

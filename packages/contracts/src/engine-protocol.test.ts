@@ -22,7 +22,7 @@ const compatibleHandshake = {
 
 describe('engine protocol contracts', () => {
 	it('exposes the current shared engine protocol contract', () => {
-		assert.equal(engineProtocolVersion, 8)
+		assert.equal(engineProtocolVersion, 9)
 	})
 
 	it('requires the common engine surface and exactly one audible output', () => {
@@ -251,6 +251,107 @@ describe('engine protocol contracts', () => {
 					previewId: 'preview.palette.1',
 					samplePosition: 512
 				}
+			}).ok,
+			true
+		)
+	})
+
+	it('validates the bounded engine-clock recording lifecycle', () => {
+		const envelope = (
+			sequence: number,
+			type: string,
+			payload: unknown
+		): {
+			readonly payload: unknown
+			readonly protocolVersion: number
+			readonly requestId: string
+			readonly sequence: number
+			readonly type: string
+		} => ({
+			payload,
+			protocolVersion: engineProtocolVersion,
+			requestId: `request-recording-${String(sequence)}`,
+			sequence,
+			type
+		})
+		assert.equal(
+			validateEngineCommandEnvelope(
+				envelope(10, 'start-recording', {
+					countInBars: 1,
+					layerId: 'layer.lead',
+					projectRevision: 7,
+					recordingId: 'recording.1',
+					startTick: 1_920
+				})
+			).ok,
+			true
+		)
+		assert.equal(
+			validateEngineCommandEnvelope(
+				envelope(11, 'recording-note-on', {
+					auditionId: 'keyboard.KeyA',
+					pitch: 60,
+					recordingId: 'recording.1',
+					velocity: 96
+				})
+			).ok,
+			true
+		)
+		assert.equal(
+			validateEngineCommandEnvelope(
+				envelope(12, 'start-recording', {
+					countInBars: engineProtocolLimits.maxRecordingCountInBars + 1,
+					layerId: 'layer.lead',
+					projectRevision: 7,
+					recordingId: 'recording.1',
+					startTick: 1_920
+				})
+			).ok,
+			false
+		)
+		assert.equal(
+			validateEngineEventEnvelope({
+				payload: {
+					countInBeatsRemaining: 4,
+					recordingId: 'recording.1',
+					samplePosition: 48_000,
+					sourceTick: 0,
+					state: 'count-in'
+				},
+				protocolVersion: engineProtocolVersion,
+				sequence: 20,
+				type: 'recording-state'
+			}).ok,
+			true
+		)
+		assert.equal(
+			validateEngineEventEnvelope({
+				payload: {
+					auditionId: 'keyboard.KeyA',
+					phase: 'note-off',
+					pitch: 60,
+					recordingId: 'recording.1',
+					samplePosition: 72_000,
+					sourceTick: 960,
+					velocity: 96
+				},
+				protocolVersion: engineProtocolVersion,
+				sequence: 21,
+				type: 'recording-input-applied'
+			}).ok,
+			true
+		)
+		assert.equal(
+			validateEngineEventEnvelope({
+				payload: {
+					reason: 'stopped',
+					recordingId: 'recording.1',
+					samplePosition: 96_000,
+					stopTick: 1_920
+				},
+				protocolVersion: engineProtocolVersion,
+				sequence: 22,
+				type: 'recording-stopped'
 			}).ok,
 			true
 		)

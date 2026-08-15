@@ -1,11 +1,6 @@
 import type { LocalizationKey } from '../../../../localization/src/index.js'
 import type { SongPalette } from '../../../../music-theory/src/index.js'
-import type {
-	ClipId,
-	LayerId,
-	SectionId,
-	SynthMacroId
-} from '../../../../project-core/src/index.js'
+import type { LayerId, SectionId, SynthMacroId } from '../../../../project-core/src/index.js'
 import type { StudioViewId } from '../../app/studio-state.js'
 import type { ArrangementViewModel } from '../../features/arrangement/view-model.js'
 import type { DrumsViewModel } from '../../features/drums/view-model.js'
@@ -43,13 +38,11 @@ export interface ContextProjection {
 }
 
 export interface PianoRollProjection extends PianoRollViewModel {
-	readonly clipId: ClipId | null
 	readonly layerId: LayerId | null
 	readonly revision: number
 }
 
 export interface DrumsProjection extends DrumsViewModel {
-	readonly clipId: ClipId | null
 	readonly layerId: LayerId | null
 	readonly revision: number
 }

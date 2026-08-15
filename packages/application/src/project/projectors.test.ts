@@ -24,7 +24,7 @@ describe('studio project projections', () => {
 		assert.equal(projections.home.recentPieces[0]?.name, 'Velvet Morning')
 		assert.equal(projections.layers.items.length, 4)
 		assert.equal(projections.pianoRoll.notes.length, 2)
-		assert.equal(projections.pianoRoll.startTick, 30_720)
+		assert.equal(projections.pianoRoll.startTick, 0)
 		assert.equal(projections.drums.rows[0]?.activeSteps.includes(0), true)
 		assert.equal(projections.drums.rows.length, 5)
 		assert.equal(projections.drums.rows[0]?.selectedVariantId, 'kick.deep')
@@ -91,17 +91,16 @@ describe('studio project projections', () => {
 	it('keeps every canonical chromatic note visible in the piano-roll range', () => {
 		const session = new ProjectSession(createSeedProject())
 		const melody = session.getSnapshot().project.layers[0]
-		const clip = melody?.clips[0]
-		const sourceNote = clip?.kind === 'midi' ? clip.notes[0] : undefined
+		const material = melody?.material
+		const sourceNote = material?.kind === 'midi' ? material.notes[0] : undefined
 		assert.ok(melody)
-		assert.ok(clip?.kind === 'midi')
+		assert.ok(material?.kind === 'midi')
 		assert.ok(sourceNote)
-		if (melody === undefined || clip?.kind !== 'midi' || sourceNote === undefined) return
+		if (melody === undefined || material?.kind !== 'midi' || sourceNote === undefined) return
 		session.dispatch({
 			type: 'note.update',
 			baseRevision: 0,
 			layerId: melody.id,
-			clipId: clip.id,
 			noteId: noteId(sourceNote.id),
 			pitch: 73,
 			startTick: sourceNote.startTick,
@@ -112,7 +111,7 @@ describe('studio project projections', () => {
 		const note = projectStudio(session.getSnapshot(), melody.id).pianoRoll.notes[0]
 		assert.equal(note?.pitchValue, 73)
 		assert.equal(note?.pitch, 'C♯5')
-		assert.equal(note?.row, 0)
+		assert.equal(note?.row, 54)
 	})
 
 	it('derives beat and bar timing from the project-wide meter', () => {
@@ -141,9 +140,7 @@ describe('studio project projections', () => {
 		const before = session
 			.getSnapshot()
 			.project.layers.flatMap((layer) =>
-				layer.clips.flatMap((clip) =>
-					clip.kind === 'midi' ? clip.notes.map(({ pitch }) => pitch) : []
-				)
+				layer.material.kind === 'midi' ? layer.material.notes.map(({ pitch }) => pitch) : []
 			)
 		session.dispatch({
 			type: 'layer.performance.set',
@@ -153,9 +150,7 @@ describe('studio project projections', () => {
 		})
 		const snapshot = session.getSnapshot()
 		const after = snapshot.project.layers.flatMap((layer) =>
-			layer.clips.flatMap((clip) =>
-				clip.kind === 'midi' ? clip.notes.map(({ pitch }) => pitch) : []
-			)
+			layer.material.kind === 'midi' ? layer.material.notes.map(({ pitch }) => pitch) : []
 		)
 		const projections = projectStudio(snapshot, melodyId)
 		assert.deepEqual(after, before)
@@ -175,20 +170,23 @@ describe('studio project projections', () => {
 		assert.equal(bass.transport.octave, 2)
 	})
 
-	it('projects arrangement removal from the typed clip command', () => {
+	it('projects arrangement removal from the typed song-instance command', () => {
 		const session = new ProjectSession(createSeedProject())
 		const before = projectStudio(session.getSnapshot(), layerId('layer.bass'))
 		assert.ok(before.arrangement.layers[2]?.sections.includes('section.main'))
 		const bass = session.getSnapshot().project.layers.find((layer) => layer.id === 'layer.bass')
-		const main = bass?.clips.find((clip) => clip.sectionId === 'section.main')
+		const main = session
+			.getSnapshot()
+			.project.song.instances.find(
+				(instance) => instance.sourceLayerId === bass?.id && instance.startTick === 30_720
+			)
 		assert.ok(bass)
 		assert.ok(main)
 		if (bass === undefined || main === undefined) return
 		session.dispatch({
-			type: 'clip.delete',
+			type: 'song-instance.delete',
 			baseRevision: 0,
-			layerId: bass.id,
-			clipId: main.id
+			instanceId: main.id
 		})
 		const after = projectStudio(session.getSnapshot(), bass.id)
 		assert.equal(after.arrangement.layers[2]?.sections.includes('section.main'), false)
@@ -198,7 +196,8 @@ describe('studio project projections', () => {
 		const session = new ProjectSession({
 			...createSeedProject(),
 			layers: [],
-			sections: []
+			sections: [],
+			song: { instances: [] }
 		})
 		const projections = projectStudio(session.getSnapshot(), null)
 		assert.equal(projections.context.layerId, null)

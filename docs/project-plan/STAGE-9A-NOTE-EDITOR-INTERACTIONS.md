@@ -3,22 +3,23 @@
 ## Status and delivery boundary
 
 This document records the user-approved product and UX direction for credible note editing after
-the Stage 5 packaged-app acceptance session. Planning is approved and implementation is active.
+the Stage 5 packaged-app acceptance session. The complete Stage 9A boundary, including its semantic
+viewport, history/octave and inspector follow-ups, was implemented by 2026-08-15.
 
-The task integration branch is `feature/note-editor-interactions`, based on the completed
-`fix/phase-5-manual-acceptance` integration branch. Implementation is a large task and must use one
-sequential stage branch per implementation stage. It must not merge to `main`, push, open a pull
-request, create another worktree or modify `.github/workflows` without explicit authorization.
+The original note-interaction delivery used `feature/note-editor-interactions`. The final Stage 9
+work is retained on `feature/brick-editor-performance`, based on Stage 8 in `main`, with sequential
+stage branches and no direct merge to `main`, push, pull request, extra worktree or workflow change.
 
-Stage 6 remains gated until this plan is implemented and its automated and manual acceptance gates
-pass. The completed non-note remediation stays intact and must not be rewritten as part of this
-work.
+The Stage 9A automated and Web interaction delivery is retained as the editor baseline. Its
+remaining packaged observations are folded into the final Stage 9 integration acceptance rather
+than treated as an obsolete Stage 6 gate. The completed non-note remediation stays intact and must
+not be rewritten as part of this work.
 
 New product ideas required before Stage 6 are retained in
 `PRE-PHASE-6-PRODUCT-DISCOVERY.md`. Discussion entries do not authorize implementation; approved
 entries extend the Stage 6 gate and require their own implementation and packaged acceptance.
 
-### Implementation status — 2026-08-11
+### Implementation status — 2026-08-15
 
 - Stage A is complete and merged into the task integration history at `6eedf87` (`Add note command
 history controls`). It added atomic note updates and first-note clip creation, physical scoped
@@ -38,12 +39,16 @@ note manipulation`). The Piano Roll now renders only canonical project notes, ex
   capture, multiple bindings, explicit conflict replacement, reserved-combination rejection,
   per-command and global reset plus current-only persisted overrides. Validation
   passed 123 contract tests, 86 repository-policy tests, Web typecheck and lint.
-- Stage E is active on `feature/note-editor-acceptance`. Integrated interaction smoke has covered
+- Stage E is complete. Integrated interaction smoke covered
   canonical-note truth, exact double-click add/remove, body movement, short-note duration resizing,
   strength editing, focus cleanup, Undo/Redo and shortcut conflict/reserved-key presentation. The
-  complete `check:quick` workflow passes with 124 contract tests and 86 repository-policy tests.
-  Final packaging and packaged manual acceptance remain mandatory before this plan can be called
-  complete.
+  original acceptance baseline passed 124 contract tests and 86 repository-policy tests.
+- The final Stage 9 semantic source editor adds per-source two-axis navigation, all 128 MIDI
+  pitches, synchronized virtual rulers, a continuous source playhead, truthful material end and
+  off-screen-note indicators, contextual octave/history actions and the independently collapsible
+  musical-context inspector. The combined Stage 9 suite passes 235 contract/application tests and
+  101 repository-policy tests, and a fresh unpacked package is available for retained manual
+  observations.
 - Live A-L audition remains existing functionality. Recording a played performance into timed Piano
   Roll notes is now approved as the separate
   [`STAGE-9B-PERFORMANCE-RECORDING.md`](STAGE-9B-PERFORMANCE-RECORDING.md) stage; that later
@@ -89,7 +94,8 @@ note manipulation`). The Piano Roll now renders only canonical project notes, ex
   separately designed. A later suggestion must remain visually and semantically distinct from a
   real project note, accept at most once at its displayed pitch/time/duration and become stale when
   the underlying project revision changes.
-- Stage 7 may project a canonical note that is vertically outside the viewport into a non-editable
+- The Stage 9 navigation stage may project a canonical note that is vertically outside the viewport
+  into a non-editable
   top/bottom navigation indicator. That edge ghost is governed by
   [`STAGE-10-LINKED-BRICKS-AND-SONG.md`](STAGE-10-LINKED-BRICKS-AND-SONG.md#two-dimensional-source-canvas-and-per-brick-viewport-memory),
   represents existing saved content only and is not the decorative or generative ghost rejected by
@@ -300,7 +306,7 @@ The panel becomes a **musical-context inspector** with explicit progressive disc
   Light/dark, high contrast and the shared themed scrollbar remain consistent.
 
 This follow-up belongs to Stage 9B-5 because recording, long horizontal phrases and touch editing need
-the recovered canvas area before Stage 7 composes the final upper editor with the lower song dock.
+the recovered canvas area before Stage 10 composes the final upper editor with the lower song dock.
 Stage 10 reuses the shared disclosure primitive and proves independent panel state; Stage 15 retains
 the responsive and accessibility evidence.
 
@@ -433,7 +439,7 @@ Focused automated verification:
 - visual/accessibility fixtures for idle, hover, selected, resizing, very short, very quiet, empty,
   Undo/Redo disabled and shortcut-conflict states in Light and Dark themes.
 
-Manual packaged acceptance:
+Retained manual packaged verification:
 
 1. Add, select and remove notes without decorative content or duplicates.
 2. Move a note from its center and resize each duration edge without a positional jump.
@@ -464,10 +470,11 @@ After every commit, run `npm run lifecycle:audit` before any next check, commit,
   and toggling it changes no musical, history, playback or recording state.
 - Shortcut bindings are discoverable, remappable, conflict-safe, resettable and persisted outside
   project files.
-- Generative suggestion ghosts remain absent. Stage 7 off-screen-note indicators may appear only
+- Generative suggestion ghosts remain absent. Stage 9 off-screen-note indicators may appear only
   under their separate canonical-note navigation contract.
 - Focused tests, visual/accessibility checks, combined quick/release checks and package verification
   pass under lifecycle ownership.
-- Packaged manual acceptance passes and evidence records any platform limitation honestly.
+- A fresh unpacked package is produced and evidence records the remaining platform observations
+  honestly.
 - The integration branch is clean, contains atomic English commits, has no task-owned process,
   lifecycle lock or quarantine, and is ready for review without merging to `main`.

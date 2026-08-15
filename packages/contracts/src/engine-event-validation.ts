@@ -106,6 +106,56 @@ function validEventPayload(type: EngineEventType, value: unknown): boolean {
 			['completed', 'canceled', 'interrupted'].includes(String(value.reason))
 		)
 	}
+	if (type === 'recording-state') {
+		return (
+			exactKeys(value, [
+				'recordingId',
+				'state',
+				'samplePosition',
+				'sourceTick',
+				'countInBeatsRemaining'
+			]) &&
+			validIdentifier(value.recordingId) &&
+			['count-in', 'recording'].includes(String(value.state)) &&
+			safeInteger(value.samplePosition) &&
+			safeInteger(value.sourceTick) &&
+			safeInteger(value.countInBeatsRemaining) &&
+			value.countInBeatsRemaining <= engineProtocolLimits.maxRecordingCountInBeats &&
+			(value.state === 'count-in' || value.countInBeatsRemaining === 0)
+		)
+	}
+	if (type === 'recording-input-applied') {
+		return (
+			exactKeys(value, [
+				'recordingId',
+				'auditionId',
+				'phase',
+				'pitch',
+				'velocity',
+				'samplePosition',
+				'sourceTick'
+			]) &&
+			validIdentifier(value.recordingId) &&
+			validIdentifier(value.auditionId) &&
+			['note-on', 'note-off'].includes(String(value.phase)) &&
+			safeInteger(value.pitch) &&
+			value.pitch <= 127 &&
+			safeInteger(value.velocity) &&
+			value.velocity >= 1 &&
+			value.velocity <= 127 &&
+			safeInteger(value.samplePosition) &&
+			safeInteger(value.sourceTick)
+		)
+	}
+	if (type === 'recording-stopped') {
+		return (
+			exactKeys(value, ['recordingId', 'reason', 'samplePosition', 'stopTick']) &&
+			validIdentifier(value.recordingId) &&
+			['stopped', 'count-in-canceled', 'interrupted'].includes(String(value.reason)) &&
+			safeInteger(value.samplePosition) &&
+			safeInteger(value.stopTick)
+		)
+	}
 	if (type === 'audio-devices-changed') {
 		return (
 			exactKeys(value, ['devices']) &&

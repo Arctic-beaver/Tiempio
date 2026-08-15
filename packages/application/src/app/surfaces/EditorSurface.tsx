@@ -34,7 +34,10 @@ export default function EditorSurface({ activeView }: EditorSurfaceProperties): 
 	const soundSculpt = useSoundSculptActions()
 	const creation = useLayerCreationActions()
 	const addLayer = creation.openOrFocus
-	const selectLayer = (item: ProjectedLayerItem): void => creation.selectExistingLayer(item)
+	const selectLayer = (item: ProjectedLayerItem): void => {
+		controller.stopRecording()
+		creation.selectExistingLayer(item)
+	}
 	if (activeView === 'piano-roll') {
 		return (
 			<PianoRollView
