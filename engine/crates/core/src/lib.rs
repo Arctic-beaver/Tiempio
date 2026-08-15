@@ -15,11 +15,12 @@ pub use scheduler::{
 };
 pub use tempo::{TempoError, TempoSegment, TempoTimeline};
 
-pub const RENDER_PLAN_VERSION: u32 = 5;
+pub const RENDER_PLAN_VERSION: u32 = 6;
 pub const PATCH_MODEL_VERSION: u32 = 4;
 pub const TICKS_PER_QUARTER: u32 = 960;
 pub const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 pub const MAX_ENGINE_LAYERS: usize = 32;
+pub const MAX_SONG_INSTANCES: usize = 4_096;
 pub const MAX_TEMPO_POINTS: usize = 256;
 pub const MAX_METER_POINTS: usize = 256;
 pub const MAX_MUSICAL_EVENTS: usize = 4_096;
@@ -230,7 +231,18 @@ pub struct InstrumentLayerPlan {
     pub id: String,
     pub gain: f64,
     pub pan: f64,
+    pub song_enabled: bool,
+    pub cycle_ticks: u64,
     pub source: LayerSource,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SongInstancePlan {
+    pub id: String,
+    pub source_layer_id: String,
+    pub start_tick: u64,
+    pub duration_ticks: u64,
+    pub source_offset_ticks: u64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -244,6 +256,7 @@ pub struct RenderPlan {
     pub meter_map: Vec<MeterPoint>,
     pub loop_region: LoopRegion,
     pub layers: Vec<InstrumentLayerPlan>,
+    pub instances: Vec<SongInstancePlan>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -604,6 +617,7 @@ fn remember_event_id(
 
 fn validate_midi_events(
     events: &[MidiNoteEvent],
+    cycle_ticks: u64,
     location: &str,
     ids: &mut BTreeSet<String>,
 ) -> Result<(), PlanValidationFailure> {
@@ -615,7 +629,7 @@ fn validate_midi_events(
             || event
                 .start_tick
                 .checked_add(event.duration_ticks)
-                .is_none_or(|end| end > MAX_SAFE_INTEGER)
+                .is_none_or(|end| end > cycle_ticks)
             || event.velocity == 0
             || event.velocity > 127
             || event.pitch > 127
@@ -637,6 +651,7 @@ fn validate_midi_events(
 
 fn validate_drum_events(
     events: &[DrumHitEvent],
+    cycle_ticks: u64,
     location: &str,
     ids: &mut BTreeSet<String>,
 ) -> Result<(), PlanValidationFailure> {
@@ -649,7 +664,7 @@ fn validate_drum_events(
             || event
                 .start_tick
                 .checked_add(event.swing_ticks)
-                .is_none_or(|tick| tick > MAX_SAFE_INTEGER)
+                .is_none_or(|tick| tick >= cycle_ticks)
             || event.velocity == 0
             || event.velocity > 127
             || previous.is_some_and(|candidate| {
@@ -668,7 +683,9 @@ fn validate_drum_events(
     Ok(())
 }
 
-fn validate_layers(layers: &[InstrumentLayerPlan]) -> Result<(), PlanValidationFailure> {
+fn validate_layers(
+    layers: &[InstrumentLayerPlan],
+) -> Result<(BTreeSet<String>, BTreeSet<String>), PlanValidationFailure> {
     if layers.len() > MAX_ENGINE_LAYERS {
         return Err(failure(
             PlanValidationCode::LimitExceeded,
@@ -677,6 +694,7 @@ fn validate_layers(layers: &[InstrumentLayerPlan]) -> Result<(), PlanValidationF
         ));
     }
     let mut ids = BTreeSet::<String>::new();
+    let mut layer_ids = BTreeSet::<String>::new();
     let mut event_count = 0_usize;
     for (index, layer) in layers.iter().enumerate() {
         let location = format!("$.layers[{index}]");
@@ -687,11 +705,19 @@ fn validate_layers(layers: &[InstrumentLayerPlan]) -> Result<(), PlanValidationF
                 "Layer ID is invalid or duplicated.",
             ));
         }
+        layer_ids.insert(layer.id.clone());
         if !finite_range(layer.gain, 0.0, 2.0) || !finite_range(layer.pan, -1.0, 1.0) {
             return Err(failure(
                 PlanValidationCode::InvalidValue,
                 &location,
                 "Layer gain or pan is invalid.",
+            ));
+        }
+        if layer.cycle_ticks == 0 || layer.cycle_ticks > MAX_SAFE_INTEGER {
+            return Err(failure(
+                PlanValidationCode::InvalidValue,
+                format!("{location}.cycleTicks"),
+                "Layer cycle must be a positive wire-safe tick count.",
             ));
         }
         event_count = event_count
@@ -713,13 +739,65 @@ fn validate_layers(layers: &[InstrumentLayerPlan]) -> Result<(), PlanValidationF
         match &layer.source {
             LayerSource::Synth { patch, events } => {
                 validate_synth_patch(patch, &format!("{location}.source.patch"))?;
-                validate_midi_events(events, &location, &mut ids)?;
+                validate_midi_events(events, layer.cycle_ticks, &location, &mut ids)?;
             }
             LayerSource::Drums { patch, events } => {
                 validate_drum_patch(patch, &format!("{location}.source.patch"))?;
-                validate_drum_events(events, &location, &mut ids)?;
+                validate_drum_events(events, layer.cycle_ticks, &location, &mut ids)?;
             }
         }
+    }
+    Ok((ids, layer_ids))
+}
+
+fn validate_instances(
+    instances: &[SongInstancePlan],
+    end_tick: u64,
+    layer_ids: &BTreeSet<String>,
+    ids: &mut BTreeSet<String>,
+) -> Result<(), PlanValidationFailure> {
+    if instances.len() > MAX_SONG_INSTANCES {
+        return Err(failure(
+            PlanValidationCode::LimitExceeded,
+            "$.instances",
+            "Render plan exceeds the song-instance ceiling.",
+        ));
+    }
+    let mut previous: Option<&SongInstancePlan> = None;
+    for (index, instance) in instances.iter().enumerate() {
+        let location = format!("$.instances[{index}]");
+        if !valid_id(&instance.id) || !ids.insert(instance.id.clone()) {
+            return Err(failure(
+                PlanValidationCode::DuplicateId,
+                format!("{location}.id"),
+                "Song-instance ID is invalid or duplicated.",
+            ));
+        }
+        if !layer_ids.contains(&instance.source_layer_id) {
+            return Err(failure(
+                PlanValidationCode::InvalidValue,
+                format!("{location}.sourceLayerId"),
+                "Song instance references an unknown source layer.",
+            ));
+        }
+        if instance.duration_ticks == 0
+            || instance.source_offset_ticks > MAX_SAFE_INTEGER
+            || instance
+                .start_tick
+                .checked_add(instance.duration_ticks)
+                .is_none_or(|tick| tick > end_tick)
+            || previous.is_some_and(|candidate| {
+                (candidate.start_tick, candidate.id.as_str())
+                    > (instance.start_tick, instance.id.as_str())
+            })
+        {
+            return Err(failure(
+                PlanValidationCode::InvalidValue,
+                location,
+                "Song instance is invalid or unordered.",
+            ));
+        }
+        previous = Some(instance);
     }
     Ok(())
 }
@@ -735,7 +813,8 @@ pub fn validate_render_plan(plan: &RenderPlan) -> Result<(), PlanValidationFailu
     validate_tempo_map(&plan.tempo_map)?;
     validate_meter_map(&plan.meter_map, plan.end_tick)?;
     validate_loop_region(&plan.loop_region, plan.end_tick)?;
-    validate_layers(&plan.layers)
+    let (mut ids, layer_ids) = validate_layers(&plan.layers)?;
+    validate_instances(&plan.instances, plan.end_tick, &layer_ids, &mut ids)
 }
 
 #[cfg(test)]
@@ -831,6 +910,8 @@ mod tests {
                 id: "layer.synth".to_owned(),
                 gain: 1.0,
                 pan: 0.0,
+                song_enabled: true,
+                cycle_ticks: 3_840,
                 source: LayerSource::Synth {
                     patch: valid_synth_patch(),
                     events: vec![MidiNoteEvent {
@@ -841,6 +922,13 @@ mod tests {
                         velocity: 100,
                     }],
                 },
+            }],
+            instances: vec![SongInstancePlan {
+                id: "instance.synth".to_owned(),
+                source_layer_id: "layer.synth".to_owned(),
+                start_tick: 0,
+                duration_ticks: 3_840,
+                source_offset_ticks: 0,
             }],
         }
     }

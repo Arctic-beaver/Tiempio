@@ -10,7 +10,9 @@ pub enum VoiceIdentity {
     Scheduled {
         generation: u64,
         layer_index: usize,
+        instance_index: usize,
         event_index: usize,
+        iteration: u64,
     },
     Audition(u64),
 }
@@ -318,7 +320,7 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
             .is_some_and(|generation| plan.generation() <= generation)
             || self
                 .highest_revision
-                .is_some_and(|accepted| revision <= accepted)
+                .is_some_and(|accepted| revision < accepted)
         {
             return Err(EngineControlError::StalePlan);
         }
@@ -633,7 +635,9 @@ impl<Bank: VoiceBank> EngineKernel<Bank> {
             let identity = VoiceIdentity::Scheduled {
                 generation: plan.generation(),
                 layer_index: action.layer_index,
+                instance_index: action.instance_index,
                 event_index: action.event_index,
+                iteration: action.iteration,
             };
             match (&layer.source, action.kind) {
                 (LayerSource::Synth { .. }, PreparedActionKind::NoteOff) => {
@@ -685,8 +689,8 @@ mod tests {
     use super::*;
     use crate::{
         InstrumentLayerPlan, LayerSource, LoopRegion, MeterPoint, MidiNoteEvent,
-        RENDER_PLAN_VERSION, RenderPlan, RenderPlanRevision, SynthPatch, TICKS_PER_QUARTER,
-        TempoPoint,
+        RENDER_PLAN_VERSION, RenderPlan, RenderPlanRevision, SongInstancePlan, SynthPatch,
+        TICKS_PER_QUARTER, TempoPoint,
     };
 
     #[derive(Default)]
@@ -782,6 +786,8 @@ mod tests {
                 id: "layer.bass".to_owned(),
                 gain: 1.0,
                 pan: 0.0,
+                song_enabled: true,
+                cycle_ticks: 3_840,
                 source: LayerSource::Synth {
                     patch: test_patch(),
                     events: vec![MidiNoteEvent {
@@ -792,6 +798,13 @@ mod tests {
                         velocity: 100,
                     }],
                 },
+            }],
+            instances: vec![SongInstancePlan {
+                id: "instance.bass".to_owned(),
+                source_layer_id: "layer.bass".to_owned(),
+                start_tick: 0,
+                duration_ticks: 3_840,
+                source_offset_ticks: 0,
             }],
         }
     }
@@ -851,27 +864,46 @@ mod tests {
         let configuration = DspConfiguration::new(48_000, 64).expect("valid config");
         let first =
             PreparedPlan::prepare(test_plan_with_revision(1), 48_000, 1).expect("valid first plan");
-        let second = PreparedPlan::prepare(test_plan_with_revision(2), 48_000, 2)
+        let same_revision_variant = PreparedPlan::prepare(test_plan_with_revision(1), 48_000, 2)
+            .expect("valid same-revision variant");
+        let second = PreparedPlan::prepare(test_plan_with_revision(2), 48_000, 3)
             .expect("valid second plan");
         let mut engine = EngineKernel::new(configuration, TestVoiceBank::default());
         engine.publish_plan(first).expect("first pending plan");
+        engine
+            .publish_plan(same_revision_variant)
+            .expect("newest same-revision variant");
         engine.publish_plan(second).expect("newest pending plan");
         engine.render_block(&mut [StereoFrame::default(); 1]);
         assert_eq!(
             engine.take_plan_acknowledgement(),
             Some(PlanAcknowledgement {
                 project_revision: 2,
-                plan_generation: 2,
+                plan_generation: 3,
             })
         );
 
-        let stale_revision = PreparedPlan::prepare(test_plan_with_revision(1), 48_000, 3)
+        let accepted_variant = PreparedPlan::prepare(test_plan_with_revision(2), 48_000, 4)
+            .expect("valid accepted-revision variant");
+        engine
+            .publish_plan(accepted_variant)
+            .expect("same-revision variants remain publishable");
+        engine.render_block(&mut [StereoFrame::default(); 1]);
+        assert_eq!(
+            engine.take_plan_acknowledgement(),
+            Some(PlanAcknowledgement {
+                project_revision: 2,
+                plan_generation: 4,
+            })
+        );
+
+        let stale_revision = PreparedPlan::prepare(test_plan_with_revision(1), 48_000, 5)
             .expect("structurally valid stale revision");
         assert_eq!(
             engine.publish_plan(stale_revision),
             Err(EngineControlError::StalePlan)
         );
-        let stale_generation = PreparedPlan::prepare(test_plan_with_revision(3), 48_000, 2)
+        let stale_generation = PreparedPlan::prepare(test_plan_with_revision(3), 48_000, 4)
             .expect("structurally valid stale generation");
         assert_eq!(
             engine.publish_plan(stale_generation),
@@ -879,7 +911,7 @@ mod tests {
         );
         engine.render_block(&mut [StereoFrame::default(); 1]);
         assert_eq!(engine.take_plan_acknowledgement(), None);
-        assert_eq!(engine.health_snapshot().plan_swaps, 1);
+        assert_eq!(engine.health_snapshot().plan_swaps, 2);
     }
 
     #[test]
@@ -908,6 +940,7 @@ mod tests {
         let configuration = DspConfiguration::new(48_000, 64).expect("valid config");
         let mut plan = test_plan();
         plan.layers.clear();
+        plan.instances.clear();
         let prepared = PreparedPlan::prepare(plan, 48_000, 1).expect("valid plan");
         let mut engine = EngineKernel::new(configuration, TestVoiceBank::default());
         engine.publish_plan(prepared).expect("new plan");

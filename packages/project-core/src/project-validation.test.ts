@@ -250,4 +250,27 @@ describe('project validation', () => {
 		}
 		assert.ok(issueCodes({ ...project, layers: [layer] }).includes('INVALID_TIMELINE'))
 	})
+
+	it('retains authored source offsets when a linked source cycle becomes shorter', () => {
+		const project = createProject({ projectId: 'project.offset', title: 'Offset' })
+		const layer = {
+			...createLayer({ id: 'layer.offset', name: 'Offset', role: 'bass' }),
+			material: createMidiMaterial({ materialLengthTicks: 960 })
+		}
+		const instance = createSongInstance({
+			id: 'instance.offset',
+			sourceLayerId: layer.id,
+			startTick: 0,
+			durationTicks: 960,
+			sourceOffsetTicks: 3_840
+		})
+		assert.equal(
+			validateProjectDocument({
+				...project,
+				layers: [layer],
+				song: { instances: [instance] }
+			}).ok,
+			true
+		)
+	})
 })

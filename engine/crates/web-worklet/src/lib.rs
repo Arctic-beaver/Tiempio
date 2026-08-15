@@ -12,11 +12,12 @@ use tiempio_engine_protocol::{
     WEB_WORKLET_CAPABILITY_CODES, encode_event_body,
 };
 use tiempio_engine_realtime::{
-    AuditionPatch, CONTROL_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY, PreparedPreview,
-    PreparedRecording, PreviewEndReason, PreviewId, RealtimeCommand, RealtimeEngine, RealtimeEvent,
-    RecordingIdentifier, RecordingStopReason, RetiredRealtimeAllocation, StreamSignals,
-    audition_patch_for_layer, create_engine, drum_instrument_for_pitch, map_realtime_event,
-    stable_audition_identifier, synth_patch_for_layer,
+    AuditionPatch, BrickPreviewEndReason, CONTROL_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY,
+    PreparedBrickPreview, PreparedPreview, PreparedRecording, PreviewEndReason, PreviewId,
+    RealtimeCommand, RealtimeEngine, RealtimeEvent, RecordingIdentifier, RecordingStopReason,
+    RetiredRealtimeAllocation, StreamSignals, audition_patch_for_layer, create_engine,
+    drum_instrument_for_pitch, map_realtime_event, stable_audition_identifier,
+    synth_patch_for_layer,
 };
 
 pub const WEB_WORKLET_ABI_VERSION: u32 = 1;
@@ -178,6 +179,12 @@ impl WebWorkletEngine {
                     reason: PreviewEndReason::Canceled,
                 })
             }
+            brick_preview_command @ (EngineCommand::StartBrickPreview(_)
+            | EngineCommand::SetBrickPreviewSourceEnabled(_)
+            | EngineCommand::SeekBrickPreviewSource(_)
+            | EngineCommand::StopBrickPreview(_)) => {
+                self.dispatch_brick_preview(brick_preview_command)
+            }
             recording_command @ (EngineCommand::StartRecording(_)
             | EngineCommand::RecordingNoteOn(_)
             | EngineCommand::RecordingNoteOff(_)
@@ -206,6 +213,58 @@ impl WebWorkletEngine {
                 "protocol.unsupported-command",
                 "Command is unavailable in the Web AudioWorklet engine.",
             ),
+        }
+    }
+
+    fn dispatch_brick_preview(&mut self, command: EngineCommand) -> u32 {
+        match command {
+            EngineCommand::StartBrickPreview(payload) => {
+                self.recording_target = None;
+                let Some(plan) = self.latest_plan.as_ref() else {
+                    return self.diagnostic(
+                        "engine.invalid-plan",
+                        "Brick preview requires an active render plan.",
+                    );
+                };
+                let Some(prepared) =
+                    PreparedBrickPreview::prepare(&payload, plan, self.sample_rate)
+                else {
+                    return self.diagnostic(
+                        "engine.stale-revision",
+                        "Brick preview could not bind to the requested render-plan revision.",
+                    );
+                };
+                self.push_realtime(RealtimeCommand::StartBrickPreview(prepared))
+            }
+            EngineCommand::SetBrickPreviewSourceEnabled(payload) => {
+                let Some(source_layer_id) = PreviewId::new(&payload.source_layer_id) else {
+                    return ABI_INVALID;
+                };
+                self.push_realtime(RealtimeCommand::SetBrickPreviewSourceEnabled {
+                    generation: payload.preview_generation,
+                    source_layer_id,
+                    enabled: payload.enabled,
+                })
+            }
+            EngineCommand::SeekBrickPreviewSource(payload) => {
+                let Some(source_layer_id) = PreviewId::new(&payload.source_layer_id) else {
+                    return ABI_INVALID;
+                };
+                self.push_realtime(RealtimeCommand::SeekBrickPreviewSource {
+                    generation: payload.preview_generation,
+                    source_layer_id,
+                    local_tick: payload.local_tick,
+                    cycle_iteration: payload.cycle_iteration,
+                    running: payload.running,
+                })
+            }
+            EngineCommand::StopBrickPreview(payload) => {
+                self.push_realtime(RealtimeCommand::StopBrickPreview {
+                    generation: payload.preview_generation,
+                    reason: BrickPreviewEndReason::Stopped,
+                })
+            }
+            _ => unreachable!("brick preview dispatcher accepts only brick preview commands"),
         }
     }
 
@@ -692,7 +751,7 @@ mod tests {
             &json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 5,
+                "renderPlanVersion": 6,
                 "patchModelVersion": 4,
                 "capabilities": WEB_WORKLET_CAPABILITY_CODES
             }),
@@ -893,6 +952,67 @@ mod tests {
         assert!(render_energy(&mut engine, 16) > 0.01);
     }
 
+    fn exercise_brick_preview(engine: &mut WebWorkletEngine) {
+        assert_eq!(
+            send(
+                engine,
+                &command(
+                    12,
+                    "start-brick-preview",
+                    &json!({
+                        "previewGeneration": 1,
+                        "renderPlanRevision": 7,
+                        "sourceLayerIds": ["layer.bass"]
+                    }),
+                ),
+            ),
+            ABI_OK
+        );
+        assert!(render_energy(engine, 13) > 0.000_001);
+        for (sequence, enabled) in [(13, false), (14, true)] {
+            assert_eq!(
+                send(
+                    engine,
+                    &command(
+                        sequence,
+                        "set-brick-preview-source-enabled",
+                        &json!({
+                            "previewGeneration": 1,
+                            "sourceLayerId": "layer.bass",
+                            "enabled": enabled
+                        }),
+                    ),
+                ),
+                ABI_OK
+            );
+        }
+        assert_eq!(
+            send(
+                engine,
+                &command(
+                    15,
+                    "seek-brick-preview-source",
+                    &json!({
+                        "previewGeneration": 1,
+                        "sourceLayerId": "layer.bass",
+                        "localTick": 480,
+                        "cycleIteration": 2,
+                        "running": true
+                    }),
+                ),
+            ),
+            ABI_OK
+        );
+        assert_eq!(
+            send(
+                engine,
+                &command(16, "stop-brick-preview", &json!({ "previewGeneration": 1 })),
+            ),
+            ABI_OK
+        );
+        assert_eq!(engine.render(128), ABI_OK);
+    }
+
     #[test]
     fn preview_metronome_transport_seek_and_loop_share_the_realtime_path() {
         let plan: Value = serde_json::from_str(include_str!(
@@ -963,6 +1083,7 @@ mod tests {
             ABI_OK
         );
         assert_eq!(engine.render(128), ABI_OK);
+        exercise_brick_preview(&mut engine);
         let events = drain_events(&mut engine);
         assert!(
             events
@@ -971,6 +1092,21 @@ mod tests {
         );
         assert!(events.iter().any(|event| event["type"] == "preview-state"));
         assert!(events.iter().any(|event| event["type"] == "preview-ended"));
+        assert!(
+            events
+                .iter()
+                .any(|event| event["type"] == "brick-preview-started")
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| event["type"] == "brick-preview-cursor")
+        );
+        assert!(
+            events
+                .iter()
+                .any(|event| event["type"] == "brick-preview-ended")
+        );
     }
 
     #[test]
@@ -1085,6 +1221,18 @@ mod tests {
             send(
                 &mut engine,
                 &command(3, "load-render-plan", &json!({ "plan": plan })),
+            ),
+            ABI_OK
+        );
+        let mut stale_plan: Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/engine-protocol/valid-bass-plan.json"
+        ))
+        .unwrap();
+        stale_plan["projectRevision"] = json!(6);
+        assert_eq!(
+            send(
+                &mut engine,
+                &command(4, "load-render-plan", &json!({ "plan": stale_plan })),
             ),
             ABI_INVALID
         );

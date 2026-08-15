@@ -20,11 +20,12 @@ use crate::backend::{
     SharedOutputBackend,
 };
 use crate::realtime::{
-    AuditionPatch, CONTROL_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY, PreparedPreview,
-    PreparedRecording, PreviewEndReason, PreviewId, RealtimeCommand, RealtimeEngine, RealtimeEvent,
-    RecordingIdentifier, RecordingStopReason, RetiredRealtimeAllocation, StreamSignals,
-    audition_patch_for_layer, create_engine, drum_instrument_for_pitch, map_realtime_event,
-    stable_audition_identifier, synth_patch_for_layer,
+    AuditionPatch, BrickPreviewEndReason, CONTROL_QUEUE_CAPACITY, EVENT_QUEUE_CAPACITY,
+    PreparedBrickPreview, PreparedPreview, PreparedRecording, PreviewEndReason, PreviewId,
+    RealtimeCommand, RealtimeEngine, RealtimeEvent, RecordingIdentifier, RecordingStopReason,
+    RetiredRealtimeAllocation, StreamSignals, audition_patch_for_layer, create_engine,
+    drum_instrument_for_pitch, map_realtime_event, stable_audition_identifier,
+    synth_patch_for_layer,
 };
 
 const RECOVERY_BASE_DELAY: Duration = Duration::from_millis(250);
@@ -143,6 +144,12 @@ impl<Backend: OutputBackend> HostController<Backend> {
             EngineCommand::CancelPreview(payload) => {
                 self.cancel_preview(&payload)?;
             }
+            brick_preview_command @ (EngineCommand::StartBrickPreview(_)
+            | EngineCommand::SetBrickPreviewSourceEnabled(_)
+            | EngineCommand::SeekBrickPreviewSource(_)
+            | EngineCommand::StopBrickPreview(_)) => {
+                self.dispatch_brick_preview(brick_preview_command)?;
+            }
             recording_command @ (EngineCommand::StartRecording(_)
             | EngineCommand::RecordingNoteOn(_)
             | EngineCommand::RecordingNoteOff(_)
@@ -174,6 +181,44 @@ impl<Backend: OutputBackend> HostController<Backend> {
         }
         self.recover_audio_if_due()?;
         Ok(true)
+    }
+
+    fn dispatch_brick_preview(&mut self, command: EngineCommand) -> Result<(), ()> {
+        match command {
+            EngineCommand::StartBrickPreview(payload) => {
+                self.recording_target = None;
+                self.start_brick_preview(&payload)
+            }
+            EngineCommand::SetBrickPreviewSourceEnabled(payload) => {
+                let Some(source_layer_id) = PreviewId::new(&payload.source_layer_id) else {
+                    return Ok(());
+                };
+                self.send_realtime(RealtimeCommand::SetBrickPreviewSourceEnabled {
+                    generation: payload.preview_generation,
+                    source_layer_id,
+                    enabled: payload.enabled,
+                })
+            }
+            EngineCommand::SeekBrickPreviewSource(payload) => {
+                let Some(source_layer_id) = PreviewId::new(&payload.source_layer_id) else {
+                    return Ok(());
+                };
+                self.send_realtime(RealtimeCommand::SeekBrickPreviewSource {
+                    generation: payload.preview_generation,
+                    source_layer_id,
+                    local_tick: payload.local_tick,
+                    cycle_iteration: payload.cycle_iteration,
+                    running: payload.running,
+                })
+            }
+            EngineCommand::StopBrickPreview(payload) => {
+                self.send_realtime(RealtimeCommand::StopBrickPreview {
+                    generation: payload.preview_generation,
+                    reason: BrickPreviewEndReason::Stopped,
+                })
+            }
+            _ => unreachable!("brick preview dispatcher accepts only brick preview commands"),
+        }
     }
 
     fn dispatch_playback(&mut self, command: EngineCommand) -> Result<(), ()> {
@@ -326,6 +371,36 @@ impl<Backend: OutputBackend> HostController<Backend> {
             preview_id,
             reason: PreviewEndReason::Canceled,
         })
+    }
+
+    fn start_brick_preview(
+        &mut self,
+        payload: &tiempio_engine_protocol::StartBrickPreviewPayload,
+    ) -> Result<(), ()> {
+        let Some(sample_rate) = self
+            .configuration
+            .as_ref()
+            .filter(|_| self.stream.is_some())
+            .map(|configuration| configuration.negotiated.sample_rate)
+        else {
+            return self.emit_diagnostic(
+                "audio.suspended",
+                "Brick preview requires active shared output.",
+            );
+        };
+        let Some(plan) = self.latest_plan.as_ref() else {
+            return self.emit_diagnostic(
+                "engine.invalid-plan",
+                "Brick preview requires an active render plan.",
+            );
+        };
+        let Some(prepared) = PreparedBrickPreview::prepare(payload, plan, sample_rate) else {
+            return self.emit_diagnostic(
+                "engine.stale-revision",
+                "Brick preview could not bind to the requested render-plan revision.",
+            );
+        };
+        self.send_realtime(RealtimeCommand::StartBrickPreview(prepared))
     }
 
     fn start_recording(&mut self, payload: &StartRecordingPayload) -> Result<(), ()> {
@@ -765,6 +840,7 @@ impl<Backend: OutputBackend> HostController<Backend> {
                 match allocation {
                     RetiredRealtimeAllocation::Plan(plan) => drop(plan),
                     RetiredRealtimeAllocation::Preview(preview) => drop(preview),
+                    RetiredRealtimeAllocation::BrickPreview(preview) => drop(preview),
                     RetiredRealtimeAllocation::Recording(recording) => drop(recording),
                 }
             }

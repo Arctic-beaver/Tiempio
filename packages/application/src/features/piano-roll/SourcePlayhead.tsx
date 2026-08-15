@@ -6,6 +6,9 @@ export interface SourcePlayheadProperties {
 	readonly gridRef: RefObject<HTMLDivElement | null>
 	readonly label: string
 	readonly onSeek: (tick: number) => void
+	readonly onSeekCancel?: () => void
+	readonly onSeekCommit?: (tick: number) => void
+	readonly onSeekStart?: (tick: number) => void
 	readonly playheadTick: number
 	readonly scrollRef: RefObject<HTMLDivElement | null>
 	readonly ticksPerBeat: number
@@ -18,11 +21,15 @@ export function SourcePlayhead({
 	gridTicks,
 	label,
 	onSeek,
+	onSeekCancel,
+	onSeekCommit,
+	onSeekStart,
 	playheadTick,
 	scrollRef,
 	ticksPerBeat
 }: SourcePlayheadProperties): JSX.Element {
 	const pointerId = useRef<number | null>(null)
+	const pendingTick = useRef(playheadTick)
 	const seekFromPointer = (clientX: number): void => {
 		const grid = gridRef.current
 		if (grid === null) return
@@ -34,19 +41,23 @@ export function SourcePlayhead({
 			else if (clientX > bounds.right - edge) scroll.scrollBy({ left: edge })
 		}
 		const rect = grid.getBoundingClientRect()
-		onSeek(tickAtSourcePointer(clientX, rect.left, rect.width, canvasTicks))
+		const tick = tickAtSourcePointer(clientX, rect.left, rect.width, canvasTicks)
+		pendingTick.current = tick
+		onSeek(tick)
 	}
 	const handlePointer = (event: PointerEvent<HTMLButtonElement>): void => {
 		if (pointerId.current !== event.pointerId) return
 		event.preventDefault()
 		seekFromPointer(event.clientX)
 	}
-	const finishPointer = (event: PointerEvent<HTMLButtonElement>): void => {
+	const finishPointer = (event: PointerEvent<HTMLButtonElement>, commit: boolean): void => {
 		if (pointerId.current !== event.pointerId) return
 		if (event.currentTarget.hasPointerCapture(event.pointerId)) {
 			event.currentTarget.releasePointerCapture(event.pointerId)
 		}
 		pointerId.current = null
+		if (commit) onSeekCommit?.(pendingTick.current)
+		else onSeekCancel?.()
 	}
 	const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
 		const next =
@@ -61,7 +72,10 @@ export function SourcePlayhead({
 							: null
 		if (next === null) return
 		event.preventDefault()
-		onSeek(Math.min(canvasTicks, Math.max(0, next)))
+		const tick = Math.min(canvasTicks, Math.max(0, next))
+		onSeekStart?.(playheadTick)
+		onSeek(tick)
+		onSeekCommit?.(tick)
 	}
 	return (
 		<button
@@ -71,17 +85,19 @@ export function SourcePlayhead({
 			aria-valuenow={playheadTick}
 			className="source-playhead"
 			onKeyDown={handleKeyDown}
-			onPointerCancel={finishPointer}
+			onPointerCancel={(event) => finishPointer(event, false)}
 			onPointerDown={(event) => {
 				if (event.button !== 0) return
 				event.preventDefault()
 				event.stopPropagation()
 				pointerId.current = event.pointerId
+				pendingTick.current = playheadTick
+				onSeekStart?.(playheadTick)
 				event.currentTarget.setPointerCapture(event.pointerId)
 				seekFromPointer(event.clientX)
 			}}
 			onPointerMove={handlePointer}
-			onPointerUp={finishPointer}
+			onPointerUp={(event) => finishPointer(event, true)}
 			role="slider"
 			style={{ left: `${String((playheadTick / Math.max(1, canvasTicks)) * 100)}%` }}
 			type="button"

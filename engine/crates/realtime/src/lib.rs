@@ -13,9 +13,9 @@ use tiempio_engine_drums::DrumVoicePool;
 use tiempio_engine_dsp::{DspConfiguration, StereoFrame};
 use tiempio_engine_protocol::{
     ENGINE_PROTOCOL_MAX_BLOCK_FRAMES, ENGINE_PROTOCOL_MAX_IDENTIFIER_BYTES,
-    ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE, ENGINE_PROTOCOL_MAX_RECORDING_COUNT_IN_BEATS,
-    ENGINE_PROTOCOL_MAX_RECORDING_HELD_INPUTS, EngineEvent, PreviewProgramPayload,
-    StartRecordingPayload,
+    ENGINE_PROTOCOL_MAX_PREPARED_ACTIONS, ENGINE_PROTOCOL_MAX_PREVIEW_CHORD_SIZE,
+    ENGINE_PROTOCOL_MAX_RECORDING_COUNT_IN_BEATS, ENGINE_PROTOCOL_MAX_RECORDING_HELD_INPUTS,
+    EngineEvent, PreviewProgramPayload, StartBrickPreviewPayload, StartRecordingPayload,
 };
 use tiempio_engine_synth::SynthVoicePool;
 
@@ -28,6 +28,7 @@ const SNAPSHOTS_PER_SECOND: u64 = 30;
 const PENDING_CRITICAL_EVENT_CAPACITY: usize = ENGINE_PROTOCOL_MAX_RECORDING_HELD_INPUTS * 2 + 8;
 const PREVIEW_IDENTITY_FLAG: u64 = 1_u64 << 63;
 const PREVIEW_HASH_MASK: u64 = (1_u64 << 54) - 1;
+const BRICK_PREVIEW_IDENTITY_PREFIX: u64 = 3_u64 << 62;
 
 #[derive(Clone, Debug)]
 pub enum AuditionPatch {
@@ -317,6 +318,205 @@ impl PreparedPreview {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum BrickPreviewActionKind {
+    NoteOff,
+    DrumHit(DrumInstrument),
+    NoteOn,
+}
+
+impl BrickPreviewActionKind {
+    const fn order(self) -> u8 {
+        match self {
+            Self::NoteOff => 0,
+            Self::DrumHit(_) => 1,
+            Self::NoteOn => 2,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct BrickPreviewAction {
+    sample_offset: u64,
+    event_index: u16,
+    kind: BrickPreviewActionKind,
+    pitch: u8,
+    velocity: u8,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct BrickPreviewVoice {
+    start_frame: u64,
+    end_frame: u64,
+    event_index: u16,
+    pitch: u8,
+    velocity: u8,
+}
+
+#[derive(Debug)]
+struct PreparedBrickPreviewSource {
+    id: PreviewId,
+    source_index: u8,
+    cycle_ticks: u64,
+    cycle_frames: u64,
+    actions: Box<[BrickPreviewAction]>,
+    voices: Box<[BrickPreviewVoice]>,
+    patch: AuditionPatch,
+    enabled: bool,
+    running: bool,
+    cursor: usize,
+    position: u64,
+    cycle_iteration: u64,
+}
+
+#[derive(Debug)]
+pub struct PreparedBrickPreview {
+    generation: u64,
+    render_plan_revision: u64,
+    timeline: TempoTimeline,
+    sources: Box<[PreparedBrickPreviewSource]>,
+}
+
+fn prepare_brick_preview_source(
+    layer: &tiempio_engine_core::InstrumentLayerPlan,
+    source_index: usize,
+    enabled: bool,
+    timeline: &TempoTimeline,
+) -> Option<PreparedBrickPreviewSource> {
+    let id = PreviewId::new(&layer.id)?;
+    let cycle_frames = timeline.tick_to_sample(layer.cycle_ticks).ok()?;
+    if cycle_frames == 0 {
+        return None;
+    }
+    let mut actions = Vec::new();
+    let mut voices = Vec::new();
+    let patch = match &layer.source {
+        LayerSource::Synth { patch, events } => {
+            actions.reserve(events.len().checked_mul(2)?);
+            voices.reserve(events.len());
+            for (event_index, event) in events.iter().enumerate() {
+                let start_frame = timeline.tick_to_sample(event.start_tick).ok()?;
+                let end_frame = timeline
+                    .tick_to_sample(event.start_tick.checked_add(event.duration_ticks)?)
+                    .ok()?;
+                let event_index = u16::try_from(event_index).ok()?;
+                voices.push(BrickPreviewVoice {
+                    start_frame,
+                    end_frame,
+                    event_index,
+                    pitch: event.pitch,
+                    velocity: event.velocity,
+                });
+                for (sample_offset, kind) in [
+                    (start_frame, BrickPreviewActionKind::NoteOn),
+                    (end_frame, BrickPreviewActionKind::NoteOff),
+                ] {
+                    actions.push(BrickPreviewAction {
+                        sample_offset,
+                        event_index,
+                        kind,
+                        pitch: event.pitch,
+                        velocity: event.velocity,
+                    });
+                }
+            }
+            AuditionPatch::Synth(patch.clone())
+        }
+        LayerSource::Drums { patch, events } => {
+            actions.reserve(events.len());
+            for (event_index, event) in events.iter().enumerate() {
+                let tick = event.start_tick.checked_add(event.swing_ticks)?;
+                actions.push(BrickPreviewAction {
+                    sample_offset: timeline.tick_to_sample(tick).ok()?,
+                    event_index: u16::try_from(event_index).ok()?,
+                    kind: BrickPreviewActionKind::DrumHit(event.instrument),
+                    pitch: 0,
+                    velocity: event.velocity,
+                });
+            }
+            AuditionPatch::Drums(patch.clone())
+        }
+    };
+    actions.sort_by_key(|action| {
+        (
+            action.sample_offset,
+            action.kind.order(),
+            action.event_index,
+        )
+    });
+    Some(PreparedBrickPreviewSource {
+        id,
+        source_index: u8::try_from(source_index).ok()?,
+        cycle_ticks: layer.cycle_ticks,
+        cycle_frames,
+        actions: actions.into_boxed_slice(),
+        voices: voices.into_boxed_slice(),
+        patch,
+        enabled,
+        running: enabled,
+        cursor: 0,
+        position: 0,
+        cycle_iteration: 0,
+    })
+}
+
+impl PreparedBrickPreview {
+    #[must_use]
+    pub fn prepare(
+        payload: &StartBrickPreviewPayload,
+        plan: &RenderPlan,
+        sample_rate: u32,
+    ) -> Option<Self> {
+        if payload.preview_generation == 0
+            || payload.render_plan_revision != plan.project_revision.value()
+        {
+            return None;
+        }
+        let timeline = TempoTimeline::new(plan, sample_rate).ok()?;
+        let mut sources = Vec::with_capacity(plan.layers.len());
+        let mut prepared_action_count = 0_usize;
+        let mut enabled_count = 0_usize;
+        for (source_index, layer) in plan.layers.iter().enumerate() {
+            let enabled = payload
+                .source_layer_ids
+                .iter()
+                .any(|source_id| source_id == &layer.id);
+            enabled_count = enabled_count.checked_add(usize::from(enabled))?;
+            let source = prepare_brick_preview_source(layer, source_index, enabled, &timeline)?;
+            prepared_action_count = prepared_action_count.checked_add(source.actions.len())?;
+            if prepared_action_count > ENGINE_PROTOCOL_MAX_PREPARED_ACTIONS {
+                return None;
+            }
+            sources.push(source);
+        }
+        if enabled_count != payload.source_layer_ids.len() {
+            return None;
+        }
+        Some(Self {
+            generation: payload.preview_generation,
+            render_plan_revision: payload.render_plan_revision,
+            timeline,
+            sources: sources.into_boxed_slice(),
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BrickPreviewEndReason {
+    Stopped,
+    Interrupted,
+}
+
+impl BrickPreviewEndReason {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Stopped => "stopped",
+            Self::Interrupted => "interrupted",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PreviewEndReason {
     Completed,
     Canceled,
@@ -338,6 +538,7 @@ impl PreviewEndReason {
 pub enum RetiredRealtimeAllocation {
     Plan(PreparedPlan),
     Preview(PreparedPreview),
+    BrickPreview(PreparedBrickPreview),
     Recording(PreparedRecording),
 }
 
@@ -406,6 +607,10 @@ fn preview_voice_identifier(base: u64, event_index: u8, pitch_index: usize) -> u
         | u64::try_from(pitch_index).unwrap_or(0)
 }
 
+fn brick_preview_voice_identifier(source_index: u8, event_index: u16) -> u64 {
+    BRICK_PREVIEW_IDENTITY_PREFIX | (u64::from(source_index) << 16) | u64::from(event_index)
+}
+
 #[derive(Debug)]
 pub enum RealtimeCommand {
     PublishPlan(PreparedPlan),
@@ -436,6 +641,23 @@ pub enum RealtimeCommand {
     CancelPreview {
         preview_id: PreviewId,
         reason: PreviewEndReason,
+    },
+    StartBrickPreview(PreparedBrickPreview),
+    SetBrickPreviewSourceEnabled {
+        generation: u64,
+        source_layer_id: PreviewId,
+        enabled: bool,
+    },
+    SeekBrickPreviewSource {
+        generation: u64,
+        source_layer_id: PreviewId,
+        local_tick: u64,
+        cycle_iteration: u64,
+        running: bool,
+    },
+    StopBrickPreview {
+        generation: u64,
+        reason: BrickPreviewEndReason,
     },
     StartRecording(PreparedRecording),
     RecordingNoteOn {
@@ -494,6 +716,25 @@ pub enum RealtimeEvent {
     PreviewEnded {
         preview_id: PreviewId,
         reason: PreviewEndReason,
+    },
+    BrickPreviewStarted {
+        generation: u64,
+        render_plan_revision: u64,
+        engine_frame: u64,
+    },
+    BrickPreviewCursor {
+        source_layer_id: PreviewId,
+        generation: u64,
+        running: bool,
+        local_tick: u64,
+        cycle_iteration: u64,
+        engine_frame: u64,
+        render_plan_revision: u64,
+    },
+    BrickPreviewEnded {
+        generation: u64,
+        reason: BrickPreviewEndReason,
+        engine_frame: u64,
     },
     RecordingState {
         recording_id: RecordingIdentifier,
@@ -567,10 +808,54 @@ fn map_recording_event(event: &RealtimeEvent) -> Option<EngineEvent> {
     }
 }
 
+fn map_brick_preview_event(event: &RealtimeEvent) -> Option<EngineEvent> {
+    match event {
+        RealtimeEvent::BrickPreviewStarted {
+            generation,
+            render_plan_revision,
+            engine_frame,
+        } => Some(EngineEvent::BrickPreviewStarted {
+            preview_generation: *generation,
+            render_plan_revision: *render_plan_revision,
+            engine_frame: *engine_frame,
+        }),
+        RealtimeEvent::BrickPreviewCursor {
+            source_layer_id,
+            generation,
+            running,
+            local_tick,
+            cycle_iteration,
+            engine_frame,
+            render_plan_revision,
+        } => Some(EngineEvent::BrickPreviewCursor {
+            source_layer_id: source_layer_id.as_str().to_owned(),
+            preview_generation: *generation,
+            running: *running,
+            local_tick: *local_tick,
+            cycle_iteration: *cycle_iteration,
+            engine_frame: *engine_frame,
+            render_plan_revision: *render_plan_revision,
+        }),
+        RealtimeEvent::BrickPreviewEnded {
+            generation,
+            reason,
+            engine_frame,
+        } => Some(EngineEvent::BrickPreviewEnded {
+            preview_generation: *generation,
+            reason: reason.as_str().to_owned(),
+            engine_frame: *engine_frame,
+        }),
+        _ => None,
+    }
+}
+
 #[must_use]
 pub fn map_realtime_event(event: RealtimeEvent) -> EngineEvent {
     if let Some(recording_event) = map_recording_event(&event) {
         return recording_event;
+    }
+    if let Some(brick_preview_event) = map_brick_preview_event(&event) {
+        return brick_preview_event;
     }
     match event {
         RealtimeEvent::PlanAcknowledged {
@@ -623,7 +908,12 @@ pub fn map_realtime_event(event: RealtimeEvent) -> EngineEvent {
         },
         RealtimeEvent::RecordingState { .. }
         | RealtimeEvent::RecordingInputApplied { .. }
-        | RealtimeEvent::RecordingStopped { .. } => unreachable!("recording events map first"),
+        | RealtimeEvent::RecordingStopped { .. }
+        | RealtimeEvent::BrickPreviewStarted { .. }
+        | RealtimeEvent::BrickPreviewCursor { .. }
+        | RealtimeEvent::BrickPreviewEnded { .. } => {
+            unreachable!("recording and brick preview events map first")
+        }
         RealtimeEvent::RealtimeDiagnostic(diagnostic) => match diagnostic {
             RealtimeDiagnostic::ControlFailure => EngineEvent::Diagnostic {
                 code: "engine.invalid-plan".to_owned(),
@@ -680,6 +970,7 @@ pub struct RealtimeEngine {
     pending_reclaims: [Option<RetiredRealtimeAllocation>; 2],
     pending_critical_events: Box<[Option<RealtimeEvent>]>,
     active_preview: Option<ActivePreview>,
+    active_brick_preview: Option<PreparedBrickPreview>,
     active_recording: Option<ActiveRecording>,
     frames_since_snapshot: u64,
     last_non_finite_replacements: u64,
@@ -707,6 +998,7 @@ impl RealtimeEngine {
             pending_reclaims: [None, None],
             pending_critical_events: vec![None; PENDING_CRITICAL_EVENT_CAPACITY].into_boxed_slice(),
             active_preview: None,
+            active_brick_preview: None,
             active_recording: None,
             frames_since_snapshot: 0,
             last_non_finite_replacements: 0,
@@ -844,6 +1136,7 @@ impl RealtimeEngine {
                         continue;
                     }
                     self.end_preview(PreviewEndReason::Interrupted);
+                    self.end_brick_preview(BrickPreviewEndReason::Interrupted);
                     match self.engine.publish_plan_reclaiming(plan) {
                         Ok(retired) => {
                             if let Some(retired) = retired {
@@ -857,6 +1150,7 @@ impl RealtimeEngine {
                 RealtimeCommand::Play(tick) => {
                     self.stop_active_recording(RecordingStopReason::Interrupted);
                     self.end_preview(PreviewEndReason::Interrupted);
+                    self.end_brick_preview(BrickPreviewEndReason::Interrupted);
                     self.engine.play(tick)
                 }
                 RealtimeCommand::Stop => {
@@ -867,6 +1161,7 @@ impl RealtimeEngine {
                 RealtimeCommand::Seek(tick) => {
                     self.stop_active_recording(RecordingStopReason::Interrupted);
                     self.end_preview(PreviewEndReason::Interrupted);
+                    self.end_brick_preview(BrickPreviewEndReason::Interrupted);
                     self.engine.seek(tick)
                 }
                 RealtimeCommand::SetLoop {
@@ -886,7 +1181,11 @@ impl RealtimeEngine {
                 | RealtimeCommand::DrumHit { .. }
                 | RealtimeCommand::NoteOff(_)
                 | RealtimeCommand::StartPreview(_)
-                | RealtimeCommand::CancelPreview { .. }) => {
+                | RealtimeCommand::CancelPreview { .. }
+                | RealtimeCommand::StartBrickPreview(_)
+                | RealtimeCommand::SetBrickPreviewSourceEnabled { .. }
+                | RealtimeCommand::SeekBrickPreviewSource { .. }
+                | RealtimeCommand::StopBrickPreview { .. }) => {
                     self.apply_performance_command(performance_command);
                     Ok(())
                 }
@@ -899,6 +1198,7 @@ impl RealtimeEngine {
                 RealtimeCommand::Shutdown => {
                     self.stop_active_recording(RecordingStopReason::Interrupted);
                     self.end_preview(PreviewEndReason::Interrupted);
+                    self.end_brick_preview(BrickPreviewEndReason::Interrupted);
                     self.engine.shutdown();
                     self.signals.shutdown.store(true, Ordering::Release);
                     Ok(())
@@ -924,6 +1224,7 @@ impl RealtimeEngine {
                 patch,
             } => {
                 self.end_preview(PreviewEndReason::Interrupted);
+                self.end_brick_preview(BrickPreviewEndReason::Interrupted);
                 self.engine
                     .note_on_audition(identifier, pitch, velocity, &patch);
             }
@@ -936,6 +1237,7 @@ impl RealtimeEngine {
             RealtimeCommand::NoteOff(identifier) => self.engine.note_off_audition(identifier),
             RealtimeCommand::StartPreview(prepared) => {
                 self.stop_active_recording(RecordingStopReason::Interrupted);
+                self.end_brick_preview(BrickPreviewEndReason::Interrupted);
                 self.start_preview(prepared);
             }
             RealtimeCommand::CancelPreview { preview_id, reason } => {
@@ -945,6 +1247,37 @@ impl RealtimeEngine {
                     .is_some_and(|active| active.prepared.id == preview_id)
                 {
                     self.end_preview(reason);
+                }
+            }
+            RealtimeCommand::StartBrickPreview(prepared) => {
+                self.stop_active_recording(RecordingStopReason::Interrupted);
+                self.start_brick_preview(prepared);
+            }
+            RealtimeCommand::SetBrickPreviewSourceEnabled {
+                generation,
+                source_layer_id,
+                enabled,
+            } => self.set_brick_preview_source_enabled(generation, source_layer_id, enabled),
+            RealtimeCommand::SeekBrickPreviewSource {
+                generation,
+                source_layer_id,
+                local_tick,
+                cycle_iteration,
+                running,
+            } => self.seek_brick_preview_source(
+                generation,
+                source_layer_id,
+                local_tick,
+                cycle_iteration,
+                running,
+            ),
+            RealtimeCommand::StopBrickPreview { generation, reason } => {
+                if self
+                    .active_brick_preview
+                    .as_ref()
+                    .is_some_and(|active| active.generation == generation)
+                {
+                    self.end_brick_preview(reason);
                 }
             }
             _ => unreachable!("performance dispatcher received another command"),
@@ -1007,12 +1340,14 @@ impl RealtimeEngine {
         patch: &DrumVoicePatch,
     ) {
         self.end_preview(PreviewEndReason::Interrupted);
+        self.end_brick_preview(BrickPreviewEndReason::Interrupted);
         self.engine
             .drum_hit_audition(identifier, instrument, velocity, patch);
     }
 
     fn start_recording(&mut self, prepared: PreparedRecording) {
         self.end_preview(PreviewEndReason::Interrupted);
+        self.end_brick_preview(BrickPreviewEndReason::Interrupted);
         self.engine.stop();
         let previous_metronome_enabled = self.engine.metronome_enabled();
         self.active_recording = Some(ActiveRecording {
@@ -1184,6 +1519,7 @@ impl RealtimeEngine {
             self.apply_recording_boundaries();
             self.apply_preview_actions();
             self.complete_preview_if_due();
+            self.apply_brick_preview_boundaries();
             let remaining = frame_count - rendered;
             let preview_chunk = self.active_preview.as_ref().map_or(remaining, |active| {
                 let next_action = active
@@ -1198,17 +1534,23 @@ impl RealtimeEngine {
                     .unwrap_or(remaining)
                     .min(remaining)
             });
+            let brick_preview_chunk = self.brick_preview_boundary_distance(remaining);
             let recording_chunk = self.recording_boundary_distance(remaining);
-            let chunk = preview_chunk.min(recording_chunk);
+            let chunk = preview_chunk.min(brick_preview_chunk).min(recording_chunk);
             if chunk == 0 {
                 self.apply_recording_boundaries();
                 self.complete_preview_if_due();
-                if self.active_preview.is_none() && self.active_recording.is_none() {
+                self.apply_brick_preview_boundaries();
+                if self.active_preview.is_none()
+                    && self.active_brick_preview.is_none()
+                    && self.active_recording.is_none()
+                {
                     continue;
                 }
                 // Validated preview and recording schedules always advance at a boundary.
                 self.record_control_failure();
                 self.end_preview(PreviewEndReason::Interrupted);
+                self.end_brick_preview(BrickPreviewEndReason::Interrupted);
                 self.stop_active_recording(RecordingStopReason::Interrupted);
                 continue;
             }
@@ -1218,6 +1560,13 @@ impl RealtimeEngine {
                 active.position = active
                     .position
                     .saturating_add(u64::try_from(chunk).unwrap_or(u64::MAX));
+            }
+            if let Some(active) = self.active_brick_preview.as_mut() {
+                for source in active.sources.iter_mut().filter(|source| source.running) {
+                    source.position = source
+                        .position
+                        .saturating_add(u64::try_from(chunk).unwrap_or(u64::MAX));
+                }
             }
             if let Some(active) = self
                 .active_recording
@@ -1233,6 +1582,7 @@ impl RealtimeEngine {
         self.apply_recording_boundaries();
         self.apply_preview_actions();
         self.complete_preview_if_due();
+        self.apply_brick_preview_boundaries();
     }
 
     fn recording_boundary_distance(&self, remaining: usize) -> usize {
@@ -1254,6 +1604,270 @@ impl RealtimeEngine {
         usize::try_from(next.saturating_sub(position))
             .unwrap_or(remaining)
             .min(remaining)
+    }
+
+    fn brick_preview_boundary_distance(&self, remaining: usize) -> usize {
+        let Some(active) = self.active_brick_preview.as_ref() else {
+            return remaining;
+        };
+        active
+            .sources
+            .iter()
+            .filter(|source| source.running)
+            .fold(remaining, |distance, source| {
+                let boundary = source
+                    .actions
+                    .get(source.cursor)
+                    .map_or(source.cycle_frames, |action| action.sample_offset)
+                    .min(source.cycle_frames);
+                distance.min(
+                    usize::try_from(boundary.saturating_sub(source.position))
+                        .unwrap_or(remaining)
+                        .min(remaining),
+                )
+            })
+    }
+
+    fn apply_brick_preview_boundaries(&mut self) {
+        let source_count = self
+            .active_brick_preview
+            .as_ref()
+            .map_or(0, |active| active.sources.len());
+        for source_index in 0..source_count {
+            loop {
+                let action = self.active_brick_preview.as_ref().and_then(|active| {
+                    let source = &active.sources[source_index];
+                    if !source.running {
+                        return None;
+                    }
+                    source
+                        .actions
+                        .get(source.cursor)
+                        .copied()
+                        .filter(|action| action.sample_offset <= source.position)
+                });
+                if let Some(action) = action {
+                    let (identity, patch) = {
+                        let active = self
+                            .active_brick_preview
+                            .as_mut()
+                            .expect("brick preview action requires an active session");
+                        let source = &mut active.sources[source_index];
+                        source.cursor += 1;
+                        (
+                            brick_preview_voice_identifier(source.source_index, action.event_index),
+                            source.patch.clone(),
+                        )
+                    };
+                    match (action.kind, patch) {
+                        (BrickPreviewActionKind::NoteOn, AuditionPatch::Synth(patch)) => {
+                            self.engine.note_on_audition(
+                                identity,
+                                action.pitch,
+                                action.velocity,
+                                &patch,
+                            );
+                        }
+                        (BrickPreviewActionKind::NoteOff, AuditionPatch::Synth(_)) => {
+                            self.engine.note_off_audition(identity);
+                        }
+                        (
+                            BrickPreviewActionKind::DrumHit(instrument),
+                            AuditionPatch::Drums(patch),
+                        ) => self.engine.drum_hit_audition(
+                            identity,
+                            instrument,
+                            action.velocity,
+                            patch.voice(instrument),
+                        ),
+                        _ => self.record_control_failure(),
+                    }
+                    continue;
+                }
+                let wrapped = {
+                    let Some(active) = self.active_brick_preview.as_mut() else {
+                        return;
+                    };
+                    let source = &mut active.sources[source_index];
+                    if !source.running || source.position < source.cycle_frames {
+                        false
+                    } else {
+                        source.position = source.position.saturating_sub(source.cycle_frames);
+                        source.cycle_iteration = source.cycle_iteration.saturating_add(1);
+                        source.cursor = 0;
+                        true
+                    }
+                };
+                if !wrapped {
+                    break;
+                }
+            }
+        }
+    }
+
+    fn start_brick_preview(&mut self, prepared: PreparedBrickPreview) {
+        self.end_preview(PreviewEndReason::Interrupted);
+        self.end_brick_preview(BrickPreviewEndReason::Interrupted);
+        self.engine.stop();
+        let event = RealtimeEvent::BrickPreviewStarted {
+            generation: prepared.generation,
+            render_plan_revision: prepared.render_plan_revision,
+            engine_frame: self.engine.render_clock(),
+        };
+        self.active_brick_preview = Some(prepared);
+        self.emit_critical(&event);
+        self.apply_brick_preview_boundaries();
+    }
+
+    fn set_brick_preview_source_enabled(
+        &mut self,
+        generation: u64,
+        source_layer_id: PreviewId,
+        enabled: bool,
+    ) {
+        let source_index = self.active_brick_preview.as_ref().and_then(|active| {
+            (active.generation == generation)
+                .then(|| {
+                    active
+                        .sources
+                        .iter()
+                        .position(|source| source.id == source_layer_id)
+                })
+                .flatten()
+        });
+        let Some(source_index) = source_index else {
+            return;
+        };
+        {
+            let (engine, active) = (&mut self.engine, &mut self.active_brick_preview);
+            let source = &mut active
+                .as_mut()
+                .expect("source lookup requires an active brick preview")
+                .sources[source_index];
+            if source.enabled == enabled {
+                return;
+            }
+            Self::release_brick_preview_source_voices(engine, source);
+            source.enabled = enabled;
+            source.running = enabled;
+            source.cursor = 0;
+            source.position = 0;
+            source.cycle_iteration = 0;
+        }
+        if enabled {
+            self.apply_brick_preview_boundaries();
+        }
+        self.emit_brick_preview_cursor(source_index);
+    }
+
+    fn seek_brick_preview_source(
+        &mut self,
+        generation: u64,
+        source_layer_id: PreviewId,
+        local_tick: u64,
+        cycle_iteration: u64,
+        running: bool,
+    ) {
+        let prepared_seek = self.active_brick_preview.as_ref().and_then(|active| {
+            if active.generation != generation {
+                return None;
+            }
+            let source_index = active
+                .sources
+                .iter()
+                .position(|source| source.id == source_layer_id && source.enabled)?;
+            let source = &active.sources[source_index];
+            let normalized_tick = local_tick % source.cycle_ticks;
+            let position = active.timeline.tick_to_sample(normalized_tick).ok()?;
+            Some((source_index, position.min(source.cycle_frames)))
+        });
+        let Some((source_index, position)) = prepared_seek else {
+            return;
+        };
+        {
+            let (engine, active) = (&mut self.engine, &mut self.active_brick_preview);
+            let source = &mut active
+                .as_mut()
+                .expect("source lookup requires an active brick preview")
+                .sources[source_index];
+            Self::release_brick_preview_source_voices(engine, source);
+            source.position = position;
+            source.cycle_iteration = cycle_iteration;
+            source.cursor = source
+                .actions
+                .partition_point(|action| action.sample_offset < position);
+            source.running = running;
+            if running {
+                for voice in source
+                    .voices
+                    .iter()
+                    .filter(|voice| voice.start_frame < position && position < voice.end_frame)
+                {
+                    if let AuditionPatch::Synth(patch) = &source.patch {
+                        engine.note_on_audition(
+                            brick_preview_voice_identifier(source.source_index, voice.event_index),
+                            voice.pitch,
+                            voice.velocity,
+                            patch,
+                        );
+                    }
+                }
+            }
+        }
+        if running {
+            self.apply_brick_preview_boundaries();
+        }
+        self.emit_brick_preview_cursor(source_index);
+    }
+
+    fn emit_brick_preview_cursor(&mut self, source_index: usize) {
+        let event = self.active_brick_preview.as_ref().and_then(|active| {
+            let source = active.sources.get(source_index)?;
+            let local_tick = active
+                .timeline
+                .sample_to_tick_nearest(source.position)
+                .ok()?
+                .min(source.cycle_ticks.saturating_sub(1));
+            Some(RealtimeEvent::BrickPreviewCursor {
+                source_layer_id: source.id,
+                generation: active.generation,
+                running: source.running,
+                local_tick,
+                cycle_iteration: source.cycle_iteration,
+                engine_frame: self.engine.render_clock(),
+                render_plan_revision: active.render_plan_revision,
+            })
+        });
+        if let Some(event) = event {
+            self.emit_critical(&event);
+        }
+    }
+
+    fn release_brick_preview_source_voices(
+        engine: &mut EngineKernel<RealtimeVoiceBank>,
+        source: &PreparedBrickPreviewSource,
+    ) {
+        for voice in &source.voices {
+            engine.note_off_audition(brick_preview_voice_identifier(
+                source.source_index,
+                voice.event_index,
+            ));
+        }
+    }
+
+    fn end_brick_preview(&mut self, reason: BrickPreviewEndReason) {
+        let Some(active) = self.active_brick_preview.take() else {
+            return;
+        };
+        for source in &active.sources {
+            Self::release_brick_preview_source_voices(&mut self.engine, source);
+        }
+        self.emit_critical(&RealtimeEvent::BrickPreviewEnded {
+            generation: active.generation,
+            reason,
+            engine_frame: self.engine.render_clock(),
+        });
+        self.retire(RetiredRealtimeAllocation::BrickPreview(active));
     }
 
     fn apply_recording_boundaries(&mut self) {
@@ -1601,6 +2215,23 @@ impl RealtimeEngine {
         if let Some(event) = recording_snapshot {
             let _ = self.event_tx.push(event);
         }
+        if let Some(active) = self.active_brick_preview.as_ref() {
+            let engine_frame = self.engine.render_clock();
+            for source in active.sources.iter().filter(|source| source.running) {
+                let Ok(local_tick) = active.timeline.sample_to_tick_nearest(source.position) else {
+                    continue;
+                };
+                let _ = self.event_tx.push(RealtimeEvent::BrickPreviewCursor {
+                    source_layer_id: source.id,
+                    generation: active.generation,
+                    running: true,
+                    local_tick: local_tick.min(source.cycle_ticks.saturating_sub(1)),
+                    cycle_iteration: source.cycle_iteration,
+                    engine_frame,
+                    render_plan_revision: active.render_plan_revision,
+                });
+            }
+        }
         let revision = self.signals.project_revision.load(Ordering::Acquire);
         if revision > 0 {
             let _ = self.event_tx.push(RealtimeEvent::Transport {
@@ -1700,10 +2331,12 @@ pub fn create_engine(sample_rate: u32) -> EngineKernel<RealtimeVoiceBank> {
 mod tests {
     use rtrb::RingBuffer;
     use tiempio_engine_core::{
-        PATCH_MODEL_VERSION, SynthAmplifierPatch, SynthExpressionPatch, SynthFilterPatch,
-        SynthMovementPatch, SynthOscillatorPatch, SynthSecondaryOscillatorPatch, SynthWaveform,
+        InstrumentLayerPlan, LayerSource, LoopRegion, MeterPoint, MidiNoteEvent,
+        PATCH_MODEL_VERSION, RENDER_PLAN_VERSION, RenderPlanRevision, SynthAmplifierPatch,
+        SynthExpressionPatch, SynthFilterPatch, SynthMovementPatch, SynthOscillatorPatch,
+        SynthSecondaryOscillatorPatch, SynthWaveform, TICKS_PER_QUARTER, TempoPoint,
     };
-    use tiempio_engine_protocol::PreviewEventPayload;
+    use tiempio_engine_protocol::{PreviewEventPayload, StartBrickPreviewPayload};
 
     use super::*;
 
@@ -1762,6 +2395,52 @@ mod tests {
                 pitches: vec![45, 52],
                 velocity: 100,
             }],
+        }
+    }
+
+    fn brick_preview_plan() -> RenderPlan {
+        let layer = |id: &str, cycle_ticks: u64, duration_ticks: u64| InstrumentLayerPlan {
+            id: id.to_owned(),
+            gain: 1.0,
+            pan: 0.0,
+            song_enabled: true,
+            cycle_ticks,
+            source: LayerSource::Synth {
+                patch: preview_patch(),
+                events: vec![MidiNoteEvent {
+                    id: format!("note.{id}"),
+                    start_tick: 0,
+                    duration_ticks,
+                    pitch: 45,
+                    velocity: 100,
+                }],
+            },
+        };
+        RenderPlan {
+            plan_version: RENDER_PLAN_VERSION,
+            project_id: "project.brick-preview".to_owned(),
+            project_revision: RenderPlanRevision::new(7),
+            ticks_per_quarter: TICKS_PER_QUARTER,
+            end_tick: 3_840,
+            tempo_map: vec![TempoPoint {
+                tick: 0,
+                micro_bpm: 120_000_000,
+            }],
+            meter_map: vec![MeterPoint {
+                tick: 0,
+                numerator: 4,
+                denominator: 4,
+            }],
+            loop_region: LoopRegion {
+                enabled: false,
+                start_tick: 0,
+                end_tick: 3_840,
+            },
+            layers: vec![
+                layer("layer.bass", 960, 480),
+                layer("layer.lead", 1_920, 960),
+            ],
+            instances: vec![],
         }
     }
 
@@ -1913,5 +2592,105 @@ mod tests {
                 }
             ))
         );
+    }
+
+    #[test]
+    fn runs_independent_brick_cursors_and_restarts_a_late_enabled_source_at_zero() {
+        let (mut command_tx, command_rx) = RingBuffer::new(CONTROL_QUEUE_CAPACITY);
+        let (retired_tx, mut retired_rx) = RingBuffer::new(CONTROL_QUEUE_CAPACITY);
+        let (event_tx, mut event_rx) = RingBuffer::new(EVENT_QUEUE_CAPACITY);
+        let signals = Arc::new(StreamSignals::default());
+        let mut realtime = RealtimeEngine::new(
+            create_engine(48_000),
+            48_000,
+            command_rx,
+            retired_tx,
+            event_tx,
+            signals,
+        );
+        let prepared = PreparedBrickPreview::prepare(
+            &StartBrickPreviewPayload {
+                preview_generation: 3,
+                render_plan_revision: 7,
+                source_layer_ids: vec!["layer.bass".to_owned()],
+            },
+            &brick_preview_plan(),
+            48_000,
+        )
+        .expect("valid linked-source preview");
+        command_tx
+            .push(RealtimeCommand::StartBrickPreview(prepared))
+            .expect("bounded command queue");
+        assert!(realtime.render_frames(128));
+        let active = realtime
+            .active_brick_preview
+            .as_ref()
+            .expect("active brick preview");
+        assert_eq!(active.sources[0].position, 128);
+        assert_eq!(active.sources[1].position, 0);
+
+        command_tx
+            .push(RealtimeCommand::SetBrickPreviewSourceEnabled {
+                generation: 3,
+                source_layer_id: PreviewId::new("layer.lead").expect("source ID"),
+                enabled: true,
+            })
+            .expect("bounded command queue");
+        assert!(realtime.render_frames(128));
+        let active = realtime
+            .active_brick_preview
+            .as_ref()
+            .expect("active brick preview");
+        assert_eq!(active.sources[0].position, 256);
+        assert_eq!(active.sources[1].position, 128);
+
+        command_tx
+            .push(RealtimeCommand::SetBrickPreviewSourceEnabled {
+                generation: 3,
+                source_layer_id: PreviewId::new("layer.lead").expect("source ID"),
+                enabled: false,
+            })
+            .expect("bounded command queue");
+        assert!(realtime.render_frames(1));
+        command_tx
+            .push(RealtimeCommand::SetBrickPreviewSourceEnabled {
+                generation: 3,
+                source_layer_id: PreviewId::new("layer.lead").expect("source ID"),
+                enabled: true,
+            })
+            .expect("bounded command queue");
+        assert!(realtime.render_frames(1));
+        assert_eq!(
+            realtime
+                .active_brick_preview
+                .as_ref()
+                .expect("active brick preview")
+                .sources[1]
+                .position,
+            1
+        );
+
+        command_tx
+            .push(RealtimeCommand::StopBrickPreview {
+                generation: 3,
+                reason: BrickPreviewEndReason::Stopped,
+            })
+            .expect("bounded command queue");
+        assert!(realtime.render_frames(1));
+        assert!(realtime.active_brick_preview.is_none());
+        assert!(
+            std::iter::from_fn(|| event_rx.pop().ok()).any(|event| matches!(
+                event,
+                RealtimeEvent::BrickPreviewEnded {
+                    generation: 3,
+                    reason: BrickPreviewEndReason::Stopped,
+                    ..
+                }
+            ))
+        );
+        assert!(matches!(
+            retired_rx.pop(),
+            Ok(RetiredRealtimeAllocation::BrickPreview(_))
+        ));
     }
 }

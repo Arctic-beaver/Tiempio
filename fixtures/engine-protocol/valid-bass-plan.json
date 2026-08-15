@@ -1,5 +1,5 @@
 {
-	"planVersion": 5,
+	"planVersion": 6,
 	"projectId": "project.engine-fixture",
 	"projectRevision": 7,
 	"ticksPerQuarter": 960,
@@ -15,6 +15,8 @@
 			"id": "layer.bass",
 			"gain": 1,
 			"pan": 0,
+			"songEnabled": true,
+			"cycleTicks": 3840,
 			"source": {
 				"type": "subtractive-synth",
 				"patch": {
@@ -72,6 +74,15 @@
 					"velocity": 96
 				}
 			]
+		}
+	],
+	"instances": [
+		{
+			"id": "instance.bass",
+			"sourceLayerId": "layer.bass",
+			"startTick": 0,
+			"durationTicks": 3840,
+			"sourceOffsetTicks": 0
 		}
 	]
 }

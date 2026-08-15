@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 1,
-	"engineProtocolVersion": 9,
+	"engineProtocolVersion": 11,
 	"limits": {
 		"maxFrameBytes": 262144,
 		"maxPayloadBytes": 196608,
@@ -8,6 +8,7 @@
 		"maxBatchItems": 4096,
 		"maxJsonDepth": 32,
 		"maxEngineLayers": 32,
+		"maxSongInstances": 4096,
 		"maxTempoPoints": 256,
 		"maxMeterPoints": 256,
 		"maxMusicalEvents": 4096,
@@ -29,6 +30,7 @@
 	"capabilities": [
 		"protocol.typed-json",
 		"render-plan.full",
+		"render-plan.linked-instances",
 		"transport.basic",
 		"transport.loop",
 		"metronome.clock",
@@ -37,6 +39,7 @@
 		"drums.procedural",
 		"audition.notes",
 		"preview.programs",
+		"preview.linked-sources",
 		"recording.engine-clock",
 		"diagnostics.health",
 		"render.offline",
@@ -48,6 +51,7 @@
 	"applicationCommonCapabilities": [
 		"protocol.typed-json",
 		"render-plan.full",
+		"render-plan.linked-instances",
 		"transport.basic",
 		"transport.loop",
 		"metronome.clock",
@@ -56,6 +60,7 @@
 		"drums.procedural",
 		"audition.notes",
 		"preview.programs",
+		"preview.linked-sources",
 		"recording.engine-clock",
 		"diagnostics.health"
 	],
@@ -63,6 +68,7 @@
 	"nativeHostCapabilities": [
 		"protocol.typed-json",
 		"render-plan.full",
+		"render-plan.linked-instances",
 		"transport.basic",
 		"transport.loop",
 		"metronome.clock",
@@ -71,6 +77,7 @@
 		"drums.procedural",
 		"audition.notes",
 		"preview.programs",
+		"preview.linked-sources",
 		"recording.engine-clock",
 		"diagnostics.health",
 		"supervision.heartbeat",
@@ -80,6 +87,7 @@
 	"webWorkletCapabilities": [
 		"protocol.typed-json",
 		"render-plan.full",
+		"render-plan.linked-instances",
 		"transport.basic",
 		"transport.loop",
 		"metronome.clock",
@@ -88,6 +96,7 @@
 		"drums.procedural",
 		"audition.notes",
 		"preview.programs",
+		"preview.linked-sources",
 		"recording.engine-clock",
 		"diagnostics.health",
 		"audio.web.worklet"
@@ -109,6 +118,10 @@
 		"note-off",
 		"start-preview",
 		"cancel-preview",
+		"start-brick-preview",
+		"set-brick-preview-source-enabled",
+		"seek-brick-preview-source",
+		"stop-brick-preview",
 		"start-recording",
 		"recording-note-on",
 		"recording-note-off",
@@ -131,6 +144,9 @@
 		"preview-started",
 		"preview-state",
 		"preview-ended",
+		"brick-preview-started",
+		"brick-preview-cursor",
+		"brick-preview-ended",
 		"recording-state",
 		"recording-input-applied",
 		"recording-stopped",

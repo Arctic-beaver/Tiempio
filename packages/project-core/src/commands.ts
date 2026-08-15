@@ -17,6 +17,7 @@ import {
 	type ProjectDocument,
 	type ProjectId,
 	type ProjectKey,
+	type ProjectLayer,
 	type ProjectRole,
 	type ProjectSection,
 	type SongInstance,
@@ -216,6 +217,28 @@ export interface ResizeSongInstanceCommand extends RevisionedProjectCommand {
 	readonly type: 'song-instance.resize'
 }
 
+export interface TrimLeftSongInstanceCommand extends RevisionedProjectCommand {
+	readonly durationTicks: number
+	readonly instanceId: SongInstanceId
+	readonly sourceOffsetTicks: number
+	readonly startTick: number
+	readonly type: 'song-instance.trim-left'
+}
+
+export interface SplitSongInstanceCommand extends RevisionedProjectCommand {
+	readonly instanceId: SongInstanceId
+	readonly rightInstanceId: SongInstanceId
+	readonly splitOffsetTicks: number
+	readonly type: 'song-instance.split'
+}
+
+export interface DuplicateLayerAsVariationCommand extends RevisionedProjectCommand {
+	readonly instance: SongInstance
+	readonly layer: ProjectLayer
+	readonly sourceLayerId: LayerId
+	readonly type: 'layer.duplicate-as-variation'
+}
+
 export interface ToggleDrumEventCommand extends RevisionedProjectCommand {
 	readonly eventWhenAdded: DrumEvent
 	readonly layerId: LayerId
@@ -273,6 +296,9 @@ export type ProjectCommand =
 	| DeleteSongInstanceCommand
 	| MoveSongInstanceCommand
 	| ResizeSongInstanceCommand
+	| TrimLeftSongInstanceCommand
+	| SplitSongInstanceCommand
+	| DuplicateLayerAsVariationCommand
 	| ToggleDrumEventCommand
 	| SelectDrumVoiceCommand
 	| SetDrumPatternCommand
@@ -460,6 +486,81 @@ function updateSongInstance(
 	if (updated === null) instances.splice(index, 1)
 	else instances[index] = updated
 	return { ...project, song: { instances } }
+}
+
+function materialWithoutEventIds(material: ProjectLayer['material']): unknown {
+	if (material.kind === 'midi') {
+		return {
+			...material,
+			notes: material.notes.map((note) => ({
+				durationTicks: note.durationTicks,
+				pitch: note.pitch,
+				startTick: note.startTick,
+				velocity: note.velocity
+			}))
+		}
+	}
+	if (material.kind === 'drum') {
+		return {
+			...material,
+			events: material.events.map((event) => ({
+				instrument: event.instrument,
+				step: event.step,
+				velocity: event.velocity
+			}))
+		}
+	}
+	return material
+}
+
+function layerWithoutVariationIdentity(layer: ProjectLayer): unknown {
+	return {
+		exportIncluded: layer.exportIncluded,
+		gain: layer.gain,
+		muted: layer.muted,
+		pan: layer.pan,
+		role: layer.role,
+		solo: layer.solo,
+		source: layer.source
+	}
+}
+
+function requireIndependentVariation(source: ProjectLayer, variation: ProjectLayer): void {
+	if (source.role === 'reference' || variation.role === 'reference') {
+		fail('INCOMPATIBLE_TARGET', 'Reference layers cannot become musical variations.')
+	}
+	const sourceMaterial = source.material
+	const variationMaterial = variation.material
+	if (
+		!semanticEqual(
+			layerWithoutVariationIdentity(source),
+			layerWithoutVariationIdentity(variation)
+		) ||
+		!semanticEqual(
+			materialWithoutEventIds(sourceMaterial),
+			materialWithoutEventIds(variationMaterial)
+		)
+	) {
+		fail('INVALID_COMMAND', 'A new variation must begin as a semantic copy of its source.')
+	}
+	if (sourceMaterial.kind === 'midi' && variationMaterial.kind === 'midi') {
+		if (
+			variationMaterial.notes.some(
+				(note, index) => note.id === sourceMaterial.notes[index]?.id
+			)
+		) {
+			fail('INVALID_COMMAND', 'A variation requires fresh note identities.')
+		}
+	}
+	if (sourceMaterial.kind === 'drum' && variationMaterial.kind === 'drum') {
+		if (
+			variationMaterial.events.some(
+				(event, index) => event.id === sourceMaterial.events[index]?.id
+			)
+		) {
+			fail('INVALID_COMMAND', 'A variation requires fresh drum-event identities.')
+		}
+	}
 }
 
 interface DrumPatternPoint {
@@ -867,6 +968,77 @@ function applyCommand(project: ProjectDocument, command: ProjectCommand): Projec
 					? instance
 					: { ...instance, durationTicks: projectTick(command.durationTicks) }
 			)
+		case 'song-instance.trim-left':
+			return updateSongInstance(project, command.instanceId, (instance) => {
+				const updated = {
+					...instance,
+					startTick: projectTick(command.startTick),
+					durationTicks: projectTick(command.durationTicks),
+					sourceOffsetTicks: projectTick(command.sourceOffsetTicks)
+				}
+				return semanticEqual(instance, updated) ? instance : updated
+			})
+		case 'song-instance.split': {
+			const instance = project.song.instances.find(
+				(candidate) => candidate.id === command.instanceId
+			)
+			if (instance === undefined) {
+				fail('NOT_FOUND', `Song instance ${command.instanceId} was not found.`)
+			}
+			if (
+				!Number.isSafeInteger(command.splitOffsetTicks) ||
+				command.splitOffsetTicks <= 0 ||
+				command.splitOffsetTicks >= instance.durationTicks
+			) {
+				fail('INVALID_COMMAND', 'A split must lie strictly inside the song instance.')
+			}
+			if (
+				project.song.instances.some((candidate) => candidate.id === command.rightInstanceId)
+			) {
+				fail('DUPLICATE_ID', `Song instance ${command.rightInstanceId} already exists.`)
+			}
+			const leftDuration = projectTick(command.splitOffsetTicks)
+			const right = {
+				...instance,
+				id: command.rightInstanceId,
+				startTick: projectTick(instance.startTick + command.splitOffsetTicks),
+				durationTicks: projectTick(instance.durationTicks - command.splitOffsetTicks),
+				sourceOffsetTicks: projectTick(
+					instance.sourceOffsetTicks + command.splitOffsetTicks
+				)
+			}
+			return {
+				...project,
+				song: {
+					instances: project.song.instances.flatMap((candidate) =>
+						candidate.id === instance.id
+							? [{ ...candidate, durationTicks: leftDuration }, right]
+							: [candidate]
+					)
+				}
+			}
+		}
+		case 'layer.duplicate-as-variation': {
+			const source = project.layers.find((layer) => layer.id === command.sourceLayerId)
+			if (source === undefined) {
+				fail('NOT_FOUND', `Layer ${command.sourceLayerId} was not found.`)
+			}
+			if (project.layers.some((layer) => layer.id === command.layer.id)) {
+				fail('DUPLICATE_ID', `Layer ${command.layer.id} already exists.`)
+			}
+			if (command.instance.sourceLayerId !== command.layer.id) {
+				fail('INVALID_COMMAND', 'A variation instance must reference its new source layer.')
+			}
+			if (project.song.instances.some((instance) => instance.id === command.instance.id)) {
+				fail('DUPLICATE_ID', `Song instance ${command.instance.id} already exists.`)
+			}
+			requireIndependentVariation(source, command.layer)
+			return {
+				...project,
+				layers: [...project.layers, command.layer],
+				song: { instances: [...project.song.instances, command.instance] }
+			}
+		}
 		case 'drum-event.toggle':
 			return updateMaterial(project, command.layerId, (material) => {
 				if (material.kind !== 'drum')

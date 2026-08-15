@@ -36,6 +36,7 @@ import {
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
 import { PerformanceRecordingCoordinator } from '../performance/performance-recording-coordinator.js'
 import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
+import { BrickPreviewSession } from '../preview/brick-preview-session.js'
 
 export interface ProjectDocumentCodec {
 	decode?(
@@ -52,6 +53,7 @@ export interface PreparedEngineActivation {
 }
 
 export interface ApplicationRuntimeControllerOptions {
+	readonly candidatePlanAcknowledgementTimeoutMs?: number
 	readonly loadEngineClient?: (
 		runtime: Extract<
 			ApplicationRuntime['engine'],
@@ -84,11 +86,12 @@ const drumAuditionPitches = Object.freeze({
 	perc: 56
 } as const satisfies Readonly<Record<DrumInstrument, number>>)
 
-const candidatePlanAcknowledgementTimeoutMs = 4_000
+const defaultCandidatePlanAcknowledgementTimeoutMs = 4_000
 
 interface PreactivatedProjectPlan {
 	readonly baseProject: ProjectDocument
 	readonly baseRevision: number
+	readonly engineRevision: number
 	readonly project: ProjectDocument
 	readonly revision: number
 }
@@ -119,6 +122,8 @@ function draftWirePlan(
 				id: draft.draftId,
 				gain: 1,
 				pan: 0,
+				songEnabled: false,
+				cycleTicks: 3840,
 				source: {
 					type: 'subtractive-synth' as const,
 					patch: compileEngineWireSynthPatch(draft.instrument.resolvedPatch)
@@ -166,11 +171,13 @@ interface PendingPerformanceNote {
 
 export class ApplicationRuntimeController implements ApplicationController {
 	#client: EngineClient | null = null
+	readonly #candidatePlanAcknowledgementTimeoutMs: number
 	readonly #listeners = new Set<() => void>()
 	readonly #options: ApplicationRuntimeControllerOptions
 	readonly #runtime: ApplicationRuntime
 	public readonly performanceInput: PerformanceInputSession
 	public readonly previewCoordinator: AuditionPreviewCoordinator
+	public readonly brickPreviewSession: BrickPreviewSession
 	public readonly recordingCoordinator: PerformanceRecordingCoordinator
 	#currentHandle: ProjectHandle | null = null
 	#closing = false
@@ -220,6 +227,14 @@ export class ApplicationRuntimeController implements ApplicationController {
 	) {
 		this.#runtime = runtime
 		this.#options = options
+		this.#candidatePlanAcknowledgementTimeoutMs = Math.max(
+			1,
+			Math.min(
+				30_000,
+				options.candidatePlanAcknowledgementTimeoutMs ??
+					defaultCandidatePlanAcknowledgementTimeoutMs
+			)
+		)
 		this.#projectSession = initialSession
 		this.recordingCoordinator = new PerformanceRecordingCoordinator({
 			engine: {
@@ -244,6 +259,35 @@ export class ApplicationRuntimeController implements ApplicationController {
 			releaseInputs: () => this.performanceInput.releaseAll()
 		})
 		this.recordingCoordinator.bindSession(initialSession)
+		this.brickPreviewSession = new BrickPreviewSession({
+			start: (payload) => {
+				if (
+					!this.#snapshot.available ||
+					this.#closing ||
+					this.#disposed ||
+					payload.renderPlanRevision !== this.#publishedPlanRevision
+				) {
+					return false
+				}
+				this.previewCoordinator.interrupt()
+				this.performanceInput.releaseAll()
+				const start = (): Promise<boolean> => this.#send('start-brick-preview', payload)
+				if (this.#snapshot.playing) void this.#send('stop', {}).then(start)
+				else void start()
+				return true
+			},
+			stop: (payload) => {
+				if (this.#snapshot.available) void this.#send('stop-brick-preview', payload)
+			},
+			setSourceEnabled: (payload) => {
+				if (this.#snapshot.available) {
+					void this.#send('set-brick-preview-source-enabled', payload)
+				}
+			},
+			seekSource: (payload) => {
+				if (this.#snapshot.available) void this.#send('seek-brick-preview-source', payload)
+			}
+		})
 		this.performanceInput = new PerformanceInputSession({
 			input: (event) => {
 				const { auditionId, layerId, pitch, velocity } = event
@@ -253,6 +297,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 					return
 				}
 				this.previewCoordinator.interrupt()
+				this.brickPreviewSession.stop()
 				if (this.recordingCoordinator.blocksPlanPublication()) {
 					this.recordingCoordinator.noteOn(layerId, auditionId, pitch, velocity)
 					return
@@ -266,6 +311,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 			},
 			start: (program) => {
 				if (!this.#snapshot.available || this.#snapshot.playing) return false
+				this.brickPreviewSession.stop()
 				this.performanceInput.releaseAll()
 				void this.#send('start-preview', program)
 				return true
@@ -289,6 +335,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	public bindProjectSession(session: ProjectSession, handle: ProjectHandle | null = null): void {
 		this.recordingCoordinator.stop()
 		this.previewCoordinator.interrupt()
+		this.brickPreviewSession.stop()
 		this.performanceInput.releaseAll()
 		this.#finishPendingProjectPlanActivation(false, false)
 		this.#preactivatedProjectPlan = null
@@ -338,6 +385,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 			)
 		}
 		this.#auditionInstrumentPreview = owned
+		this.brickPreviewSession.stop()
 		this.#latestRequestedPlanVariant += 1
 		const requestedVariant = this.#latestRequestedPlanVariant
 		await this.#publishLatestPlan()
@@ -385,6 +433,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 			this.#auditionInstrumentPreview = null
 		}
 		this.#draftAuditionLayer = owned
+		this.brickPreviewSession.stop()
 		this.#latestRequestedPlanVariant += 1
 		const requestedVariant = this.#latestRequestedPlanVariant
 		await this.#publishLatestPlan()
@@ -418,13 +467,14 @@ export class ApplicationRuntimeController implements ApplicationController {
 		}
 		const compiled = compileProjectRenderPlan(
 			prepared.project,
-			prepared.revision,
-			prepared.revision
+			prepared.baseRevision,
+			prepared.baseRevision
 		)
 		if (compiled.status !== 'ready') return false
 		const wire = compileEngineWireRenderPlan(compiled.plan)
 		if (wire.status !== 'ready') return false
 		this.previewCoordinator.interrupt()
+		this.brickPreviewSession.stop()
 		this.performanceInput.deactivate('sound-chooser')
 		this.#finishPendingProjectPlanActivation(false, false)
 		this.#preactivatedProjectPlan = null
@@ -432,6 +482,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		const activation = await this.#sendPlanForActivation(wire.plan, {
 			baseProject: current.project,
 			baseRevision: current.revision,
+			engineRevision: wire.plan.projectRevision,
 			project: prepared.project,
 			revision: prepared.revision
 		})
@@ -522,6 +573,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 	public auditionDrum(layerId: string, instrument: DrumInstrument): void {
 		if (!this.#snapshot.available || this.#disposed) return
 		this.previewCoordinator.interrupt()
+		this.brickPreviewSession.stop()
 		this.performanceInput.releaseAll()
 		this.#drumAuditionSequence += 1
 		const auditionId = `drum-audition-${String(this.#drumAuditionSequence)}`
@@ -541,6 +593,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		if (this.#snapshot.playing) void this.#send('stop', {})
 		else {
 			this.previewCoordinator.interrupt()
+			this.brickPreviewSession.stop()
 			void this.#send('play', { startTick: this.#snapshot.tick })
 		}
 	}
@@ -554,6 +607,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		if (!Number.isSafeInteger(tick) || tick < 0) return
 		if (this.recordingCoordinator.stop()) return
 		this.previewCoordinator.interrupt()
+		this.brickPreviewSession.stop()
 		void this.#send('seek', { tick })
 	}
 
@@ -584,6 +638,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		if (!this.#snapshot.available || this.#closing || this.#disposed) return false
 		if (this.#snapshot.playing) await this.#send('stop', {})
 		this.previewCoordinator.interrupt()
+		this.brickPreviewSession.stop()
 		this.performanceInput.releaseAll()
 		await this.#publishLatestPlan()
 		if (!this.#snapshot.available || this.#disposed) return false
@@ -604,6 +659,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.recordingCoordinator.stop()
 		this.recordingCoordinator.failAtLastTrustedTick()
 		this.previewCoordinator.interrupt()
+		this.brickPreviewSession.stop()
 		this.performanceInput.releaseAll()
 		this.#scheduleRecovery(true)
 		void this.dispose()
@@ -615,6 +671,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.recordingCoordinator.stop()
 		this.recordingCoordinator.failAtLastTrustedTick()
 		this.previewCoordinator.interrupt()
+		this.brickPreviewSession.stop()
 		this.performanceInput.releaseAll()
 		this.#disposed = true
 		this.#detachWindowListeners()
@@ -718,6 +775,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		this.#unsubscribeEngineEvents = client.onEvent((event) => this.#acceptEngineEvent(event))
 		this.#unsubscribeEngineFailures = client.onFailure((error) => {
 			this.previewCoordinator.reset()
+			this.brickPreviewSession.reset()
 			this.#setDiagnostic(error)
 		})
 	}
@@ -727,6 +785,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		try {
 			this.recordingCoordinator.failAtLastTrustedTick()
 			this.previewCoordinator.interrupt()
+			this.brickPreviewSession.stop()
 			this.performanceInput.releaseAll()
 			this.#detachEngineListeners()
 			if (this.#client?.state === 'ready') {
@@ -800,19 +859,14 @@ export class ApplicationRuntimeController implements ApplicationController {
 				this.#latestRequestedPlanRevision = snapshot.revision
 				this.#latestPlanGeneration = this.#projectGeneration
 				this.#latestRequestedPlanVariant += 1
-				this.#publishedPlanGeneration = this.#projectGeneration
-				this.#publishedPlanRevision = snapshot.revision
-				this.#publishedPlanVariant = this.#latestRequestedPlanVariant
-				this.#publish({
-					...this.#snapshot,
-					acknowledgedProjectRevision: snapshot.revision
-				})
+				this.#schedulePlanPublish()
 				this.#scheduleRecovery(false)
 				return
 			}
 			this.#finishPendingProjectPlanActivation(false, false)
 			this.#preactivatedProjectPlan = null
 			this.previewCoordinator.interrupt()
+			this.brickPreviewSession.stop()
 			this.#observedProjectRevision = snapshot.revision
 			this.#latestRequestedPlanRevision = snapshot.revision
 			this.#latestPlanGeneration = this.#projectGeneration
@@ -1058,13 +1112,28 @@ export class ApplicationRuntimeController implements ApplicationController {
 			this.previewCoordinator.acceptEnded(event.payload.previewId)
 			return
 		}
+		if (event.type === 'brick-preview-started') {
+			this.brickPreviewSession.acceptStarted(
+				event.payload.previewGeneration,
+				event.payload.renderPlanRevision
+			)
+			return
+		}
+		if (event.type === 'brick-preview-cursor') {
+			this.brickPreviewSession.acceptCursor(event.payload, event.sequence)
+			return
+		}
+		if (event.type === 'brick-preview-ended') {
+			this.brickPreviewSession.acceptEnded(event.payload.previewGeneration)
+			return
+		}
 		if (event.type === 'render-plan-acknowledged') {
 			if (this.#ignoredPlanGenerations.delete(event.payload.planGeneration)) return
 			const pending = this.#pendingProjectPlanActivation
 			if (
 				pending !== null &&
 				event.payload.planGeneration === pending.expectedPlanGeneration &&
-				event.payload.projectRevision === pending.revision
+				event.payload.projectRevision === pending.engineRevision
 			) {
 				const current = this.#projectSession.getSnapshot()
 				pending.finish(
@@ -1088,7 +1157,10 @@ export class ApplicationRuntimeController implements ApplicationController {
 		}
 		if (event.type === 'transport-snapshot') {
 			if (event.payload.projectRevision < this.#latestRequestedPlanRevision) return
-			if (event.payload.playing) this.previewCoordinator.interrupt()
+			if (event.payload.playing) {
+				this.previewCoordinator.interrupt()
+				this.brickPreviewSession.reset()
+			}
 			this.#publish({
 				...this.#snapshot,
 				playing: event.payload.playing,
@@ -1104,6 +1176,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 			)
 			if (event.type === 'fatal-error') {
 				this.previewCoordinator.reset()
+				this.brickPreviewSession.reset()
 				this.performanceInput.releaseAll()
 			}
 		}
@@ -1114,6 +1187,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		let recoveredRecording = false
 		if (!available) {
 			this.previewCoordinator.reset()
+			this.brickPreviewSession.reset()
 			this.recordingCoordinator.failAtLastTrustedTick()
 			this.performanceInput.releaseAll()
 		} else {
@@ -1147,7 +1221,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 			let settled = false
 			const timeout = globalThis.setTimeout(() => {
 				pendingReference?.finish(false)
-			}, candidatePlanAcknowledgementTimeoutMs)
+			}, this.#candidatePlanAcknowledgementTimeoutMs)
 			settle = (accepted: boolean): void => {
 				if (settled) return
 				settled = true
@@ -1251,6 +1325,7 @@ export class ApplicationRuntimeController implements ApplicationController {
 		if (document.visibilityState === 'visible') return
 		this.recordingCoordinator.stop()
 		this.previewCoordinator.interrupt()
+		this.brickPreviewSession.stop()
 		this.performanceInput.releaseAll()
 		this.#publish({ ...this.#snapshot, meter: silentApplicationMeter })
 	}
@@ -1270,11 +1345,13 @@ export class ApplicationRuntimeController implements ApplicationController {
 	#releasePerformanceInputBound = (): void => {
 		this.recordingCoordinator.stop()
 		this.previewCoordinator.interrupt()
+		this.brickPreviewSession.stop()
 		this.performanceInput.releaseAll()
 	}
 
 	#setDiagnostic(error: ApplicationError): void {
 		this.previewCoordinator.reset()
+		this.brickPreviewSession.reset()
 		this.recordingCoordinator.failAtLastTrustedTick()
 		this.performanceInput.releaseAll()
 		this.#publish({

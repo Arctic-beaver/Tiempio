@@ -1,55 +1,41 @@
 import type { LocalizationKey } from '../../../../localization/src/index.js'
 
-export interface ArrangementSectionViewModel {
-	readonly bars: number
+export interface ArrangementSourceNoteViewModel {
+	readonly durationTicks: number
 	readonly id: string
-	readonly labelKey: LocalizationKey
-	readonly tone: 'quiet' | 'full' | 'open' | 'fade'
+	readonly pitch: number
+	readonly startTick: number
+}
+
+export interface ArrangementSourceHitViewModel {
+	readonly id: string
+	readonly instrument: 'kick' | 'clap' | 'closedHat' | 'openHat' | 'perc'
+	readonly tick: number
+}
+
+export interface ArrangementInstanceViewModel {
+	readonly durationTicks: number
+	readonly id: string
+	readonly sourceLayerId: string
+	readonly sourceOffsetTicks: number
+	readonly startTick: number
 }
 
 export interface ArrangementLayerViewModel {
 	readonly color: string
+	readonly cycleTicks: number
+	readonly hits: readonly ArrangementSourceHitViewModel[]
 	readonly id: string
+	readonly instances: readonly ArrangementInstanceViewModel[]
+	readonly kind: 'midi' | 'drum'
 	readonly labelKey: LocalizationKey
-	readonly sections: readonly string[]
+	readonly materialLengthTicks: number
+	readonly notes: readonly ArrangementSourceNoteViewModel[]
+	readonly tailRestTicks: number
 }
 
 export interface ArrangementViewModel {
 	readonly layers: readonly ArrangementLayerViewModel[]
-	readonly sections: readonly ArrangementSectionViewModel[]
+	readonly meterNumerator: number
+	readonly ticksPerQuarter: number
 }
-
-export const arrangementViewModel: ArrangementViewModel = Object.freeze({
-	sections: Object.freeze([
-		Object.freeze({ id: 'intro', labelKey: 'arrangement.intro', bars: 8, tone: 'quiet' }),
-		Object.freeze({ id: 'main', labelKey: 'arrangement.main', bars: 16, tone: 'full' }),
-		Object.freeze({ id: 'break', labelKey: 'arrangement.break', bars: 8, tone: 'open' }),
-		Object.freeze({ id: 'outro', labelKey: 'arrangement.outro', bars: 8, tone: 'fade' })
-	]),
-	layers: Object.freeze([
-		Object.freeze({
-			id: 'melody',
-			labelKey: 'layers.melody',
-			color: 'coral',
-			sections: ['main', 'break']
-		}),
-		Object.freeze({
-			id: 'chords',
-			labelKey: 'layers.chords',
-			color: 'gold',
-			sections: ['intro', 'main', 'break', 'outro']
-		}),
-		Object.freeze({
-			id: 'bass',
-			labelKey: 'layers.bass',
-			color: 'blue',
-			sections: ['main', 'outro']
-		}),
-		Object.freeze({
-			id: 'drums',
-			labelKey: 'layers.drums',
-			color: 'violet',
-			sections: ['intro', 'main', 'outro']
-		})
-	])
-})

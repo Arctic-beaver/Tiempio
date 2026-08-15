@@ -1,5 +1,5 @@
 {
-	"planVersion": 5,
+	"planVersion": 6,
 	"projectId": "project.drums-fixture",
 	"projectRevision": 1,
 	"ticksPerQuarter": 960,
@@ -12,6 +12,8 @@
 			"id": "layer.drums",
 			"gain": 1,
 			"pan": 0,
+			"songEnabled": true,
+			"cycleTicks": 3840,
 			"source": {
 				"type": "procedural-drums",
 				"patch": {
@@ -81,6 +83,15 @@
 					"velocity": 84
 				}
 			]
+		}
+	],
+	"instances": [
+		{
+			"id": "instance.drums",
+			"sourceLayerId": "layer.drums",
+			"startTick": 0,
+			"durationTicks": 3840,
+			"sourceOffsetTicks": 0
 		}
 	]
 }

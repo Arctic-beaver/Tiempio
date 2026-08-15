@@ -93,8 +93,24 @@ describe('project render plan', () => {
 		)
 		assert.deepEqual(
 			first.plan.layers[0]?.events.map((event) => event.startTick),
-			[960, 1440]
+			[0, 480]
 		)
+		assert.deepEqual(first.plan.instances, [
+			{
+				id: 'instance.drums',
+				sourceLayerId: 'layer.drums',
+				startTick: 0,
+				durationTicks: 3840,
+				sourceOffsetTicks: 0
+			},
+			{
+				id: 'instance.bass',
+				sourceLayerId: 'layer.bass',
+				startTick: 960,
+				durationTicks: 1920,
+				sourceOffsetTicks: 0
+			}
+		])
 		assert.equal(Object.isFrozen(first.plan.layers[0]?.source), true)
 	})
 
@@ -114,7 +130,13 @@ describe('project render plan', () => {
 		)
 		const result = compileProjectRenderPlan({ ...fixture, layers }, 1)
 		assert.equal(result.status, 'ready')
-		if (result.status === 'ready') assert.deepEqual(result.plan.layers, [])
+		if (result.status === 'ready') {
+			assert.equal(result.plan.layers.length, 2)
+			assert.equal(
+				result.plan.layers.every((layer) => !layer.songEnabled),
+				true
+			)
+		}
 	})
 
 	it('projects a Bass-only plan into the bounded cross-language wire model', () => {
@@ -140,7 +162,8 @@ describe('project render plan', () => {
 		assert.deepEqual(wire.plan.meterMap[0], { tick: 0, numerator: 4, denominator: 4 })
 		assert.equal(wire.plan.endTick, projectPlan.plan.endTick)
 		assert.equal(wire.plan.layers[0]?.source.type, 'subtractive-synth')
-		assert.match(wire.plan.layers[0]?.events[0]?.id ?? '', /^event\./u)
+		assert.equal(wire.plan.layers[0]?.events[0]?.id, 'note.early')
+		assert.deepEqual(wire.plan.instances, projectPlan.plan.instances)
 	})
 
 	it('projects synth and procedural drum sources into one bounded wire plan', () => {
@@ -155,25 +178,39 @@ describe('project render plan', () => {
 			['subtractive-synth', 'procedural-drums']
 		)
 		const drumLayer = wire.plan.layers.find((layer) => layer.source.type === 'procedural-drums')
-		assert.match(drumLayer?.events[0]?.id ?? '', /^event\./u)
+		assert.equal(drumLayer?.events[0]?.id, 'event.kick')
 	})
 
-	it('loops source material across instances while retaining source identities', () => {
-		const result = compileProjectRenderPlan(renderFixture(), 1)
+	it('retains one canonical source program for a long repeating instance', () => {
+		const fixture = renderFixture()
+		const result = compileProjectRenderPlan(
+			{
+				...fixture,
+				song: {
+					instances: fixture.song.instances.map((instance) =>
+						instance.id === 'instance.bass'
+							? createSongInstance({ ...instance, durationTicks: 19_200 })
+							: instance
+					)
+				}
+			},
+			1
+		)
 		assert.equal(result.status, 'ready')
 		if (result.status !== 'ready') return
 		const bass = result.plan.layers.find((layer) => layer.id === 'layer.bass')
 		assert.equal(bass?.events.length, 2)
 		assert.deepEqual(
-			bass?.events.map((event) =>
-				event.type === 'midi-note'
-					? [event.instanceId, event.sourceEventId, event.startTick]
-					: null
-			),
+			bass?.events.map((event) => [event.id, event.startTick]),
 			[
-				['instance.bass', 'note.early', 960],
-				['instance.bass', 'note.late', 1440]
+				['note.early', 0],
+				['note.late', 480]
 			]
+		)
+		assert.equal(
+			result.plan.instances.find((instance) => instance.id === 'instance.bass')
+				?.durationTicks,
+			19_200
 		)
 	})
 })

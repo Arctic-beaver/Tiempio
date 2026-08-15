@@ -63,6 +63,36 @@ pub enum EngineEvent {
         preview_id: String,
         reason: String,
     },
+    BrickPreviewStarted {
+        #[serde(rename = "previewGeneration")]
+        preview_generation: u64,
+        #[serde(rename = "renderPlanRevision")]
+        render_plan_revision: u64,
+        #[serde(rename = "engineFrame")]
+        engine_frame: u64,
+    },
+    BrickPreviewCursor {
+        #[serde(rename = "sourceLayerId")]
+        source_layer_id: String,
+        #[serde(rename = "previewGeneration")]
+        preview_generation: u64,
+        running: bool,
+        #[serde(rename = "localTick")]
+        local_tick: u64,
+        #[serde(rename = "cycleIteration")]
+        cycle_iteration: u64,
+        #[serde(rename = "engineFrame")]
+        engine_frame: u64,
+        #[serde(rename = "renderPlanRevision")]
+        render_plan_revision: u64,
+    },
+    BrickPreviewEnded {
+        #[serde(rename = "previewGeneration")]
+        preview_generation: u64,
+        reason: String,
+        #[serde(rename = "engineFrame")]
+        engine_frame: u64,
+    },
     RecordingState {
         #[serde(rename = "recordingId")]
         recording_id: String,
@@ -240,6 +270,49 @@ fn valid_preview_event(event: &EngineEvent) -> Option<bool> {
     }
 }
 
+fn valid_brick_preview_event(event: &EngineEvent) -> Option<bool> {
+    match event {
+        EngineEvent::BrickPreviewStarted {
+            preview_generation,
+            render_plan_revision,
+            engine_frame,
+        } => Some(
+            *preview_generation > 0
+                && wire_safe(*preview_generation)
+                && wire_safe(*render_plan_revision)
+                && wire_safe(*engine_frame),
+        ),
+        EngineEvent::BrickPreviewCursor {
+            source_layer_id,
+            preview_generation,
+            local_tick,
+            cycle_iteration,
+            engine_frame,
+            render_plan_revision,
+            ..
+        } => Some(
+            valid_identifier(source_layer_id)
+                && *preview_generation > 0
+                && wire_safe(*preview_generation)
+                && wire_safe(*local_tick)
+                && wire_safe(*cycle_iteration)
+                && wire_safe(*engine_frame)
+                && wire_safe(*render_plan_revision),
+        ),
+        EngineEvent::BrickPreviewEnded {
+            preview_generation,
+            reason,
+            engine_frame,
+        } => Some(
+            *preview_generation > 0
+                && wire_safe(*preview_generation)
+                && matches!(reason.as_str(), "stopped" | "interrupted")
+                && wire_safe(*engine_frame),
+        ),
+        _ => None,
+    }
+}
+
 fn valid_audio_devices(event: &EngineEvent) -> Option<bool> {
     let EngineEvent::AudioDevicesChanged { devices } = event else {
         return None;
@@ -311,96 +384,98 @@ fn valid_recording_event(event: &EngineEvent) -> Option<bool> {
     }
 }
 
+fn valid_other_event(event: &EngineEvent) -> bool {
+    match event {
+        EngineEvent::Ready { protocol_version } => *protocol_version == ENGINE_PROTOCOL_VERSION,
+        EngineEvent::Capabilities {
+            capabilities,
+            limits,
+        } => {
+            let mut unique = BTreeSet::new();
+            capabilities.len() <= ENGINE_PROTOCOL_MAX_BATCH_ITEMS
+                && capabilities.iter().all(|capability| {
+                    ENGINE_CAPABILITY_CODES.contains(&capability.as_str())
+                        && unique.insert(capability.as_str())
+                })
+                && *limits == ProtocolLimits::current()
+        }
+        EngineEvent::RenderPlanAcknowledged {
+            project_revision,
+            plan_generation,
+        } => wire_safe(*project_revision) && wire_safe(*plan_generation),
+        EngineEvent::TransportSnapshot {
+            project_revision,
+            sample_position,
+            tick,
+            ..
+        } => {
+            wire_safe(*project_revision)
+                && wire_safe(*sample_position)
+                && tick.is_finite()
+                && (0.0..=9_007_199_254_740_991.0).contains(tick)
+        }
+        EngineEvent::MeterSnapshot {
+            left_peak,
+            right_peak,
+        } => {
+            left_peak.is_finite()
+                && right_peak.is_finite()
+                && (0.0..=1.0).contains(left_peak)
+                && (0.0..=1.0).contains(right_peak)
+        }
+        EngineEvent::PreviewStarted { .. }
+        | EngineEvent::PreviewState { .. }
+        | EngineEvent::PreviewEnded { .. }
+        | EngineEvent::BrickPreviewStarted { .. }
+        | EngineEvent::BrickPreviewCursor { .. }
+        | EngineEvent::BrickPreviewEnded { .. }
+        | EngineEvent::AudioDevicesChanged { .. }
+        | EngineEvent::RecordingState { .. }
+        | EngineEvent::RecordingInputApplied { .. }
+        | EngineEvent::RecordingStopped { .. } => unreachable!("validated above"),
+        EngineEvent::ActiveDeviceChanged { device_id } => {
+            device_id.as_deref().is_none_or(valid_identifier)
+        }
+        EngineEvent::Pong { heartbeat_id } => valid_identifier(heartbeat_id),
+        audio_health @ EngineEvent::AudioHealth { .. } => valid_audio_health(audio_health),
+        EngineEvent::MidiCaptured {
+            pitch,
+            velocity,
+            sample_position,
+        } => *pitch <= 127 && (1..=127).contains(velocity) && wire_safe(*sample_position),
+        EngineEvent::Diagnostic {
+            code,
+            project_revision,
+            ..
+        } => {
+            ENGINE_DIAGNOSTIC_CODES.contains(&code.as_str())
+                && project_revision.is_none_or(wire_safe)
+        }
+        EngineEvent::OfflineRenderProgress {
+            render_id,
+            completed_frames,
+            total_frames,
+        } => {
+            valid_identifier(render_id)
+                && wire_safe(*completed_frames)
+                && wire_safe(*total_frames)
+                && completed_frames <= total_frames
+        }
+        EngineEvent::OfflineRenderCompleted {
+            render_id,
+            project_revision,
+            frame_count,
+        } => valid_identifier(render_id) && wire_safe(*project_revision) && wire_safe(*frame_count),
+        EngineEvent::FatalError { code, .. } => ENGINE_DIAGNOSTIC_CODES.contains(&code.as_str()),
+    }
+}
+
 fn validate_event(event: &EngineEvent) -> Result<(), ProtocolError> {
     let valid = valid_preview_event(event)
+        .or_else(|| valid_brick_preview_event(event))
         .or_else(|| valid_audio_devices(event))
         .or_else(|| valid_recording_event(event))
-        .unwrap_or_else(|| match event {
-            EngineEvent::Ready { protocol_version } => *protocol_version == ENGINE_PROTOCOL_VERSION,
-            EngineEvent::Capabilities {
-                capabilities,
-                limits,
-            } => {
-                let mut unique = BTreeSet::new();
-                capabilities.len() <= ENGINE_PROTOCOL_MAX_BATCH_ITEMS
-                    && capabilities.iter().all(|capability| {
-                        ENGINE_CAPABILITY_CODES.contains(&capability.as_str())
-                            && unique.insert(capability.as_str())
-                    })
-                    && *limits == ProtocolLimits::current()
-            }
-            EngineEvent::RenderPlanAcknowledged {
-                project_revision,
-                plan_generation,
-            } => wire_safe(*project_revision) && wire_safe(*plan_generation),
-            EngineEvent::TransportSnapshot {
-                project_revision,
-                sample_position,
-                tick,
-                ..
-            } => {
-                wire_safe(*project_revision)
-                    && wire_safe(*sample_position)
-                    && tick.is_finite()
-                    && (0.0..=9_007_199_254_740_991.0).contains(tick)
-            }
-            EngineEvent::MeterSnapshot {
-                left_peak,
-                right_peak,
-            } => {
-                left_peak.is_finite()
-                    && right_peak.is_finite()
-                    && (0.0..=1.0).contains(left_peak)
-                    && (0.0..=1.0).contains(right_peak)
-            }
-            EngineEvent::PreviewStarted { .. }
-            | EngineEvent::PreviewState { .. }
-            | EngineEvent::PreviewEnded { .. }
-            | EngineEvent::AudioDevicesChanged { .. }
-            | EngineEvent::RecordingState { .. }
-            | EngineEvent::RecordingInputApplied { .. }
-            | EngineEvent::RecordingStopped { .. } => unreachable!("validated above"),
-            EngineEvent::ActiveDeviceChanged { device_id } => {
-                device_id.as_deref().is_none_or(valid_identifier)
-            }
-            EngineEvent::Pong { heartbeat_id } => valid_identifier(heartbeat_id),
-            audio_health @ EngineEvent::AudioHealth { .. } => valid_audio_health(audio_health),
-            EngineEvent::MidiCaptured {
-                pitch,
-                velocity,
-                sample_position,
-            } => *pitch <= 127 && (1..=127).contains(velocity) && wire_safe(*sample_position),
-            EngineEvent::Diagnostic {
-                code,
-                project_revision,
-                ..
-            } => {
-                ENGINE_DIAGNOSTIC_CODES.contains(&code.as_str())
-                    && project_revision.is_none_or(wire_safe)
-            }
-            EngineEvent::OfflineRenderProgress {
-                render_id,
-                completed_frames,
-                total_frames,
-            } => {
-                valid_identifier(render_id)
-                    && wire_safe(*completed_frames)
-                    && wire_safe(*total_frames)
-                    && completed_frames <= total_frames
-            }
-            EngineEvent::OfflineRenderCompleted {
-                render_id,
-                project_revision,
-                frame_count,
-            } => {
-                valid_identifier(render_id)
-                    && wire_safe(*project_revision)
-                    && wire_safe(*frame_count)
-            }
-            EngineEvent::FatalError { code, .. } => {
-                ENGINE_DIAGNOSTIC_CODES.contains(&code.as_str())
-            }
-        });
+        .unwrap_or_else(|| valid_other_event(event));
     if valid {
         Ok(())
     } else {

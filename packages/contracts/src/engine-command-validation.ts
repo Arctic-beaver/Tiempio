@@ -126,6 +126,23 @@ function validPreviewPayload(value: unknown): boolean {
 	})
 }
 
+function validPreviewGeneration(value: unknown): boolean {
+	return safeInteger(value) && value > 0
+}
+
+function validBrickPreviewStart(value: unknown): boolean {
+	return (
+		record(value) &&
+		exactKeys(value, ['previewGeneration', 'renderPlanRevision', 'sourceLayerIds']) &&
+		validPreviewGeneration(value.previewGeneration) &&
+		safeInteger(value.renderPlanRevision) &&
+		Array.isArray(value.sourceLayerIds) &&
+		value.sourceLayerIds.length <= engineProtocolLimits.maxEngineLayers &&
+		new Set(value.sourceLayerIds).size === value.sourceLayerIds.length &&
+		value.sourceLayerIds.every(validIdentifier)
+	)
+}
+
 function validRecordingStartPayload(value: unknown): boolean {
 	return (
 		record(value) &&
@@ -309,6 +326,44 @@ function validCommandPayload(
 		return record(value) && exactKeys(value, ['previewId']) && validIdentifier(value.previewId)
 			? null
 			: protocolFailure('protocol.invalid-envelope', 'Preview cancellation is invalid.')
+	}
+	if (type === 'start-brick-preview') {
+		return validBrickPreviewStart(value)
+			? null
+			: protocolFailure('protocol.invalid-envelope', 'Brick preview start is invalid.')
+	}
+	if (type === 'set-brick-preview-source-enabled') {
+		return record(value) &&
+			exactKeys(value, ['previewGeneration', 'sourceLayerId', 'enabled']) &&
+			validPreviewGeneration(value.previewGeneration) &&
+			validIdentifier(value.sourceLayerId) &&
+			typeof value.enabled === 'boolean'
+			? null
+			: protocolFailure('protocol.invalid-envelope', 'Brick preview source state is invalid.')
+	}
+	if (type === 'seek-brick-preview-source') {
+		return record(value) &&
+			exactKeys(value, [
+				'previewGeneration',
+				'sourceLayerId',
+				'localTick',
+				'cycleIteration',
+				'running'
+			]) &&
+			validPreviewGeneration(value.previewGeneration) &&
+			validIdentifier(value.sourceLayerId) &&
+			safeInteger(value.localTick) &&
+			safeInteger(value.cycleIteration) &&
+			typeof value.running === 'boolean'
+			? null
+			: protocolFailure('protocol.invalid-envelope', 'Brick preview seek is invalid.')
+	}
+	if (type === 'stop-brick-preview') {
+		return record(value) &&
+			exactKeys(value, ['previewGeneration']) &&
+			validPreviewGeneration(value.previewGeneration)
+			? null
+			: protocolFailure('protocol.invalid-envelope', 'Brick preview stop is invalid.')
 	}
 	if (type === 'start-recording') {
 		return validRecordingStartPayload(value)

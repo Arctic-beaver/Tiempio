@@ -106,6 +106,45 @@ function validEventPayload(type: EngineEventType, value: unknown): boolean {
 			['completed', 'canceled', 'interrupted'].includes(String(value.reason))
 		)
 	}
+	if (type === 'brick-preview-started') {
+		return (
+			exactKeys(value, ['previewGeneration', 'renderPlanRevision', 'engineFrame']) &&
+			safeInteger(value.previewGeneration) &&
+			value.previewGeneration > 0 &&
+			safeInteger(value.renderPlanRevision) &&
+			safeInteger(value.engineFrame)
+		)
+	}
+	if (type === 'brick-preview-cursor') {
+		return (
+			exactKeys(value, [
+				'sourceLayerId',
+				'previewGeneration',
+				'running',
+				'localTick',
+				'cycleIteration',
+				'engineFrame',
+				'renderPlanRevision'
+			]) &&
+			validIdentifier(value.sourceLayerId) &&
+			safeInteger(value.previewGeneration) &&
+			value.previewGeneration > 0 &&
+			typeof value.running === 'boolean' &&
+			safeInteger(value.localTick) &&
+			safeInteger(value.cycleIteration) &&
+			safeInteger(value.engineFrame) &&
+			safeInteger(value.renderPlanRevision)
+		)
+	}
+	if (type === 'brick-preview-ended') {
+		return (
+			exactKeys(value, ['previewGeneration', 'reason', 'engineFrame']) &&
+			safeInteger(value.previewGeneration) &&
+			value.previewGeneration > 0 &&
+			['stopped', 'interrupted'].includes(String(value.reason)) &&
+			safeInteger(value.engineFrame)
+		)
+	}
 	if (type === 'recording-state') {
 		return (
 			exactKeys(value, [

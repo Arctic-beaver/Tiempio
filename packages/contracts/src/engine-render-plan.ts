@@ -3,7 +3,7 @@ import {
 	type EngineDiagnosticCode
 } from './generated/engine-protocol.generated.js'
 
-export const engineRenderPlanVersion = 5 as const
+export const engineRenderPlanVersion = 6 as const
 export const enginePatchModelVersion = 4 as const
 export const engineTicksPerQuarter = 960 as const
 
@@ -101,10 +101,12 @@ export interface EngineWireDrumHit {
 }
 
 export interface EngineWireSynthLayer {
+	readonly cycleTicks: number
 	readonly events: readonly EngineWireMidiNote[]
 	readonly gain: number
 	readonly id: string
 	readonly pan: number
+	readonly songEnabled: boolean
 	readonly source: {
 		readonly patch: EngineWireSynthPatch
 		readonly type: 'subtractive-synth'
@@ -112,10 +114,12 @@ export interface EngineWireSynthLayer {
 }
 
 export interface EngineWireDrumLayer {
+	readonly cycleTicks: number
 	readonly events: readonly EngineWireDrumHit[]
 	readonly gain: number
 	readonly id: string
 	readonly pan: number
+	readonly songEnabled: boolean
 	readonly source: {
 		readonly patch: EngineWireDrumKitPatch
 		readonly type: 'procedural-drums'
@@ -124,8 +128,17 @@ export interface EngineWireDrumLayer {
 
 export type EngineWireLayer = EngineWireSynthLayer | EngineWireDrumLayer
 
+export interface EngineWireSongInstance {
+	readonly durationTicks: number
+	readonly id: string
+	readonly sourceLayerId: string
+	readonly sourceOffsetTicks: number
+	readonly startTick: number
+}
+
 export interface EngineWireRenderPlan {
 	readonly endTick: number
+	readonly instances: readonly EngineWireSongInstance[]
 	readonly layers: readonly EngineWireLayer[]
 	readonly loop: EngineWireLoop
 	readonly meterMap: readonly EngineWireMeterPoint[]
@@ -349,7 +362,8 @@ function validHeader(input: Record<string, unknown>): boolean {
 			'tempoMap',
 			'meterMap',
 			'loop',
-			'layers'
+			'layers',
+			'instances'
 		]) &&
 		input.planVersion === engineRenderPlanVersion &&
 		stableId(input.projectId) &&
@@ -445,15 +459,27 @@ export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPl
 		return failure('engine.limit-exceeded', 'Engine layer ceiling was exceeded.')
 	}
 	const ids = new Set<string>()
+	const layerIds = new Set<string>()
 	let eventCount = 0
 	for (const layer of input.layers) {
 		if (
 			!record(layer) ||
-			!exactKeys(layer, ['id', 'gain', 'pan', 'source', 'events']) ||
+			!exactKeys(layer, [
+				'id',
+				'gain',
+				'pan',
+				'songEnabled',
+				'cycleTicks',
+				'source',
+				'events'
+			]) ||
 			!stableId(layer.id) ||
 			ids.has(layer.id) ||
 			!finiteRange(layer.gain, 0, 2) ||
 			!finiteRange(layer.pan, -1, 1) ||
+			typeof layer.songEnabled !== 'boolean' ||
+			!wireInteger(layer.cycleTicks) ||
+			layer.cycleTicks === 0 ||
 			!record(layer.source) ||
 			!exactKeys(layer.source, ['type', 'patch']) ||
 			!Array.isArray(layer.events)
@@ -461,6 +487,7 @@ export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPl
 			return failure('engine.invalid-plan', 'Engine layer is invalid.')
 		}
 		ids.add(layer.id)
+		layerIds.add(layer.id)
 		const isSynth = layer.source.type === 'subtractive-synth'
 		const isDrums = layer.source.type === 'procedural-drums'
 		if (!isSynth && !isDrums) {
@@ -476,7 +503,19 @@ export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPl
 		let previous: { readonly id: string; readonly startTick: number } | null = null
 		for (const event of layer.events) {
 			const valid = isSynth ? validMidiEvent(event) : validDrumEvent(event)
-			if (!valid || ids.has(event.id)) {
+			const eventEnd =
+				valid && isSynth
+					? event.startTick + Number(event.durationTicks)
+					: valid
+						? event.startTick + Number(event.swingTicks)
+						: Number.POSITIVE_INFINITY
+			if (
+				!valid ||
+				ids.has(event.id) ||
+				(isSynth
+					? eventEnd > Number(layer.cycleTicks)
+					: eventEnd >= Number(layer.cycleTicks))
+			) {
 				return failure('engine.invalid-plan', 'Engine event is invalid or duplicated.')
 			}
 			if (
@@ -488,6 +527,46 @@ export function validateEngineWireRenderPlan(input: unknown): EngineWireRenderPl
 			}
 			ids.add(event.id)
 			previous = event
+		}
+	}
+	if (
+		!Array.isArray(input.instances) ||
+		input.instances.length > engineProtocolLimits.maxSongInstances
+	) {
+		return failure('engine.limit-exceeded', 'Engine song-instance ceiling was exceeded.')
+	}
+	let previousInstance: { readonly id: string; readonly startTick: number } | null = null
+	for (const instance of input.instances) {
+		if (
+			!record(instance) ||
+			!exactKeys(instance, [
+				'id',
+				'sourceLayerId',
+				'startTick',
+				'durationTicks',
+				'sourceOffsetTicks'
+			]) ||
+			!stableId(instance.id) ||
+			ids.has(instance.id) ||
+			!stableId(instance.sourceLayerId) ||
+			!layerIds.has(instance.sourceLayerId) ||
+			!wireInteger(instance.startTick) ||
+			!wireInteger(instance.durationTicks) ||
+			instance.durationTicks === 0 ||
+			!wireInteger(instance.sourceOffsetTicks) ||
+			!Number.isSafeInteger(instance.startTick + instance.durationTicks) ||
+			instance.startTick + instance.durationTicks > Number(input.endTick) ||
+			(previousInstance !== null &&
+				(previousInstance.startTick > instance.startTick ||
+					(previousInstance.startTick === instance.startTick &&
+						previousInstance.id > instance.id)))
+		) {
+			return failure('engine.invalid-plan', 'Engine song instance is invalid or unordered.')
+		}
+		ids.add(instance.id)
+		previousInstance = instance as unknown as {
+			readonly id: string
+			readonly startTick: number
 		}
 	}
 	return Object.freeze({ ok: true as const, value: input as unknown as EngineWireRenderPlan })

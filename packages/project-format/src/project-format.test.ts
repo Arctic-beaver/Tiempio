@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { createProject, ProjectSession } from '../../project-core/src/index.js'
+import {
+	createLayer,
+	createMidiMaterial,
+	createMidiNote,
+	createProject,
+	createSongInstance,
+	ProjectSession
+} from '../../project-core/src/index.js'
 import {
 	createLogicalProjectArchive,
 	decodeRecoveryEnvelope,
@@ -52,6 +59,90 @@ describe('project format', () => {
 		assert.equal(loaded.status, 'loaded')
 		if (loaded.status === 'loaded') {
 			assert.deepEqual(loaded.project.transport.key, { tonic: 1, mode: 'major' })
+		}
+	})
+
+	it('preserves linked source edits and song instances through archive and recovery', () => {
+		const source = {
+			...createLayer({ id: 'layer.linked', name: 'Linked lead', role: 'melody' }),
+			material: createMidiMaterial({
+				materialLengthTicks: 1_920,
+				tailRestTicks: 960,
+				notes: [
+					createMidiNote({
+						id: 'note.linked',
+						pitch: 60,
+						startTick: 0,
+						durationTicks: 480
+					})
+				]
+			})
+		}
+		const linkedProject = {
+			...createProject({ projectId: 'project.linked', title: 'Linked composition' }),
+			layers: [source],
+			song: {
+				instances: [
+					createSongInstance({
+						id: 'instance.linked.a',
+						sourceLayerId: source.id,
+						startTick: 0,
+						durationTicks: 2_880
+					}),
+					createSongInstance({
+						id: 'instance.linked.b',
+						sourceLayerId: source.id,
+						startTick: 3_840,
+						durationTicks: 1_440,
+						sourceOffsetTicks: 480
+					})
+				]
+			}
+		}
+		const session = new ProjectSession(linkedProject)
+		session.dispatch({
+			type: 'note.update',
+			baseRevision: 0,
+			layerId: source.id,
+			noteId: source.material.notes[0]!.id,
+			pitch: 67,
+			startTick: 240,
+			durationTicks: 720,
+			velocity: 108
+		})
+		assert.equal(session.getSnapshot().revision, 1)
+		const undone = session.undo(1)
+		const undoneMaterial = undone.project.layers[0]?.material
+		assert.equal(undoneMaterial?.kind, 'midi')
+		if (undoneMaterial?.kind === 'midi') assert.equal(undoneMaterial.notes[0]?.pitch, 60)
+		const redone = session.redo(2)
+		const redoneMaterial = redone.project.layers[0]?.material
+		assert.equal(redoneMaterial?.kind, 'midi')
+		if (redoneMaterial?.kind === 'midi') assert.equal(redoneMaterial.notes[0]?.pitch, 67)
+		const edited = session.getSnapshot().project
+
+		const physical = decodePhysicalProjectArchive(
+			encodePhysicalProjectArchive(createLogicalProjectArchive(edited))
+		)
+		assert.equal(physical.logical.status, 'loaded')
+		if (physical.logical.status === 'loaded') {
+			const reopened = physical.logical.project
+			assert.equal(reopened.layers.length, 1)
+			assert.equal(reopened.song.instances.length, 2)
+			assert.equal(reopened.song.instances[0]?.sourceLayerId, reopened.layers[0]?.id)
+			assert.equal(reopened.song.instances[1]?.sourceLayerId, reopened.layers[0]?.id)
+			assert.equal(reopened.song.instances[1]?.sourceOffsetTicks, 480)
+			const material = reopened.layers[0]?.material
+			assert.equal(material?.kind, 'midi')
+			if (material?.kind === 'midi') assert.equal(material.notes[0]?.pitch, 67)
+			assert.deepEqual(encodeProjectManifest(reopened), encodeProjectManifest(edited))
+		}
+
+		const recovered = decodeRecoveryEnvelope(encodeRecoveryEnvelope(edited, 3))
+		assert.equal(recovered.status, 'loaded')
+		if (recovered.status === 'loaded') {
+			assert.equal(recovered.revision, 3)
+			assert.deepEqual(recovered.project, edited)
 		}
 	})
 

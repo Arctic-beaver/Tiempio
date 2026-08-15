@@ -2,9 +2,9 @@ use serde_json::Value;
 use tiempio_engine_core::{
     DrumAlgorithm, DrumHitEvent, DrumInstrument, DrumKitPatch, DrumVoicePatch, InstrumentLayerPlan,
     LayerSource, LoopRegion, MeterPoint, MidiNoteEvent, RenderPlan, RenderPlanRevision,
-    SynthAmplifierPatch, SynthExpressionPatch, SynthFilterPatch, SynthMovementPatch,
-    SynthOscillatorPatch, SynthPatch, SynthSecondaryOscillatorPatch, SynthWaveform, TempoPoint,
-    validate_render_plan,
+    SongInstancePlan, SynthAmplifierPatch, SynthExpressionPatch, SynthFilterPatch,
+    SynthMovementPatch, SynthOscillatorPatch, SynthPatch, SynthSecondaryOscillatorPatch,
+    SynthWaveform, TempoPoint, validate_render_plan,
 };
 
 use crate::validation::parse_payload;
@@ -65,6 +65,8 @@ fn convert_synth_layer(
     layer_id: String,
     gain: f64,
     pan: f64,
+    song_enabled: bool,
+    cycle_ticks: u64,
     source_value: &Value,
     event_values: Vec<Value>,
 ) -> Result<InstrumentLayerPlan, ProtocolError> {
@@ -85,6 +87,8 @@ fn convert_synth_layer(
         id: layer_id,
         gain,
         pan,
+        song_enabled,
+        cycle_ticks,
         source: LayerSource::Synth {
             patch: SynthPatch {
                 patch_model_version: patch.patch_model_version,
@@ -136,6 +140,8 @@ fn convert_drum_layer(
     layer_id: String,
     gain: f64,
     pan: f64,
+    song_enabled: bool,
+    cycle_ticks: u64,
     source_value: &Value,
     event_values: Vec<Value>,
 ) -> Result<InstrumentLayerPlan, ProtocolError> {
@@ -156,6 +162,8 @@ fn convert_drum_layer(
         id: layer_id,
         gain,
         pan,
+        song_enabled,
+        cycle_ticks,
         source: LayerSource::Drums {
             patch: DrumKitPatch {
                 patch_model_version: source.patch.patch_model_version,
@@ -184,12 +192,24 @@ pub(crate) fn convert_render_plan(wire: WireRenderPlan) -> Result<RenderPlan, Pr
                 )
             })?;
         layers.push(match source_type {
-            "subtractive-synth" => {
-                convert_synth_layer(layer.id, layer.gain, layer.pan, &layer.source, layer.events)?
-            }
-            "procedural-drums" => {
-                convert_drum_layer(layer.id, layer.gain, layer.pan, &layer.source, layer.events)?
-            }
+            "subtractive-synth" => convert_synth_layer(
+                layer.id,
+                layer.gain,
+                layer.pan,
+                layer.song_enabled,
+                layer.cycle_ticks,
+                &layer.source,
+                layer.events,
+            )?,
+            "procedural-drums" => convert_drum_layer(
+                layer.id,
+                layer.gain,
+                layer.pan,
+                layer.song_enabled,
+                layer.cycle_ticks,
+                &layer.source,
+                layer.events,
+            )?,
             _ => return Err(unsupported("Engine source type is unsupported.")),
         });
     }
@@ -222,6 +242,17 @@ pub(crate) fn convert_render_plan(wire: WireRenderPlan) -> Result<RenderPlan, Pr
             end_tick: wire.loop_region.end_tick,
         },
         layers,
+        instances: wire
+            .instances
+            .into_iter()
+            .map(|instance| SongInstancePlan {
+                id: instance.id,
+                source_layer_id: instance.source_layer_id,
+                start_tick: instance.start_tick,
+                duration_ticks: instance.duration_ticks,
+                source_offset_ticks: instance.source_offset_ticks,
+            })
+            .collect(),
     };
     validate_render_plan(&plan).map_err(|failure| {
         let diagnostic = match failure.code {
@@ -267,6 +298,10 @@ mod tests {
         assert_eq!(
             crate::ENGINE_PROTOCOL_MAX_ENGINE_LAYERS,
             tiempio_engine_core::MAX_ENGINE_LAYERS
+        );
+        assert_eq!(
+            crate::ENGINE_PROTOCOL_MAX_SONG_INSTANCES,
+            tiempio_engine_core::MAX_SONG_INSTANCES
         );
         assert_eq!(
             crate::ENGINE_PROTOCOL_MAX_TEMPO_POINTS,

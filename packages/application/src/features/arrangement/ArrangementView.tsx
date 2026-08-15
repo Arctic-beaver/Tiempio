@@ -1,89 +1,67 @@
-import { ArrowUpRight, AudioLines, CircleDot, Copy, Drum, Pause, Plus, Waves } from 'lucide-react'
-import type { CSSProperties, JSX, ReactNode } from 'react'
+import { PanelRightOpen, Pause, Play } from 'lucide-react'
+import { useEffect, useRef, useState, useSyncExternalStore, type JSX } from 'react'
+import { IconButton } from '../../../../design-system/src/index.js'
 import { useLocalization } from '../../../../localization/src/index.js'
 import { ProjectHistoryControls } from '../../commands/ProjectHistoryControls.js'
-import { StudioTopBar } from '../../shell/StudioTopBar.js'
-import { TransportBar } from '../../shell/TransportBar.js'
-import { TransportPlayhead } from '../../shell/TransportPlayhead.js'
-import { TransportRuler } from '../../shell/TransportRuler.js'
+import type { BrickPreviewCursorSnapshot } from '../../preview/brick-preview-session.js'
 import type { LayersProjection, ProjectedLayerItem } from '../../project/projections/types.js'
-import { editorLayerName, editorLayerSound } from '../shared/editor-layer-presentation.js'
-import type { ArrangementLayerViewModel, ArrangementViewModel } from './view-model.js'
+import { useApplicationRuntimeController } from '../../runtime/ApplicationRuntimeControllerContext.js'
+import { StudioTopBar } from '../../shell/StudioTopBar.js'
+import { ArrangementInspector } from './ArrangementInspector.js'
+import { BrickSourceEditor } from './BrickSourceEditor.js'
+import { CompositionLayerList } from './CompositionLayerList.js'
+import { SongDock } from './SongDock.js'
+import type {
+	ArrangementGestureKind,
+	ArrangementGestureResult
+} from './arrangement-interactions.js'
+import type {
+	ArrangementInstanceViewModel,
+	ArrangementLayerViewModel,
+	ArrangementViewModel
+} from './view-model.js'
 
-interface ClipSpec {
-	readonly label: string
-	readonly left: string
-	readonly rest?: boolean
-	readonly sectionIndex: number
-	readonly width: string
-}
-
-const clipSpecs: Readonly<Record<string, readonly ClipSpec[]>> = Object.freeze({
-	'layers.drums': Object.freeze([
-		{ label: 'Sparse', left: '1.5%', width: '24%', sectionIndex: 0 },
-		{ label: 'Driving', left: '27%', width: '48%', sectionIndex: 1 },
-		{ label: 'Pause', left: '76.5%', width: '11%', sectionIndex: 2, rest: true },
-		{ label: 'Fill', left: '89%', width: '10%', sectionIndex: 3 }
-	]),
-	'layers.bass': Object.freeze([
-		{ label: 'Deep A', left: '14%', width: '11%', sectionIndex: 0 },
-		{ label: 'Main bass', left: '27%', width: '48%', sectionIndex: 1 },
-		{ label: '1 bar rest', left: '76.5%', width: '11%', sectionIndex: 2, rest: true },
-		{ label: 'Return', left: '89%', width: '10%', sectionIndex: 3 }
-	]),
-	'layers.chords': Object.freeze([
-		{ label: 'Am · F', left: '1.5%', width: '36%', sectionIndex: 0 },
-		{ label: 'C · G', left: '39%', width: '36%', sectionIndex: 1 },
-		{ label: 'Am · G', left: '76.5%', width: '22.5%', sectionIndex: 3 }
-	]),
-	'layers.melody': Object.freeze([
-		{ label: 'Motif', left: '27%', width: '23%', sectionIndex: 1 },
-		{ label: 'Variation', left: '52%', width: '23%', sectionIndex: 1 },
-		{ label: 'Mute', left: '76.5%', width: '11%', sectionIndex: 2, rest: true }
-	])
-})
-
-const layerOrder = Object.freeze({
-	'layers.drums': 0,
-	'layers.bass': 1,
-	'layers.chords': 2,
-	'layers.melody': 3
-} as const)
-
-function trackIcon(item: ProjectedLayerItem): ReactNode {
-	if (item.labelKey === 'layers.drums') return <Drum />
-	if (item.labelKey === 'layers.chords') return <AudioLines />
-	if (item.labelKey === 'layers.melody') return <Waves />
-	return <CircleDot />
-}
-
-function orderOf(item: ProjectedLayerItem): number {
-	if (item.labelKey in layerOrder) {
-		return layerOrder[item.labelKey as keyof typeof layerOrder]
+function selectedInstance(
+	modelLayers: readonly ArrangementLayerViewModel[],
+	instanceId: string | null
+): ArrangementInstanceViewModel | null {
+	if (instanceId === null) return null
+	for (const layer of modelLayers) {
+		const instance = layer.instances.find((candidate) => candidate.id === instanceId)
+		if (instance !== undefined) return instance
 	}
-	return 4
+	return null
 }
 
-function trackColor(item: ProjectedLayerItem): string {
-	if (item.labelKey === 'layers.drums') return 'var(--ti-track-drum)'
-	if (item.labelKey === 'layers.chords') return 'var(--ti-track-harmony)'
-	if (item.labelKey === 'layers.melody') return 'var(--ti-track-lead)'
-	return 'var(--ti-track-bass)'
-}
-
-function modelLayer(
-	model: ArrangementViewModel,
-	item: ProjectedLayerItem
-): ArrangementLayerViewModel | undefined {
-	return model.layers.find((layer) => layer.id === item.id)
+function previewCursor(
+	cursors: readonly BrickPreviewCursorSnapshot[],
+	layerId: string | undefined
+): BrickPreviewCursorSnapshot | undefined {
+	return layerId === undefined
+		? undefined
+		: cursors.find((cursor) => cursor.sourceLayerId === layerId)
 }
 
 export interface ArrangementViewProperties {
 	readonly layers: LayersProjection
-	readonly model: ArrangementViewModel & { readonly endTick: number }
+	readonly model: ArrangementViewModel & { readonly endTick: number; readonly revision: number }
 	readonly onAddLayer: () => void
-	readonly onOpenSculpt: () => void
-	readonly onToggleCell: (layerId: string, sectionId: string, active: boolean) => void
+	readonly onDeleteInstance: (instanceId: string) => void
+	readonly onDuplicateAsVariation: (instanceId: string) => string | null
+	readonly onDuplicateLinked: (instanceId: string) => string | null
+	readonly onOpenSculpt: (item: ProjectedLayerItem) => void
+	readonly onPlaceInstance: (
+		layerId: string,
+		startTick: number,
+		durationTicks: number
+	) => string | null
+	readonly onSelectLayer: (item: ProjectedLayerItem) => void
+	readonly onSplitInstance: (instanceId: string, splitOffsetTicks: number) => string | null
+	readonly onUpdateInstance: (
+		instanceId: string,
+		kind: ArrangementGestureKind,
+		result: ArrangementGestureResult
+	) => void
 	readonly totalBars: number
 }
 
@@ -91,165 +69,233 @@ export function ArrangementView({
 	layers,
 	model,
 	onAddLayer,
+	onDeleteInstance,
+	onDuplicateAsVariation,
+	onDuplicateLinked,
 	onOpenSculpt,
-	onToggleCell,
+	onPlaceInstance,
+	onSelectLayer,
+	onSplitInstance,
+	onUpdateInstance,
 	totalBars
 }: ArrangementViewProperties): JSX.Element {
 	const { t } = useLocalization()
-	const tracks = [...layers.items].sort((left, right) => orderOf(left) - orderOf(right))
-	const projectTitle = tracks.length >= 4 ? 'Night Drive' : layers.projectTitle
-	const timelineMinimumWidth = Math.max(768, Math.ceil(totalBars) * 48)
+	const controller = useApplicationRuntimeController()
+	const engine = useSyncExternalStore(
+		controller.subscribe,
+		controller.getSnapshot,
+		controller.getSnapshot
+	)
+	const preview = useSyncExternalStore(
+		controller.brickPreviewSession.subscribe,
+		controller.brickPreviewSession.getSnapshot,
+		controller.brickPreviewSession.getSnapshot
+	)
+	const initializedSources = useRef(new Set<string>())
+	const [dockExpanded, setDockExpanded] = useState(true)
+	const [inspectorExpanded, setInspectorExpanded] = useState(true)
+	const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null)
+	const activeLayer =
+		model.layers.find((layer) => layer.id === layers.activeLayerId) ?? model.layers[0]
+	const activeLayerItem = layers.items.find((item) => item.id === activeLayer?.id)
+	const activeCursor = previewCursor(preview.cursors, activeLayer?.id)
+	const instance = selectedInstance(model.layers, selectedInstanceId)
+	const instanceLayer = layers.items.find((item) => item.id === instance?.sourceLayerId)
+	const instanceModelLayer = model.layers.find((layer) => layer.id === instance?.sourceLayerId)
+
+	useEffect(() => {
+		const currentIds = new Set(model.layers.map((layer) => layer.id))
+		for (const enabledId of preview.enabledSourceLayerIds) {
+			if (!currentIds.has(enabledId)) {
+				controller.brickPreviewSession.setSourceEnabled(enabledId, false)
+			}
+		}
+		for (const layer of model.layers) {
+			if (initializedSources.current.has(layer.id)) continue
+			initializedSources.current.add(layer.id)
+			controller.brickPreviewSession.setSourceEnabled(layer.id, true)
+		}
+	}, [controller.brickPreviewSession, model.layers, preview.enabledSourceLayerIds])
+
+	const toggleBrickPreview = (): void => {
+		if (preview.status !== 'idle') {
+			controller.brickPreviewSession.stop()
+			return
+		}
+		const availableIds = new Set(model.layers.map((layer) => layer.id))
+		controller.brickPreviewSession.start(
+			model.revision,
+			preview.enabledSourceLayerIds.filter((id) => availableIds.has(id))
+		)
+	}
+	const selectInstanceAndSource = (instanceId: string): void => {
+		setSelectedInstanceId(instanceId)
+		setInspectorExpanded(true)
+		const selected = selectedInstance(model.layers, instanceId)
+		const layer = layers.items.find((item) => item.id === selected?.sourceLayerId)
+		if (layer !== undefined) onSelectLayer(layer)
+	}
+	const splitSelected = (): void => {
+		if (instance === null) return
+		const gridTicks = Math.max(1, Math.round(model.ticksPerQuarter / 4))
+		const offset = Math.round(instance.durationTicks / gridTicks / 2) * gridTicks
+		if (offset <= 0 || offset >= instance.durationTicks) return
+		const rightId = onSplitInstance(instance.id, offset)
+		if (rightId !== null) selectInstanceAndSource(rightId)
+	}
 
 	return (
 		<section
-			className="studio-view arrangement-editor"
+			className="studio-view arrangement-editor composition-editor"
+			data-dock-expanded={dockExpanded || undefined}
+			data-inspector-expanded={inspectorExpanded || undefined}
 			data-total-bars={totalBars}
 			data-testid="view-arrangement"
 		>
 			<StudioTopBar
 				actions={<ProjectHistoryControls />}
-				center={<TransportBar />}
-				subtitle={t('arrangement.changedNow')}
-				title={projectTitle}
-			/>
-			<div className="arrange-body">
-				<aside className="arrange-tracks">
-					{tracks.map((track) => {
-						const selected = track.labelKey === 'layers.bass'
-						return (
-							<div
-								aria-current={selected ? 'true' : undefined}
-								className={`track-head${selected ? ' selected' : ''}`}
-								key={track.id}
-							>
-								<span aria-hidden="true" className="track-glyph">
-									{trackIcon(track)}
-								</span>
-								<span>
-									<span className="track-role">{editorLayerName(track)}</span>
-									<span className="track-sound">{editorLayerSound(track)}</span>
-								</span>
-								<span aria-hidden="true" className="track-tools">
-									<span className="track-control">S</span>
-									<span
-										className={`track-control${track.labelKey === 'layers.melody' ? ' active' : ''}`}
-									>
-										M
-									</span>
-								</span>
-							</div>
-						)
-					})}
-					<button
-						className="add-layer arrange-add-layer"
-						onClick={onAddLayer}
-						type="button"
-					>
-						<Plus aria-hidden="true" />
-						{t('layers.add')}
-					</button>
-				</aside>
-				<div aria-label={t('arrangement.title')} className="arrange-canvas" role="group">
+				center={
 					<div
-						className="arrange-timeline"
-						style={{ minWidth: `${String(timelineMinimumWidth)}px` }}
+						aria-label={t('arrangement.brickPreview')}
+						className="brick-preview-transport"
+						role="toolbar"
 					>
-						<TransportRuler
-							className="arrange-ruler"
-							endTick={model.endTick}
-							granularity="bar"
+						<IconButton
+							disabled={!engine.available}
+							icon={preview.status === 'idle' ? <Play /> : <Pause />}
+							label={t(
+								preview.status === 'idle'
+									? 'arrangement.playBricks'
+									: 'arrangement.stopBricks'
+							)}
+							onClick={toggleBrickPreview}
+							selected={preview.status !== 'idle'}
+							tone="accent"
 						/>
-						<span className="section-label" style={{ left: '2%' }}>
-							Intro
+						<span>
+							<strong>{t('arrangement.brickPreview')}</strong>
+							<small>
+								{t(
+									preview.status === 'idle'
+										? 'arrangement.previewReady'
+										: 'arrangement.previewRunning'
+								)}
+							</small>
 						</span>
-						<span className="section-label" style={{ left: '27%' }}>
-							Main
-						</span>
-						<span className="section-label" style={{ left: '76%' }}>
-							Break
-						</span>
-						{tracks.map((track) => {
-							const projection = modelLayer(model, track)
-							const specs = clipSpecs[track.labelKey] ?? []
-							return (
-								<div
-									className="arrange-row"
-									data-track={track.labelKey}
-									key={track.id}
-								>
-									{specs.map((clip, index) => {
-										const section = model.sections[clip.sectionIndex]
-										const active =
-											section !== undefined &&
-											projection?.sections.includes(section.id) === true
-										return (
-											<button
-												aria-label={`${editorLayerName(track)} · ${clip.label}`}
-												aria-pressed={active}
-												className={`clip${clip.rest === true ? ' rest' : ''}`}
-												disabled={section === undefined}
-												key={`${clip.label}:${String(index)}`}
-												onClick={() => {
-													if (section !== undefined) {
-														onToggleCell(track.id, section.id, active)
-													}
-												}}
-												style={
-													{
-														left: clip.left,
-														width: clip.width,
-														'--clip': trackColor(track)
-													} as CSSProperties
-												}
-												type="button"
-											>
-												<span>{clip.label}</span>
-											</button>
-										)
-									})}
-								</div>
-							)
-						})}
-						<TransportPlayhead endTick={model.endTick} startTick={0} />
 					</div>
-				</div>
-				<aside className="arrange-inspector">
-					<h2>Main bass</h2>
-					<p>{t('arrangement.inspectorDescription')}</p>
-					<button className="inspector-action" disabled type="button">
-						<Copy aria-hidden="true" />
-						<span>
-							<strong>{t('arrangement.repeatAfter')}</strong>
-							<small>{t('arrangement.createContinuation')}</small>
-						</span>
-						<ArrowUpRight aria-hidden="true" />
-					</button>
-					<button className="inspector-action" disabled type="button">
-						<Pause aria-hidden="true" />
-						<span>
-							<strong>{t('arrangement.addPause')}</strong>
-							<small>{t('arrangement.oneBarAfter')}</small>
-						</span>
-						<ArrowUpRight aria-hidden="true" />
-					</button>
-					<button className="inspector-action" disabled type="button">
-						<span className="octave-glyph">−8va</span>
-						<span>
-							<strong>{t('arrangement.octaveDown')}</strong>
-							<small>{t('arrangement.keepPattern')}</small>
-						</span>
-						<ArrowUpRight aria-hidden="true" />
-					</button>
-					<button className="inspector-action" onClick={onOpenSculpt} type="button">
-						<Waves aria-hidden="true" />
-						<span>
-							<strong>{t('arrangement.changeCharacter')}</strong>
-							<small>Deep → Warm → Dirty</small>
-						</span>
-						<ArrowUpRight aria-hidden="true" />
-					</button>
-				</aside>
+				}
+				subtitle={t('arrangement.linkedComposition')}
+				title={layers.projectTitle}
+			/>
+			<div className="composition-main">
+				<CompositionLayerList
+					enabledSourceLayerIds={preview.enabledSourceLayerIds}
+					layers={layers}
+					modelLayers={model.layers}
+					onAddLayer={onAddLayer}
+					onEditLayer={onOpenSculpt}
+					onSelectLayer={(item) => {
+						setSelectedInstanceId(null)
+						onSelectLayer(item)
+					}}
+					onToggleSpeaker={(layerId) =>
+						controller.brickPreviewSession.setSourceEnabled(
+							layerId,
+							!preview.enabledSourceLayerIds.includes(layerId)
+						)
+					}
+					ticksPerQuarter={model.ticksPerQuarter}
+				/>
+				{activeLayer === undefined ? (
+					<div className="composition-empty">{t('arrangement.noBricks')}</div>
+				) : (
+					<BrickSourceEditor
+						cursor={activeCursor}
+						layer={activeLayer}
+						onSeekRunningSource={(tick, iteration) =>
+							controller.brickPreviewSession.seekSource(
+								activeLayer.id,
+								tick,
+								true,
+								iteration
+							)
+						}
+						onSuspendRunningSource={() =>
+							controller.brickPreviewSession.suspendSource(activeLayer.id)
+						}
+						ticksPerQuarter={model.ticksPerQuarter}
+					/>
+				)}
+				{inspectorExpanded ? (
+					<ArrangementInspector
+						instance={instance}
+						layer={instance === null ? activeLayerItem : instanceLayer}
+						modelLayer={instance === null ? activeLayer : instanceModelLayer}
+						onClose={() => {
+							setInspectorExpanded(false)
+							globalThis.queueMicrotask(() =>
+								document
+									.querySelector<HTMLElement>('[data-inspector-reopen]')
+									?.focus()
+							)
+						}}
+						onDelete={() => {
+							if (instance === null) return
+							onDeleteInstance(instance.id)
+							setSelectedInstanceId(null)
+						}}
+						onDuplicateLinked={() => {
+							if (instance === null) return
+							const id = onDuplicateLinked(instance.id)
+							if (id !== null) selectInstanceAndSource(id)
+						}}
+						onDuplicateVariation={() => {
+							if (instance === null) return
+							const id = onDuplicateAsVariation(instance.id)
+							if (id !== null) setSelectedInstanceId(id)
+						}}
+						onEditSource={() => {
+							const item = instance === null ? activeLayerItem : instanceLayer
+							if (item !== undefined) onOpenSculpt(item)
+						}}
+						onSplit={splitSelected}
+					/>
+				) : (
+					<IconButton
+						className="composition-inspector__reopen"
+						data-inspector-reopen
+						icon={<PanelRightOpen />}
+						label={t('arrangement.showInspector')}
+						onClick={() => setInspectorExpanded(true)}
+					/>
+				)}
 			</div>
+			<SongDock
+				endTick={model.endTick}
+				expanded={dockExpanded}
+				layers={layers.items}
+				modelLayers={model.layers}
+				onDeleteInstance={(id) => {
+					onDeleteInstance(id)
+					if (selectedInstanceId === id) setSelectedInstanceId(null)
+				}}
+				onPlaceInstance={(layerId, startTick, durationTicks) => {
+					const id = onPlaceInstance(layerId, startTick, durationTicks)
+					if (id !== null) selectInstanceAndSource(id)
+					return id
+				}}
+				onSelectInstance={selectInstanceAndSource}
+				onSplitInstance={(id, offset) => {
+					const rightId = onSplitInstance(id, offset)
+					if (rightId !== null) selectInstanceAndSource(rightId)
+				}}
+				onToggleExpanded={() => setDockExpanded((value) => !value)}
+				onTogglePlayback={controller.togglePlayback}
+				onUpdateInstance={onUpdateInstance}
+				playing={engine.playing}
+				selectedInstanceId={instance === null ? null : selectedInstanceId}
+				ticksPerQuarter={model.ticksPerQuarter}
+			/>
 		</section>
 	)
 }

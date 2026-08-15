@@ -46,6 +46,7 @@ export function parseEngineProtocolSchema(source) {
 		'maxBatchItems',
 		'maxJsonDepth',
 		'maxEngineLayers',
+		'maxSongInstances',
 		'maxTempoPoints',
 		'maxMeterPoints',
 		'maxMusicalEvents',

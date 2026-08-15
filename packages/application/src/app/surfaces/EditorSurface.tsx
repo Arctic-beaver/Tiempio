@@ -77,8 +77,20 @@ export default function EditorSurface({ activeView }: EditorSurfaceProperties): 
 				layers={projections.layers}
 				model={projections.arrangement}
 				onAddLayer={addLayer}
-				onOpenSculpt={() => execute(commandForView('sound-sculpt'))}
-				onToggleCell={arrangement.toggleCell}
+				onDeleteInstance={arrangement.deleteInstance}
+				onDuplicateAsVariation={arrangement.duplicateAsVariation}
+				onDuplicateLinked={arrangement.duplicateLinked}
+				onOpenSculpt={(item) => {
+					projectSession.selectLayer(item.id)
+					execute(commandForView('sound-sculpt'))
+				}}
+				onPlaceInstance={arrangement.placeInstance}
+				onSelectLayer={(item) => {
+					controller.stopRecording()
+					projectSession.selectLayer(item.id)
+				}}
+				onSplitInstance={arrangement.splitInstance}
+				onUpdateInstance={arrangement.updateInstanceGesture}
 				totalBars={projections.arrangement.totalBars}
 			/>
 		)

@@ -1,5 +1,5 @@
 import type { StudioProjectionContext } from './projection-context.js'
-import { layerPresentation, sectionPresentation } from './shared.js'
+import { layerPresentation } from './shared.js'
 import type { ArrangementProjection } from './types.js'
 
 function barsInRange(
@@ -21,49 +21,59 @@ export function projectArrangement({
 	project,
 	revision
 }: StudioProjectionContext): ArrangementProjection {
-	const endTick = project.sections.reduce(
-		(maximum, section) => Math.max(maximum, section.startTick + section.lengthTicks),
-		project.song.instances.reduce(
-			(maximum, instance) => Math.max(maximum, instance.startTick + instance.durationTicks),
-			0
-		)
+	const endTick = project.song.instances.reduce(
+		(maximum, instance) => Math.max(maximum, instance.startTick + instance.durationTicks),
+		0
 	)
 	return {
 		endTick,
+		meterNumerator: project.transport.meterMap[0]?.numerator ?? 4,
 		revision,
+		ticksPerQuarter: project.transport.ticksPerQuarter,
 		totalBars: barsInRange(
 			0,
 			endTick,
 			project.transport.meterMap,
 			project.transport.ticksPerQuarter
 		),
-		sectionIds: project.sections.map((section) => section.id),
-		sections: project.sections.map((section, index) => ({
-			id: section.id,
-			bars: barsInRange(
-				section.startTick,
-				section.startTick + section.lengthTicks,
-				project.transport.meterMap,
-				project.transport.ticksPerQuarter
-			),
-			...sectionPresentation(index)
-		})),
 		layers: project.layers
 			.filter((layer) => layer.role !== 'reference')
-			.map((layer) => ({
-				id: layer.id,
-				labelKey: layerPresentation(layer).labelKey,
-				color: layerPresentation(layer).color,
-				sections: project.sections.flatMap((section) =>
-					project.song.instances.some(
-						(instance) =>
-							instance.sourceLayerId === layer.id &&
-							instance.startTick === section.startTick &&
-							instance.durationTicks === section.lengthTicks
-					)
-						? [section.id]
-						: []
-				)
-			}))
+			.map((layer) => {
+				const material = layer.material
+				return {
+					id: layer.id,
+					labelKey: layerPresentation(layer).labelKey,
+					color: layerPresentation(layer).color,
+					kind: material.kind === 'drum' ? ('drum' as const) : ('midi' as const),
+					materialLengthTicks: material.materialLengthTicks,
+					tailRestTicks: material.tailRestTicks,
+					cycleTicks:
+						material.materialLengthTicks + material.tailRestTicks ||
+						project.transport.ticksPerQuarter * 4,
+					notes:
+						material.kind === 'midi'
+							? material.notes.map((note) => ({
+									id: note.id,
+									pitch: note.pitch,
+									startTick: note.startTick,
+									durationTicks: note.durationTicks
+								}))
+							: [],
+					hits:
+						material.kind === 'drum'
+							? material.events.map((event) => ({
+									id: event.id,
+									instrument: event.instrument,
+									tick: Math.round(
+										(event.step * project.transport.ticksPerQuarter) /
+											material.pattern.stepsPerQuarter
+									)
+								}))
+							: [],
+					instances: project.song.instances
+						.filter((instance) => instance.sourceLayerId === layer.id)
+						.map((instance) => ({ ...instance }))
+				}
+			})
 	}
 }

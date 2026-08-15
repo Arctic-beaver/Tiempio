@@ -15,6 +15,7 @@ import {
 import { PerformanceInputSession } from '../performance/performance-input-session.js'
 import { PerformanceRecordingCoordinator } from '../performance/performance-recording-coordinator.js'
 import { AuditionPreviewCoordinator } from '../preview/audition-preview-coordinator.js'
+import { BrickPreviewSession } from '../preview/brick-preview-session.js'
 
 export interface ApplicationControllerSnapshot {
 	readonly acknowledgedProjectRevision: number | null
@@ -52,6 +53,7 @@ export const silentApplicationMeter = Object.freeze<ApplicationMeterSnapshot>({
 })
 
 export interface ApplicationController {
+	readonly brickPreviewSession: BrickPreviewSession
 	readonly performanceInput: PerformanceInputSession
 	readonly previewCoordinator: AuditionPreviewCoordinator
 	readonly recordingCoordinator: PerformanceRecordingCoordinator
@@ -101,6 +103,12 @@ export function createUnavailableApplicationController(
 		cancel: () => undefined,
 		start: () => false
 	})
+	const brickPreviewSession = new BrickPreviewSession({
+		seekSource: () => undefined,
+		setSourceEnabled: () => undefined,
+		start: () => false,
+		stop: () => undefined
+	})
 	const recordingCoordinator = new PerformanceRecordingCoordinator({
 		engine: {
 			noteOff: async () => false,
@@ -111,6 +119,7 @@ export function createUnavailableApplicationController(
 	})
 	if (initialSession !== undefined) recordingCoordinator.bindSession(initialSession)
 	return Object.freeze({
+		brickPreviewSession,
 		performanceInput,
 		previewCoordinator,
 		recordingCoordinator,

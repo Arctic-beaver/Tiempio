@@ -8,15 +8,17 @@ use crate::frame::validate_json_depth;
 use crate::render_plan::convert_render_plan;
 use crate::validation::{parse_payload, valid_identifier, validate_configuration, wire_safe};
 use crate::{
-    AudioConfiguration, ENGINE_CAPABILITY_CODES, ENGINE_PROTOCOL_MAX_BATCH_ITEMS,
-    ENGINE_PROTOCOL_MAX_FRAME_BYTES, ENGINE_PROTOCOL_MAX_PAYLOAD_BYTES,
-    ENGINE_PROTOCOL_MAX_RECORDING_COUNT_IN_BARS, ENGINE_PROTOCOL_VERSION, EmptyPayload,
-    EngineHandshake, HeartbeatPayload, IdentifierPayload, LoopPayload, MacroPayload,
-    MetronomeEnabledPayload, MetronomeVolumePayload, NoteOnPayload, OfflineRenderPayload,
-    PlayPayload, PreviewIdentifierPayload, PreviewProgramPayload, ProtocolDiagnostic,
-    ProtocolError, RawCommandEnvelope, RecordingIdentifierPayload, RecordingInputIdentifierPayload,
-    RecordingNoteOnPayload, RenderIdentifierPayload, RenderPlanDeltaChange, RenderPlanDeltaPayload,
-    StartRecordingPayload, TickPayload, WireRenderPlan,
+    AudioConfiguration, BrickPreviewGenerationPayload, ENGINE_CAPABILITY_CODES,
+    ENGINE_PROTOCOL_MAX_BATCH_ITEMS, ENGINE_PROTOCOL_MAX_FRAME_BYTES,
+    ENGINE_PROTOCOL_MAX_PAYLOAD_BYTES, ENGINE_PROTOCOL_MAX_RECORDING_COUNT_IN_BARS,
+    ENGINE_PROTOCOL_VERSION, EmptyPayload, EngineHandshake, HeartbeatPayload, IdentifierPayload,
+    LoopPayload, MacroPayload, MetronomeEnabledPayload, MetronomeVolumePayload, NoteOnPayload,
+    OfflineRenderPayload, PlayPayload, PreviewIdentifierPayload, PreviewProgramPayload,
+    ProtocolDiagnostic, ProtocolError, RawCommandEnvelope, RecordingIdentifierPayload,
+    RecordingInputIdentifierPayload, RecordingNoteOnPayload, RenderIdentifierPayload,
+    RenderPlanDeltaChange, RenderPlanDeltaPayload, SeekBrickPreviewSourcePayload,
+    SetBrickPreviewSourceEnabledPayload, StartBrickPreviewPayload, StartRecordingPayload,
+    TickPayload, WireRenderPlan,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -37,6 +39,10 @@ pub enum EngineCommand {
     NoteOff(IdentifierPayload),
     StartPreview(PreviewProgramPayload),
     CancelPreview(PreviewIdentifierPayload),
+    StartBrickPreview(StartBrickPreviewPayload),
+    SetBrickPreviewSourceEnabled(SetBrickPreviewSourceEnabledPayload),
+    SeekBrickPreviewSource(SeekBrickPreviewSourcePayload),
+    StopBrickPreview(BrickPreviewGenerationPayload),
     StartRecording(StartRecordingPayload),
     RecordingNoteOn(RecordingNoteOnPayload),
     RecordingNoteOff(RecordingInputIdentifierPayload),
@@ -150,6 +156,28 @@ fn validate_preview(payload: &PreviewProgramPayload) -> Result<(), ProtocolError
             ));
         }
         previous_offset = event.offset_ms;
+    }
+    Ok(())
+}
+
+fn valid_preview_generation(generation: u64) -> bool {
+    generation > 0 && wire_safe(generation)
+}
+
+fn validate_brick_preview_start(payload: &StartBrickPreviewPayload) -> Result<(), ProtocolError> {
+    let mut unique = BTreeSet::new();
+    if !valid_preview_generation(payload.preview_generation)
+        || !wire_safe(payload.render_plan_revision)
+        || payload.source_layer_ids.len() > crate::ENGINE_PROTOCOL_MAX_ENGINE_LAYERS
+        || !payload
+            .source_layer_ids
+            .iter()
+            .all(|source_id| valid_identifier(source_id) && unique.insert(source_id.as_str()))
+    {
+        return Err(ProtocolError::new(
+            ProtocolDiagnostic::InvalidEnvelope,
+            "Brick preview start is invalid.",
+        ));
     }
     Ok(())
 }
@@ -324,6 +352,9 @@ fn decode_transport_command(
     command_type: &str,
     payload_value: &Value,
 ) -> Result<Option<EngineCommand>, ProtocolError> {
+    if let Some(command) = decode_brick_preview_command(command_type, payload_value)? {
+        return Ok(Some(command));
+    }
     let command = match command_type {
         "play" => {
             let payload: PlayPayload = parse_payload(payload_value, "Play")?;
@@ -398,6 +429,60 @@ fn decode_transport_command(
                 ));
             }
             EngineCommand::CancelPreview(payload)
+        }
+        _ => return Ok(None),
+    };
+    Ok(Some(command))
+}
+
+fn decode_brick_preview_command(
+    command_type: &str,
+    payload_value: &Value,
+) -> Result<Option<EngineCommand>, ProtocolError> {
+    let command = match command_type {
+        "start-brick-preview" => {
+            let payload = parse_payload(payload_value, "Start brick preview")?;
+            validate_brick_preview_start(&payload)?;
+            EngineCommand::StartBrickPreview(payload)
+        }
+        "set-brick-preview-source-enabled" => {
+            let payload: SetBrickPreviewSourceEnabledPayload =
+                parse_payload(payload_value, "Set brick preview source enabled")?;
+            if !valid_preview_generation(payload.preview_generation)
+                || !valid_identifier(&payload.source_layer_id)
+            {
+                return Err(ProtocolError::new(
+                    ProtocolDiagnostic::InvalidEnvelope,
+                    "Brick preview source state is invalid.",
+                ));
+            }
+            EngineCommand::SetBrickPreviewSourceEnabled(payload)
+        }
+        "seek-brick-preview-source" => {
+            let payload: SeekBrickPreviewSourcePayload =
+                parse_payload(payload_value, "Seek brick preview source")?;
+            if !valid_preview_generation(payload.preview_generation)
+                || !valid_identifier(&payload.source_layer_id)
+                || !wire_safe(payload.local_tick)
+                || !wire_safe(payload.cycle_iteration)
+            {
+                return Err(ProtocolError::new(
+                    ProtocolDiagnostic::InvalidEnvelope,
+                    "Brick preview seek is invalid.",
+                ));
+            }
+            EngineCommand::SeekBrickPreviewSource(payload)
+        }
+        "stop-brick-preview" => {
+            let payload: BrickPreviewGenerationPayload =
+                parse_payload(payload_value, "Stop brick preview")?;
+            if !valid_preview_generation(payload.preview_generation) {
+                return Err(ProtocolError::new(
+                    ProtocolDiagnostic::InvalidEnvelope,
+                    "Brick preview stop is invalid.",
+                ));
+            }
+            EngineCommand::StopBrickPreview(payload)
         }
         _ => return Ok(None),
     };
@@ -575,7 +660,7 @@ mod tests {
             &serde_json::json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 5,
+                "renderPlanVersion": 6,
                 "patchModelVersion": 4,
                 "capabilities": ["protocol.typed-json", "render-plan.full"]
             }),
@@ -593,7 +678,7 @@ mod tests {
         );
 
         let source = serde_json::json!({
-            "planVersion": 5,
+            "planVersion": 6,
             "projectId": "project.fixture",
             "projectRevision": 1,
             "ticksPerQuarter": 960,
@@ -605,9 +690,12 @@ mod tests {
                 "id": "layer.drums",
                 "gain": 1.0,
                 "pan": 0.0,
+                "songEnabled": true,
+                "cycleTicks": 3840,
                 "source": {"type": "drum"},
                 "events": []
-            }]
+            }],
+            "instances": []
         });
         let unsupported = command_body(1, "load-render-plan", &serde_json::json!({"plan": source}));
         assert_eq!(

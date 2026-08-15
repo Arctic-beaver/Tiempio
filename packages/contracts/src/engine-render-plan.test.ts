@@ -15,7 +15,28 @@ describe('engine wire render-plan contracts', () => {
 		if (result.ok) {
 			assert.equal(result.value.projectRevision, 7)
 			assert.equal(result.value.layers[0]?.events.length, 2)
+			assert.deepEqual(result.value.instances[0], {
+				id: 'instance.bass',
+				sourceLayerId: 'layer.bass',
+				startTick: 0,
+				durationTicks: 3840,
+				sourceOffsetTicks: 0
+			})
 		}
+	})
+
+	it('rejects dangling instances and source events outside their cycle', () => {
+		const dangling = fixture('valid-bass-plan.json') as {
+			instances: Array<Record<string, unknown>>
+		}
+		dangling.instances[0]!.sourceLayerId = 'layer.missing'
+		assert.equal(validateEngineWireRenderPlan(dangling).ok, false)
+
+		const outsideCycle = fixture('valid-bass-plan.json') as {
+			layers: Array<{ cycleTicks: number; events: Array<Record<string, unknown>> }>
+		}
+		outsideCycle.layers[0]!.cycleTicks = 480
+		assert.equal(validateEngineWireRenderPlan(outsideCycle).ok, false)
 	})
 
 	it('accepts the shared deterministic procedural drum fixture', () => {
@@ -25,6 +46,12 @@ describe('engine wire render-plan contracts', () => {
 			assert.equal(result.value.layers[0]?.source.type, 'procedural-drums')
 			assert.equal(result.value.layers[0]?.events.length, 2)
 		}
+
+		const boundaryHit = fixture('unsupported-drum-plan.json') as {
+			layers: Array<{ cycleTicks: number; events: Array<Record<string, unknown>> }>
+		}
+		boundaryHit.layers[0]!.events[1]!.startTick = boundaryHit.layers[0]!.cycleTicks - 28
+		assert.equal(validateEngineWireRenderPlan(boundaryHit).ok, false)
 	})
 
 	it('requires the complete bounded current synth expression contract', () => {

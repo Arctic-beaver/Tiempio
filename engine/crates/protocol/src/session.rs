@@ -139,7 +139,12 @@ impl ProtocolSession {
             ));
         }
         self.last_sequence = Some(envelope.sequence);
-        match &envelope.command {
+        self.accept_command(&envelope.command)?;
+        Ok(envelope)
+    }
+
+    fn accept_command(&mut self, command: &EngineCommand) -> Result<(), ProtocolError> {
+        match command {
             EngineCommand::Handshake(handshake) => {
                 self.negotiate_capabilities(&handshake.capabilities);
                 self.state = ProtocolSessionState::Ready;
@@ -147,11 +152,11 @@ impl ProtocolSession {
             EngineCommand::LoadRenderPlan(plan) => {
                 if self
                     .highest_plan_revision
-                    .is_some_and(|revision| plan.project_revision.value() <= revision.value())
+                    .is_some_and(|revision| plan.project_revision.value() < revision.value())
                 {
                     return Err(ProtocolError::new(
                         ProtocolDiagnostic::StaleRevision,
-                        "Render plan does not advance the accepted project revision.",
+                        "Render plan predates the accepted project revision.",
                     ));
                 }
                 self.highest_plan_revision = Some(plan.project_revision);
@@ -163,6 +168,11 @@ impl ProtocolSession {
             EngineCommand::RefreshDevices if self.negotiated("audio.devices") => {}
             EngineCommand::StartPreview(_) | EngineCommand::CancelPreview(_)
                 if self.negotiated("preview.programs") => {}
+            EngineCommand::StartBrickPreview(_)
+            | EngineCommand::SetBrickPreviewSourceEnabled(_)
+            | EngineCommand::SeekBrickPreviewSource(_)
+            | EngineCommand::StopBrickPreview(_)
+                if self.negotiated("preview.linked-sources") => {}
             EngineCommand::StartRecording(_)
             | EngineCommand::RecordingNoteOn(_)
             | EngineCommand::RecordingNoteOff(_)
@@ -179,6 +189,10 @@ impl ProtocolSession {
             | EngineCommand::RefreshDevices
             | EngineCommand::StartPreview(_)
             | EngineCommand::CancelPreview(_)
+            | EngineCommand::StartBrickPreview(_)
+            | EngineCommand::SetBrickPreviewSourceEnabled(_)
+            | EngineCommand::SeekBrickPreviewSource(_)
+            | EngineCommand::StopBrickPreview(_)
             | EngineCommand::StartRecording(_)
             | EngineCommand::RecordingNoteOn(_)
             | EngineCommand::RecordingNoteOff(_)
@@ -202,7 +216,7 @@ impl ProtocolSession {
             | EngineCommand::Ping(_)
             | EngineCommand::Shutdown => {}
         }
-        Ok(envelope)
+        Ok(())
     }
 
     fn negotiate_capabilities(&mut self, requested: &[String]) {
@@ -252,7 +266,7 @@ mod tests {
             &json!({
                 "protocolVersion": ENGINE_PROTOCOL_VERSION,
                 "peer": "application",
-                "renderPlanVersion": 5,
+                "renderPlanVersion": 6,
                 "patchModelVersion": 4,
                 "capabilities": ["protocol.typed-json"]
             }),
@@ -298,7 +312,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_a_stale_full_plan_without_replacing_the_accepted_revision() {
+    fn accepts_same_revision_variants_and_rejects_older_full_plans() {
         let plan: Value = serde_json::from_str(include_str!(
             "../../../../fixtures/engine-protocol/valid-bass-plan.json"
         ))
@@ -308,14 +322,26 @@ mod tests {
         session
             .accept_body(&command(1, "load-render-plan", &json!({ "plan": plan })))
             .unwrap();
-        let stale_plan: Value = serde_json::from_str(include_str!(
+        let same_revision_variant: Value = serde_json::from_str(include_str!(
             "../../../../fixtures/engine-protocol/valid-bass-plan.json"
         ))
         .unwrap();
+        session
+            .accept_body(&command(
+                2,
+                "load-render-plan",
+                &json!({ "plan": same_revision_variant }),
+            ))
+            .unwrap();
+        let mut stale_plan: Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/engine-protocol/valid-bass-plan.json"
+        ))
+        .unwrap();
+        stale_plan["projectRevision"] = json!(6);
         assert_eq!(
             session
                 .accept_body(&command(
-                    2,
+                    3,
                     "load-render-plan",
                     &json!({ "plan": stale_plan })
                 ))
@@ -336,7 +362,7 @@ mod tests {
                 &json!({
                     "protocolVersion": ENGINE_PROTOCOL_VERSION,
                     "peer": "application",
-                    "renderPlanVersion": 5,
+                    "renderPlanVersion": 6,
                     "patchModelVersion": 4,
                     "capabilities": [
                         "protocol.typed-json",
@@ -409,7 +435,7 @@ mod tests {
                 &json!({
                     "protocolVersion": ENGINE_PROTOCOL_VERSION,
                     "peer": "application",
-                    "renderPlanVersion": 5,
+                    "renderPlanVersion": 6,
                     "patchModelVersion": 4,
                     "capabilities": [
                         "protocol.typed-json",

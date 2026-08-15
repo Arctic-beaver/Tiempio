@@ -6,11 +6,12 @@ import { requireLifecycleOwnership } from './lifecycle/ownership-guard.mjs'
 const ABI_OK = 0
 const ABI_INVALID = 1
 const ABI_QUEUE_FULL = 3
-const protocolVersion = 9
+const protocolVersion = 11
 const blockFrames = 128
 const webCapabilities = Object.freeze([
 	'protocol.typed-json',
 	'render-plan.full',
+	'render-plan.linked-instances',
 	'transport.basic',
 	'transport.loop',
 	'metronome.clock',
@@ -19,6 +20,7 @@ const webCapabilities = Object.freeze([
 	'drums.procedural',
 	'audition.notes',
 	'preview.programs',
+	'preview.linked-sources',
 	'recording.engine-clock',
 	'diagnostics.health',
 	'audio.web.worklet'
@@ -69,7 +71,7 @@ class WasmEngineHarness {
 			this.send('handshake', {
 				protocolVersion,
 				peer: 'application',
-				renderPlanVersion: 5,
+				renderPlanVersion: 6,
 				patchModelVersion: 4,
 				capabilities: webCapabilities
 			}),
@@ -212,8 +214,52 @@ async function main() {
 		assert.ok(controls.render(2) > 0.000_001)
 		assert.equal(controls.send('cancel-preview', { previewId: 'preview.wasm-parity' }), ABI_OK)
 		controls.render(1)
+		assert.equal(
+			controls.send('start-brick-preview', {
+				previewGeneration: 1,
+				renderPlanRevision: 7,
+				sourceLayerIds: ['layer.bass']
+			}),
+			ABI_OK
+		)
+		assert.ok(controls.render(13) > 0.000_001)
+		assert.equal(
+			controls.send('set-brick-preview-source-enabled', {
+				previewGeneration: 1,
+				sourceLayerId: 'layer.bass',
+				enabled: false
+			}),
+			ABI_OK
+		)
+		assert.equal(
+			controls.send('set-brick-preview-source-enabled', {
+				previewGeneration: 1,
+				sourceLayerId: 'layer.bass',
+				enabled: true
+			}),
+			ABI_OK
+		)
+		assert.equal(
+			controls.send('seek-brick-preview-source', {
+				previewGeneration: 1,
+				sourceLayerId: 'layer.bass',
+				localTick: 480,
+				cycleIteration: 2,
+				running: true
+			}),
+			ABI_OK
+		)
+		assert.equal(controls.send('stop-brick-preview', { previewGeneration: 1 }), ABI_OK)
+		controls.render(1)
 		const events = controls.drainEvents()
-		for (const required of ['transport-snapshot', 'preview-state', 'preview-ended']) {
+		for (const required of [
+			'transport-snapshot',
+			'preview-state',
+			'preview-ended',
+			'brick-preview-started',
+			'brick-preview-cursor',
+			'brick-preview-ended'
+		]) {
 			assert.ok(
 				events.some((event) => event.type === required),
 				`missing ${required}`
@@ -282,7 +328,10 @@ async function main() {
 		failures.handshakeAndConfigure()
 		assert.equal(failures.send('load-render-plan', { plan: basePlan }), ABI_OK)
 		failures.render(1)
-		assert.equal(failures.send('load-render-plan', { plan: basePlan }), ABI_INVALID)
+		assert.equal(failures.send('load-render-plan', { plan: basePlan }), ABI_OK)
+		const stalePlan = clone(basePlan)
+		stalePlan.projectRevision -= 1
+		assert.equal(failures.send('load-render-plan', { plan: stalePlan }), ABI_INVALID)
 		assert.equal(failures.sendBytes(encoder.encode('{')), ABI_INVALID)
 		const events = failures.drainEvents()
 		assert.ok(

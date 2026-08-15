@@ -453,6 +453,7 @@ describe('ApplicationRuntimeController', () => {
 		})
 		const session = new ProjectSession(createSeedProject())
 		const controller = new ApplicationRuntimeController(runtime, session, {
+			candidatePlanAcknowledgementTimeoutMs: 200,
 			projectCodec: Object.freeze({ encode: () => new Uint8Array([1, 2, 3]) })
 		})
 		try {
@@ -531,11 +532,51 @@ describe('ApplicationRuntimeController', () => {
 				})
 			}
 			assert.equal(controller.previewCoordinator.getSnapshot().active, false)
-
+			const beforeBrickPreview = session.getSnapshot()
+			assert.equal(controller.brickPreviewSession.start(0, ['layer.bass']), true)
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'start-brick-preview')
 			for (const listener of eventListeners) {
 				listener({
 					protocolVersion: engineProtocolVersion,
 					sequence: 4,
+					type: 'brick-preview-started',
+					payload: {
+						previewGeneration: 1,
+						renderPlanRevision: 0,
+						engineFrame: 4_800
+					}
+				})
+				listener({
+					protocolVersion: engineProtocolVersion,
+					sequence: 5,
+					type: 'brick-preview-cursor',
+					payload: {
+						sourceLayerId: 'layer.bass',
+						previewGeneration: 1,
+						running: true,
+						localTick: 240,
+						cycleIteration: 0,
+						engineFrame: 9_600,
+						renderPlanRevision: 0
+					}
+				})
+			}
+			assert.equal(controller.brickPreviewSession.getSnapshot().cursors[0]?.localTick, 240)
+			assert.equal(controller.brickPreviewSession.setSourceEnabled('layer.bass', false), true)
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'set-brick-preview-source-enabled')
+			assert.equal(controller.brickPreviewSession.setSourceEnabled('layer.bass', true), true)
+			controller.brickPreviewSession.stop()
+			await flush()
+			assert.equal(commands.at(-1)?.type, 'stop-brick-preview')
+			assert.equal(session.getSnapshot().revision, beforeBrickPreview.revision)
+			assert.equal(session.getSnapshot().project, beforeBrickPreview.project)
+
+			for (const listener of eventListeners) {
+				listener({
+					protocolVersion: engineProtocolVersion,
+					sequence: 7,
 					type: 'render-plan-acknowledged',
 					payload: { planGeneration: 1, projectRevision: 0 }
 				})
@@ -544,7 +585,7 @@ describe('ApplicationRuntimeController', () => {
 			for (const listener of eventListeners) {
 				listener({
 					protocolVersion: engineProtocolVersion,
-					sequence: 5,
+					sequence: 8,
 					type: 'render-plan-acknowledged',
 					payload: { planGeneration: 1, projectRevision: 0 }
 				})
@@ -566,13 +607,13 @@ describe('ApplicationRuntimeController', () => {
 			for (const listener of eventListeners) {
 				listener({
 					protocolVersion: engineProtocolVersion,
-					sequence: 6,
+					sequence: 9,
 					type: 'render-plan-acknowledged',
 					payload: { planGeneration: 2, projectRevision: 1 }
 				})
 				listener({
 					protocolVersion: engineProtocolVersion,
-					sequence: 7,
+					sequence: 10,
 					type: 'transport-snapshot',
 					payload: {
 						playing: true,
@@ -714,7 +755,7 @@ describe('ApplicationRuntimeController', () => {
 			const candidatePlan = commands.at(-1)
 			assert.equal(candidatePlan?.type, 'load-render-plan')
 			if (candidatePlan?.type === 'load-render-plan') {
-				assert.equal(candidatePlan.payload.plan.projectRevision, 2)
+				assert.equal(candidatePlan.payload.plan.projectRevision, 1)
 				assert.equal(
 					candidatePlan.payload.plan.layers.some(
 						(layer) => layer.id === 'draft.layer:test'
@@ -731,7 +772,7 @@ describe('ApplicationRuntimeController', () => {
 					protocolVersion: engineProtocolVersion,
 					sequence: 50,
 					type: 'render-plan-acknowledged',
-					payload: { planGeneration: 3, projectRevision: 2 }
+					payload: { planGeneration: 3, projectRevision: 1 }
 				})
 			}
 			assert.equal(await preactivation, true)
@@ -743,17 +784,84 @@ describe('ApplicationRuntimeController', () => {
 			await flush()
 			assert.equal(session.getSnapshot().revision, 2)
 			assert.equal(session.getSnapshot().project.layers.at(-1)?.id, 'layer.created')
-			assert.equal(controller.getSnapshot().acknowledgedProjectRevision, 2)
+			assert.equal(controller.getSnapshot().acknowledgedProjectRevision, 1)
 			assert.equal(
 				commands.filter((command) => command.type === 'load-render-plan').length,
-				plansBeforeCommit
+				plansBeforeCommit + 1
 			)
+			const committedPlan = commands.at(-1)
+			assert.equal(committedPlan?.type, 'load-render-plan')
+			if (committedPlan?.type === 'load-render-plan') {
+				assert.equal(committedPlan.payload.plan.projectRevision, 2)
+			}
+			for (const listener of eventListeners) {
+				listener({
+					protocolVersion: engineProtocolVersion,
+					sequence: 51,
+					type: 'render-plan-acknowledged',
+					payload: { planGeneration: 4, projectRevision: 2 }
+				})
+			}
+			assert.equal(controller.getSnapshot().acknowledgedProjectRevision, 2)
 			const createdLayer = session
 				.getSnapshot()
 				.project.layers.find((layer) => layer.id === 'layer.created')
 			if (createdLayer?.source.type !== 'synth') {
 				throw new Error('Created synth is required for audition preview coverage.')
 			}
+			const timedOutPrepared = session.prepareTransaction([
+				{
+					type: 'layer.gain.set',
+					baseRevision: 2,
+					layerId: createdLayer.id,
+					gain: 0.75
+				}
+			])
+			const plansBeforeTimeout = commands.filter(
+				(command) => command.type === 'load-render-plan'
+			).length
+			const timedOutActivation = controller.preactivateProject(timedOutPrepared)
+			await flush()
+			const timedOutCandidate = commands.at(-1)
+			assert.equal(timedOutCandidate?.type, 'load-render-plan')
+			if (timedOutCandidate?.type === 'load-render-plan') {
+				assert.equal(timedOutCandidate.payload.plan.projectRevision, 2)
+				assert.equal(
+					timedOutCandidate.payload.plan.layers.find(
+						(layer) => layer.id === createdLayer.id
+					)?.gain,
+					0.75
+				)
+			}
+			assert.equal(await timedOutActivation, false)
+			await flush()
+			await flush()
+			assert.equal(
+				commands.filter((command) => command.type === 'load-render-plan').length,
+				plansBeforeTimeout + 2
+			)
+			const restoredPlan = commands.at(-1)
+			assert.equal(restoredPlan?.type, 'load-render-plan')
+			if (restoredPlan?.type === 'load-render-plan') {
+				assert.equal(restoredPlan.payload.plan.projectRevision, 2)
+				assert.equal(
+					restoredPlan.payload.plan.layers.find((layer) => layer.id === createdLayer.id)
+						?.gain,
+					1
+				)
+			}
+			for (const listener of eventListeners) {
+				listener({
+					protocolVersion: engineProtocolVersion,
+					sequence: 52,
+					type: 'render-plan-acknowledged',
+					payload: { planGeneration: 5, projectRevision: 2 }
+				})
+			}
+			assert.equal(controller.getSnapshot().available, true)
+			assert.equal(controller.getSnapshot().diagnostic, null)
+			assert.equal(controller.getSnapshot().acknowledgedProjectRevision, 2)
+			assert.equal(session.discardTransaction(timedOutPrepared), true)
 			const brightInstrument = createSynthInstrument(
 				createdLayer.source.instrument.presetId,
 				{ ...createdLayer.source.instrument.macros, brightness: 0.95 }
@@ -879,7 +987,7 @@ describe('ApplicationRuntimeController', () => {
 					tick: 4_800
 				},
 				protocolVersion: engineProtocolVersion,
-				sequence: 51,
+				sequence: 53,
 				type: 'transport-snapshot'
 			})
 			const commandsBeforeRecording = commands.length
@@ -908,7 +1016,7 @@ describe('ApplicationRuntimeController', () => {
 					state: 'count-in'
 				},
 				protocolVersion: engineProtocolVersion,
-				sequence: 52,
+				sequence: 54,
 				type: 'recording-state'
 			})
 			assert.equal(session.getSnapshot().revision, revisionBeforeRecording)
@@ -929,7 +1037,7 @@ describe('ApplicationRuntimeController', () => {
 					state: 'recording'
 				},
 				protocolVersion: engineProtocolVersion,
-				sequence: 53,
+				sequence: 55,
 				type: 'recording-state'
 			})
 			emit({
@@ -943,7 +1051,7 @@ describe('ApplicationRuntimeController', () => {
 					velocity: recordingNoteOn.payload.velocity
 				},
 				protocolVersion: engineProtocolVersion,
-				sequence: 54,
+				sequence: 56,
 				type: 'recording-input-applied'
 			})
 			await flush()
@@ -966,7 +1074,7 @@ describe('ApplicationRuntimeController', () => {
 					velocity: recordingNoteOn.payload.velocity
 				},
 				protocolVersion: engineProtocolVersion,
-				sequence: 55,
+				sequence: 57,
 				type: 'recording-input-applied'
 			})
 			assert.equal(controller.stopRecording(), true)
@@ -979,7 +1087,7 @@ describe('ApplicationRuntimeController', () => {
 					stopTick: 5_760
 				},
 				protocolVersion: engineProtocolVersion,
-				sequence: 56,
+				sequence: 58,
 				type: 'recording-stopped'
 			})
 			await flush()

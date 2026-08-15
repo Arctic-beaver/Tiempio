@@ -229,11 +229,15 @@ fn identity_seed(identity: VoiceIdentity) -> u64 {
         VoiceIdentity::Scheduled {
             generation,
             layer_index,
+            instance_index,
             event_index,
+            iteration,
         } => {
             generation
                 ^ u64::try_from(layer_index).unwrap_or(0).rotate_left(19)
+                ^ u64::try_from(instance_index).unwrap_or(0).rotate_left(29)
                 ^ u64::try_from(event_index).unwrap_or(0).rotate_left(37)
+                ^ iteration.rotate_left(47)
                 ^ 0xA076_1D64_78BD_642F
         }
     }

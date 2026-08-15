@@ -100,6 +100,38 @@ pub struct PreviewIdentifierPayload {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StartBrickPreviewPayload {
+    pub preview_generation: u64,
+    pub render_plan_revision: u64,
+    pub source_layer_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SetBrickPreviewSourceEnabledPayload {
+    pub preview_generation: u64,
+    pub source_layer_id: String,
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SeekBrickPreviewSourcePayload {
+    pub preview_generation: u64,
+    pub source_layer_id: String,
+    pub local_tick: u64,
+    pub cycle_iteration: u64,
+    pub running: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrickPreviewGenerationPayload {
+    pub preview_generation: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StartRecordingPayload {
     pub recording_id: String,
     pub layer_id: String,
@@ -358,8 +390,20 @@ pub struct WireInstrumentLayer {
     pub id: String,
     pub gain: f64,
     pub pan: f64,
+    pub song_enabled: bool,
+    pub cycle_ticks: u64,
     pub source: Value,
     pub events: Vec<Value>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WireSongInstance {
+    pub id: String,
+    pub source_layer_id: String,
+    pub start_tick: u64,
+    pub duration_ticks: u64,
+    pub source_offset_ticks: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -375,4 +419,5 @@ pub struct WireRenderPlan {
     #[serde(rename = "loop")]
     pub loop_region: WireLoop,
     pub layers: Vec<WireInstrumentLayer>,
+    pub instances: Vec<WireSongInstance>,
 }

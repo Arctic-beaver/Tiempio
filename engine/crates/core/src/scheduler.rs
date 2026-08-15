@@ -19,7 +19,9 @@ pub enum PreparedActionKind {
 pub struct PreparedAction {
     pub sample_position: u64,
     pub layer_index: usize,
+    pub instance_index: usize,
     pub event_index: usize,
+    pub iteration: u64,
     pub kind: PreparedActionKind,
     plan_order: usize,
 }
@@ -67,68 +69,66 @@ impl PreparedPlan {
                 PreparedPlanError::InvalidPlan(format!("{}: {}", failure.path, failure.message))
             }
         })?;
-        let action_count = plan.layers.iter().try_fold(0_usize, |count, layer| {
-            let layer_actions = match &layer.source {
-                LayerSource::Synth { events, .. } => events.len().checked_mul(2),
-                LayerSource::Drums { events, .. } => Some(events.len()),
-            }
-            .ok_or(PreparedPlanError::LimitExceeded)?;
-            count
-                .checked_add(layer_actions)
-                .ok_or(PreparedPlanError::LimitExceeded)
-        })?;
-        if action_count > MAX_PREPARED_ACTIONS {
-            return Err(PreparedPlanError::LimitExceeded);
-        }
         let timeline = TempoTimeline::new(&plan, sample_rate).map_err(PreparedPlanError::Tempo)?;
-        let mut actions = Vec::with_capacity(action_count);
+        let continuity = prepare_continuity(&plan)?;
+        let mut actions = Vec::new();
         let mut plan_order = 0_usize;
-        for (layer_index, layer) in plan.layers.iter().enumerate() {
+        for (instance_index, instance) in plan.instances.iter().enumerate() {
+            let layer_index = plan
+                .layers
+                .iter()
+                .position(|layer| layer.id == instance.source_layer_id)
+                .ok_or_else(|| {
+                    PreparedPlanError::InvalidPlan(format!(
+                        "$.instances[{instance_index}].sourceLayerId: unknown source layer"
+                    ))
+                })?;
+            let layer = &plan.layers[layer_index];
+            if !layer.song_enabled {
+                continue;
+            }
+            let note_end_source_limit = continuity.source_ends[instance_index];
+            let suppress_leading_continuation = continuity.predecessors[instance_index].is_some();
             match &layer.source {
                 LayerSource::Synth { events, .. } => {
                     for (event_index, event) in events.iter().enumerate() {
-                        let end_tick = event
-                            .start_tick
-                            .checked_add(event.duration_ticks)
-                            .ok_or(PreparedPlanError::LimitExceeded)?;
-                        actions.push(PreparedAction {
-                            sample_position: timeline
-                                .tick_to_sample(event.start_tick)
-                                .map_err(PreparedPlanError::Tempo)?,
+                        prepare_midi_occurrences(
+                            &mut actions,
+                            &mut plan_order,
+                            &timeline,
                             layer_index,
+                            instance_index,
                             event_index,
-                            kind: PreparedActionKind::NoteOn,
-                            plan_order,
-                        });
-                        plan_order += 1;
-                        actions.push(PreparedAction {
-                            sample_position: timeline
-                                .tick_to_sample(end_tick)
-                                .map_err(PreparedPlanError::Tempo)?,
-                            layer_index,
-                            event_index,
-                            kind: PreparedActionKind::NoteOff,
-                            plan_order,
-                        });
-                        plan_order += 1;
+                            event.start_tick,
+                            event.duration_ticks,
+                            layer.cycle_ticks,
+                            instance.start_tick,
+                            instance.duration_ticks,
+                            instance.source_offset_ticks,
+                            note_end_source_limit,
+                            suppress_leading_continuation,
+                        )?;
                     }
                 }
                 LayerSource::Drums { events, .. } => {
                     for (event_index, event) in events.iter().enumerate() {
-                        let swung_tick = event
+                        let source_tick = event
                             .start_tick
                             .checked_add(event.swing_ticks)
                             .ok_or(PreparedPlanError::LimitExceeded)?;
-                        actions.push(PreparedAction {
-                            sample_position: timeline
-                                .tick_to_sample(swung_tick)
-                                .map_err(PreparedPlanError::Tempo)?,
+                        prepare_drum_occurrences(
+                            &mut actions,
+                            &mut plan_order,
+                            &timeline,
                             layer_index,
+                            instance_index,
                             event_index,
-                            kind: PreparedActionKind::DrumHit,
-                            plan_order,
-                        });
-                        plan_order += 1;
+                            source_tick,
+                            layer.cycle_ticks,
+                            instance.start_tick,
+                            instance.duration_ticks,
+                            instance.source_offset_ticks,
+                        )?;
                     }
                 }
             }
@@ -201,6 +201,273 @@ impl PreparedPlan {
     }
 }
 
+#[derive(Debug, Eq, PartialEq)]
+struct PreparedContinuity {
+    predecessors: Vec<Option<usize>>,
+    source_ends: Vec<u64>,
+}
+
+fn prepare_continuity(plan: &RenderPlan) -> Result<PreparedContinuity, PreparedPlanError> {
+    let mut candidate_successors = vec![None; plan.instances.len()];
+    let mut predecessor_counts = vec![0_usize; plan.instances.len()];
+    let mut source_ends = Vec::with_capacity(plan.instances.len());
+
+    for (instance_index, instance) in plan.instances.iter().enumerate() {
+        let end_tick = instance
+            .start_tick
+            .checked_add(instance.duration_ticks)
+            .ok_or(PreparedPlanError::LimitExceeded)?;
+        let source_end = instance
+            .source_offset_ticks
+            .checked_add(instance.duration_ticks)
+            .ok_or(PreparedPlanError::LimitExceeded)?;
+        source_ends.push(source_end);
+
+        let mut successor = None;
+        let mut ambiguous = false;
+        for (candidate_index, candidate) in plan.instances.iter().enumerate() {
+            if candidate.source_layer_id != instance.source_layer_id
+                || candidate.start_tick != end_tick
+                || candidate.source_offset_ticks != source_end
+            {
+                continue;
+            }
+            if successor.is_some() {
+                ambiguous = true;
+                break;
+            }
+            successor = Some(candidate_index);
+        }
+        if !ambiguous {
+            candidate_successors[instance_index] = successor;
+            if let Some(candidate_index) = successor {
+                predecessor_counts[candidate_index] = predecessor_counts[candidate_index]
+                    .checked_add(1)
+                    .ok_or(PreparedPlanError::LimitExceeded)?;
+            }
+        }
+    }
+
+    let mut predecessors = vec![None; plan.instances.len()];
+    let mut successors = vec![None; plan.instances.len()];
+    for (instance_index, successor) in candidate_successors.into_iter().enumerate() {
+        let Some(successor_index) = successor else {
+            continue;
+        };
+        if predecessor_counts[successor_index] == 1 {
+            predecessors[successor_index] = Some(instance_index);
+            successors[instance_index] = Some(successor_index);
+        }
+    }
+
+    for instance_index in (0..plan.instances.len()).rev() {
+        if let Some(successor_index) = successors[instance_index] {
+            source_ends[instance_index] = source_ends[successor_index];
+        }
+    }
+
+    Ok(PreparedContinuity {
+        predecessors,
+        source_ends,
+    })
+}
+
+fn source_iteration_at_or_after(event_tick: u64, source_offset: u64, cycle_ticks: u64) -> u64 {
+    if event_tick >= source_offset {
+        return 0;
+    }
+    (source_offset - event_tick).div_ceil(cycle_ticks)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn push_action(
+    actions: &mut Vec<PreparedAction>,
+    plan_order: &mut usize,
+    timeline: &TempoTimeline,
+    tick: u64,
+    layer_index: usize,
+    instance_index: usize,
+    event_index: usize,
+    iteration: u64,
+    kind: PreparedActionKind,
+) -> Result<(), PreparedPlanError> {
+    if actions.len() >= MAX_PREPARED_ACTIONS {
+        return Err(PreparedPlanError::LimitExceeded);
+    }
+    actions.push(PreparedAction {
+        sample_position: timeline
+            .tick_to_sample(tick)
+            .map_err(PreparedPlanError::Tempo)?,
+        layer_index,
+        instance_index,
+        event_index,
+        iteration,
+        kind,
+        plan_order: *plan_order,
+    });
+    *plan_order = plan_order
+        .checked_add(1)
+        .ok_or(PreparedPlanError::LimitExceeded)?;
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn prepare_midi_occurrences(
+    actions: &mut Vec<PreparedAction>,
+    plan_order: &mut usize,
+    timeline: &TempoTimeline,
+    layer_index: usize,
+    instance_index: usize,
+    event_index: usize,
+    event_tick: u64,
+    event_duration: u64,
+    cycle_ticks: u64,
+    instance_start: u64,
+    instance_duration: u64,
+    source_offset: u64,
+    note_end_source_limit: u64,
+    suppress_leading_continuation: bool,
+) -> Result<(), PreparedPlanError> {
+    let source_window_end = source_offset
+        .checked_add(instance_duration)
+        .ok_or(PreparedPlanError::LimitExceeded)?;
+    let current_iteration = source_offset / cycle_ticks;
+    let current_start = current_iteration
+        .checked_mul(cycle_ticks)
+        .and_then(|tick| tick.checked_add(event_tick))
+        .ok_or(PreparedPlanError::LimitExceeded)?;
+    let current_end = current_start
+        .checked_add(event_duration)
+        .ok_or(PreparedPlanError::LimitExceeded)?;
+    if !suppress_leading_continuation
+        && current_start < source_offset
+        && current_end > source_offset
+    {
+        let end_tick = instance_start
+            .checked_add(current_end.min(note_end_source_limit) - source_offset)
+            .ok_or(PreparedPlanError::LimitExceeded)?;
+        if end_tick > instance_start {
+            push_action(
+                actions,
+                plan_order,
+                timeline,
+                instance_start,
+                layer_index,
+                instance_index,
+                event_index,
+                current_iteration,
+                PreparedActionKind::NoteOn,
+            )?;
+            push_action(
+                actions,
+                plan_order,
+                timeline,
+                end_tick,
+                layer_index,
+                instance_index,
+                event_index,
+                current_iteration,
+                PreparedActionKind::NoteOff,
+            )?;
+        }
+    }
+
+    let mut iteration = source_iteration_at_or_after(event_tick, source_offset, cycle_ticks);
+    loop {
+        let source_start = iteration
+            .checked_mul(cycle_ticks)
+            .and_then(|tick| tick.checked_add(event_tick))
+            .ok_or(PreparedPlanError::LimitExceeded)?;
+        if source_start >= source_window_end {
+            break;
+        }
+        let start_tick = instance_start
+            .checked_add(source_start - source_offset)
+            .ok_or(PreparedPlanError::LimitExceeded)?;
+        let source_note_end = source_start
+            .checked_add(event_duration)
+            .ok_or(PreparedPlanError::LimitExceeded)?;
+        let end_tick = instance_start
+            .checked_add(source_note_end.min(note_end_source_limit) - source_offset)
+            .ok_or(PreparedPlanError::LimitExceeded)?;
+        if end_tick > start_tick {
+            push_action(
+                actions,
+                plan_order,
+                timeline,
+                start_tick,
+                layer_index,
+                instance_index,
+                event_index,
+                iteration,
+                PreparedActionKind::NoteOn,
+            )?;
+            push_action(
+                actions,
+                plan_order,
+                timeline,
+                end_tick,
+                layer_index,
+                instance_index,
+                event_index,
+                iteration,
+                PreparedActionKind::NoteOff,
+            )?;
+        }
+        iteration = iteration
+            .checked_add(1)
+            .ok_or(PreparedPlanError::LimitExceeded)?;
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn prepare_drum_occurrences(
+    actions: &mut Vec<PreparedAction>,
+    plan_order: &mut usize,
+    timeline: &TempoTimeline,
+    layer_index: usize,
+    instance_index: usize,
+    event_index: usize,
+    event_tick: u64,
+    cycle_ticks: u64,
+    instance_start: u64,
+    instance_duration: u64,
+    source_offset: u64,
+) -> Result<(), PreparedPlanError> {
+    let source_end = source_offset
+        .checked_add(instance_duration)
+        .ok_or(PreparedPlanError::LimitExceeded)?;
+    let mut iteration = source_iteration_at_or_after(event_tick, source_offset, cycle_ticks);
+    loop {
+        let source_start = iteration
+            .checked_mul(cycle_ticks)
+            .and_then(|tick| tick.checked_add(event_tick))
+            .ok_or(PreparedPlanError::LimitExceeded)?;
+        if source_start >= source_end {
+            break;
+        }
+        let tick = instance_start
+            .checked_add(source_start - source_offset)
+            .ok_or(PreparedPlanError::LimitExceeded)?;
+        push_action(
+            actions,
+            plan_order,
+            timeline,
+            tick,
+            layer_index,
+            instance_index,
+            event_index,
+            iteration,
+            PreparedActionKind::DrumHit,
+        )?;
+        iteration = iteration
+            .checked_add(1)
+            .ok_or(PreparedPlanError::LimitExceeded)?;
+    }
+    Ok(())
+}
+
 fn prepare_beats(
     plan: &RenderPlan,
     timeline: &TempoTimeline,
@@ -247,14 +514,18 @@ fn action_order(plan: &RenderPlan, left: &PreparedAction, right: &PreparedAction
         left.sample_position,
         left.kind,
         left_layer.id.as_str(),
+        plan.instances[left.instance_index].id.as_str(),
         left_event,
+        left.iteration,
         left.plan_order,
     )
         .cmp(&(
             right.sample_position,
             right.kind,
             right_layer.id.as_str(),
+            plan.instances[right.instance_index].id.as_str(),
             right_event,
+            right.iteration,
             right.plan_order,
         ))
 }
@@ -284,7 +555,7 @@ fn validate_action_density(actions: &[PreparedAction]) -> Result<(), PreparedPla
 mod tests {
     use crate::{
         InstrumentLayerPlan, LayerSource, LoopRegion, MeterPoint, MidiNoteEvent,
-        RENDER_PLAN_VERSION, RenderPlanRevision, TICKS_PER_QUARTER, TempoPoint,
+        RENDER_PLAN_VERSION, RenderPlanRevision, SongInstancePlan, TICKS_PER_QUARTER, TempoPoint,
     };
 
     use super::*;
@@ -315,6 +586,8 @@ mod tests {
                 id: "layer.bass".to_owned(),
                 gain: 1.0,
                 pan: 0.0,
+                song_enabled: true,
+                cycle_ticks: 1_920,
                 source: LayerSource::Synth {
                     patch,
                     events: vec![
@@ -335,6 +608,13 @@ mod tests {
                     ],
                 },
             }],
+            instances: vec![SongInstancePlan {
+                id: "instance.bass".to_owned(),
+                source_layer_id: "layer.bass".to_owned(),
+                start_tick: 0,
+                duration_ticks: 3_840,
+                source_offset_ticks: 0,
+            }],
         }
     }
 
@@ -352,12 +632,64 @@ mod tests {
     }
 
     #[test]
+    fn preserves_one_note_lifetime_across_a_continuous_split() {
+        let mut plan = test_plan();
+        if let LayerSource::Synth { events, .. } = &mut plan.layers[0].source {
+            events.truncate(1);
+        }
+        plan.instances[0].duration_ticks = 480;
+        plan.instances.push(SongInstancePlan {
+            id: "instance.bass.split".to_owned(),
+            source_layer_id: "layer.bass".to_owned(),
+            start_tick: 480,
+            duration_ticks: 480,
+            source_offset_ticks: 480,
+        });
+        let prepared = PreparedPlan::prepare(plan, 48_000, 3).expect("continuous split");
+        assert_eq!(
+            prepared
+                .actions()
+                .iter()
+                .map(|action| (action.sample_position, action.kind, action.instance_index))
+                .collect::<Vec<_>>(),
+            vec![
+                (0, PreparedActionKind::NoteOn, 0),
+                (24_000, PreparedActionKind::NoteOff, 0),
+            ]
+        );
+    }
+
+    #[test]
+    fn normalizes_a_large_source_offset_without_rewriting_the_instance() {
+        let mut plan = test_plan();
+        if let LayerSource::Synth { events, .. } = &mut plan.layers[0].source {
+            events.truncate(1);
+        }
+        plan.instances[0].source_offset_ticks = 4_000;
+        plan.instances[0].duration_ticks = 960;
+        let prepared = PreparedPlan::prepare(plan, 48_000, 3).expect("normalized offset");
+        assert_eq!(plan_action_ticks(&prepared), vec![0, 800]);
+        assert_eq!(prepared.plan().instances[0].source_offset_ticks, 4_000);
+    }
+
+    #[test]
+    fn song_disabled_sources_remain_available_but_schedule_no_actions() {
+        let mut plan = test_plan();
+        plan.layers[0].song_enabled = false;
+        let prepared = PreparedPlan::prepare(plan, 48_000, 3).expect("disabled song layer");
+        assert!(prepared.actions().is_empty());
+        assert_eq!(prepared.plan().layers.len(), 1);
+    }
+
+    #[test]
     fn schedules_procedural_drum_hits_with_bounded_swing_offsets() {
         let mut plan = test_plan();
         plan.layers.push(InstrumentLayerPlan {
             id: "layer.drums".to_owned(),
             gain: 1.0,
             pan: 0.0,
+            song_enabled: true,
+            cycle_ticks: 3_840,
             source: LayerSource::Drums {
                 patch: crate::tests::valid_drum_patch(),
                 events: vec![crate::DrumHitEvent {
@@ -368,6 +700,13 @@ mod tests {
                     velocity: 96,
                 }],
             },
+        });
+        plan.instances.push(SongInstancePlan {
+            id: "instance.drums".to_owned(),
+            source_layer_id: "layer.drums".to_owned(),
+            start_tick: 0,
+            duration_ticks: 3_840,
+            source_offset_ticks: 0,
         });
         let prepared = PreparedPlan::prepare(plan, 48_000, 3).expect("valid mixed plan");
         let action = prepared
@@ -452,5 +791,16 @@ mod tests {
             PreparedPlan::prepare(plan, 48_000, 3),
             Err(PreparedPlanError::LimitExceeded)
         );
+    }
+
+    fn plan_action_ticks(plan: &PreparedPlan) -> Vec<u64> {
+        plan.actions()
+            .iter()
+            .map(|action| {
+                plan.timeline()
+                    .sample_to_tick_nearest(action.sample_position)
+                    .expect("prepared sample maps to a tick")
+            })
+            .collect()
     }
 }

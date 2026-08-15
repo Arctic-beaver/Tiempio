@@ -18,6 +18,15 @@ ignored `artifacts/` directory.
   grouped canonical history, recovery boundaries and render-plan publication hold.
 - `STAGE-9-RELEASE.md` - combined Stage 9 implementation, validation, browser interaction,
   measured bundle and fresh unpacked Desktop package evidence.
+- `STAGE-10A-LINKED-RENDER-PLAN.md` - referenced source-program/song-instance protocol, bounded
+  Rust scheduling, split/offset semantics and Native/Web parity evidence.
+- `STAGE-10B-BRICK-PREVIEW.md` - independent linked-source preview cursors, transient runtime
+  authority, exact voice handoff and Native/Web AudioWorklet parity evidence.
+- `STAGE-10C-COMPOSITION-UI.md` - shared linked-source editor, lower song dock, instance gestures,
+  explicit variation, localization and production Web bundle evidence.
+- `STAGE-10D-INTEGRATION-AND-DURABILITY.md` - generation-safe candidate activation, timeout
+  recovery, obsolete projection removal, linked archive/recovery history, Web/WASM parity and fresh
+  Desktop package evidence.
 - `PRE-PHASE-6-PRODUCT-GATE.md` - collision-safe overlays, song palette and performance input,
   engine-owned previews, sound demo/wave, metronome, transport guidance, application branding and
   integrated Desktop/Web acceptance evidence.

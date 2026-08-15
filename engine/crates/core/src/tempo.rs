@@ -206,6 +206,7 @@ mod tests {
                 end_tick: 3_840,
             },
             layers: Vec::new(),
+            instances: Vec::new(),
         }
     }
 

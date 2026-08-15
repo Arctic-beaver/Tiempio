@@ -15,14 +15,14 @@ import {
 const compatibleHandshake = {
 	protocolVersion: engineProtocolVersion,
 	peer: 'application',
-	renderPlanVersion: 5,
+	renderPlanVersion: 6,
 	patchModelVersion: 4,
 	capabilities: ['protocol.typed-json']
 } as const
 
 describe('engine protocol contracts', () => {
 	it('exposes the current shared engine protocol contract', () => {
-		assert.equal(engineProtocolVersion, 9)
+		assert.equal(engineProtocolVersion, 11)
 	})
 
 	it('requires the common engine surface and exactly one audible output', () => {
@@ -250,6 +250,56 @@ describe('engine protocol contracts', () => {
 					pitches: [57, 60, 64],
 					previewId: 'preview.palette.1',
 					samplePosition: 512
+				}
+			}).ok,
+			true
+		)
+	})
+
+	it('validates generation- and revision-bound linked-source preview cursors', () => {
+		assert.equal(
+			validateEngineCommandEnvelope({
+				protocolVersion: engineProtocolVersion,
+				requestId: 'request-brick-preview-start',
+				sequence: 6,
+				type: 'start-brick-preview',
+				payload: {
+					previewGeneration: 2,
+					renderPlanRevision: 7,
+					sourceLayerIds: ['layer.bass', 'layer.drums']
+				}
+			}).ok,
+			true
+		)
+		assert.equal(
+			validateEngineCommandEnvelope({
+				protocolVersion: engineProtocolVersion,
+				requestId: 'request-brick-preview-seek',
+				sequence: 7,
+				type: 'seek-brick-preview-source',
+				payload: {
+					previewGeneration: 2,
+					sourceLayerId: 'layer.bass',
+					localTick: 480,
+					cycleIteration: 3,
+					running: true
+				}
+			}).ok,
+			true
+		)
+		assert.equal(
+			validateEngineEventEnvelope({
+				protocolVersion: engineProtocolVersion,
+				sequence: 8,
+				type: 'brick-preview-cursor',
+				payload: {
+					sourceLayerId: 'layer.bass',
+					previewGeneration: 2,
+					running: true,
+					localTick: 480,
+					cycleIteration: 3,
+					engineFrame: 24_000,
+					renderPlanRevision: 7
 				}
 			}).ok,
 			true

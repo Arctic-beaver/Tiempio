@@ -1076,12 +1076,12 @@ function validateSong(
 			safeEnd(instance.startTick, instance.durationTicks, context, path)
 		if (validOffset && layer !== undefined) {
 			const cycle = layer.material.materialLengthTicks + layer.material.tailRestTicks
-			if (cycle <= 0 || Number(instance.sourceOffsetTicks) >= cycle) {
+			if (cycle <= 0) {
 				issue(
 					context,
 					'INVALID_TIMELINE',
-					`${path}.sourceOffsetTicks`,
-					'A song instance source offset must be inside a non-empty source cycle.'
+					`${path}.sourceLayerId`,
+					'A song instance requires a source with a positive cycle.'
 				)
 			}
 		}

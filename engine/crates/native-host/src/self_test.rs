@@ -70,13 +70,14 @@ fn run_commands(
         &json!({
             "protocolVersion": ENGINE_PROTOCOL_VERSION,
             "peer": "application",
-            "renderPlanVersion": 5,
+            "renderPlanVersion": 6,
             "patchModelVersion": 4,
             "capabilities": [
                 "protocol.typed-json",
                 "audio.native.shared",
                 "metronome.clock",
                 "preview.programs",
+                "preview.linked-sources",
                 "audio.devices"
             ]
         }),
@@ -123,7 +124,57 @@ fn run_commands(
         "note-off",
         &json!({ "auditionId": "self-test.note" }),
     )?;
-    dispatch(session, controller, 7, "stop-audio", &json!({}))?;
+    run_brick_preview_commands(session, controller)?;
+    dispatch(session, controller, 11, "stop-audio", &json!({}))?;
+    Ok(())
+}
+
+fn run_brick_preview_commands(
+    session: &mut ProtocolSession,
+    controller: &mut crate::host::HostController<crate::backend::NullOutputBackend>,
+) -> Result<(), &'static str> {
+    dispatch(
+        session,
+        controller,
+        7,
+        "start-brick-preview",
+        &json!({
+            "previewGeneration": 1,
+            "renderPlanRevision": 7,
+            "sourceLayerIds": ["layer.bass"]
+        }),
+    )?;
+    thread::sleep(Duration::from_millis(40));
+    dispatch(
+        session,
+        controller,
+        8,
+        "set-brick-preview-source-enabled",
+        &json!({
+            "previewGeneration": 1,
+            "sourceLayerId": "layer.bass",
+            "enabled": false
+        }),
+    )?;
+    dispatch(
+        session,
+        controller,
+        9,
+        "set-brick-preview-source-enabled",
+        &json!({
+            "previewGeneration": 1,
+            "sourceLayerId": "layer.bass",
+            "enabled": true
+        }),
+    )?;
+    dispatch(
+        session,
+        controller,
+        10,
+        "stop-brick-preview",
+        &json!({ "previewGeneration": 1 }),
+    )?;
+    thread::sleep(Duration::from_millis(40));
     Ok(())
 }
 
@@ -150,6 +201,35 @@ fn assert_null_events(events: &[EngineEvent]) -> Result<(), &'static str> {
         events,
         |event| matches!(event, EngineEvent::Pong { heartbeat_id } if heartbeat_id == "self-test.heartbeat"),
     )?;
+    assert_event(events, |event| {
+        matches!(
+            event,
+            EngineEvent::BrickPreviewStarted {
+                preview_generation: 1,
+                render_plan_revision: 7,
+                ..
+            }
+        )
+    })?;
+    assert_event(events, |event| {
+        matches!(
+            event,
+            EngineEvent::BrickPreviewCursor {
+                source_layer_id,
+                preview_generation: 1,
+                ..
+            } if source_layer_id == "layer.bass"
+        )
+    })?;
+    assert_event(events, |event| {
+        matches!(
+            event,
+            EngineEvent::BrickPreviewEnded {
+                preview_generation: 1,
+                ..
+            }
+        )
+    })?;
     assert_event(events, |event| {
         matches!(
             event,
@@ -212,12 +292,14 @@ mod tests {
     use allocation_counter::measure;
     use rtrb::RingBuffer;
     use tiempio_engine_core::{LayerSource, PreparedPlan};
-    use tiempio_engine_protocol::{EngineCommand, PreviewEventPayload, PreviewProgramPayload};
+    use tiempio_engine_protocol::{
+        EngineCommand, PreviewEventPayload, PreviewProgramPayload, StartBrickPreviewPayload,
+    };
 
     use super::*;
     use crate::realtime::{
-        CONTROL_QUEUE_CAPACITY, PreparedPreview, RealtimeCommand, RealtimeEngine, StreamSignals,
-        create_engine,
+        CONTROL_QUEUE_CAPACITY, PreparedBrickPreview, PreparedPreview, RealtimeCommand,
+        RealtimeEngine, StreamSignals, create_engine,
     };
 
     fn fixture_plan() -> tiempio_engine_core::RenderPlan {
@@ -253,6 +335,16 @@ mod tests {
         let sample_rate = 48_000;
         let mut engine = create_engine(sample_rate);
         let plan = fixture_plan();
+        let brick_preview = PreparedBrickPreview::prepare(
+            &StartBrickPreviewPayload {
+                preview_generation: 1,
+                render_plan_revision: plan.project_revision.value(),
+                source_layer_ids: vec!["layer.bass".to_owned()],
+            },
+            &plan,
+            sample_rate,
+        )
+        .unwrap();
         let patch = match &plan.layers[0].source {
             LayerSource::Synth { patch, .. } => patch.clone(),
             LayerSource::Drums { .. } => panic!("fixture must start with a synth layer"),
@@ -292,6 +384,9 @@ mod tests {
         command_tx
             .push(RealtimeCommand::StartPreview(preview))
             .expect("bounded preview command");
+        command_tx
+            .push(RealtimeCommand::StartBrickPreview(brick_preview))
+            .expect("bounded brick preview command");
         let allocation = measure(|| {
             for _ in 0..64 {
                 realtime.render_f32_channels(&mut output, 2);

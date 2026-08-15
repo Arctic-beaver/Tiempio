@@ -93,6 +93,24 @@ export interface EngineCommandPayloadByType {
 		readonly programVersion: 1
 	}
 	readonly 'cancel-preview': { readonly previewId: string }
+	readonly 'start-brick-preview': {
+		readonly previewGeneration: number
+		readonly renderPlanRevision: number
+		readonly sourceLayerIds: readonly string[]
+	}
+	readonly 'set-brick-preview-source-enabled': {
+		readonly enabled: boolean
+		readonly previewGeneration: number
+		readonly sourceLayerId: string
+	}
+	readonly 'seek-brick-preview-source': {
+		readonly cycleIteration: number
+		readonly localTick: number
+		readonly previewGeneration: number
+		readonly running: boolean
+		readonly sourceLayerId: string
+	}
+	readonly 'stop-brick-preview': { readonly previewGeneration: number }
 	readonly 'start-recording': {
 		readonly countInBars: number
 		readonly layerId: string
@@ -174,6 +192,25 @@ export interface EngineEventPayloadByType {
 	readonly 'preview-ended': {
 		readonly previewId: string
 		readonly reason: 'completed' | 'canceled' | 'interrupted'
+	}
+	readonly 'brick-preview-started': {
+		readonly engineFrame: number
+		readonly previewGeneration: number
+		readonly renderPlanRevision: number
+	}
+	readonly 'brick-preview-cursor': {
+		readonly cycleIteration: number
+		readonly engineFrame: number
+		readonly localTick: number
+		readonly previewGeneration: number
+		readonly renderPlanRevision: number
+		readonly running: boolean
+		readonly sourceLayerId: string
+	}
+	readonly 'brick-preview-ended': {
+		readonly engineFrame: number
+		readonly previewGeneration: number
+		readonly reason: 'stopped' | 'interrupted'
 	}
 	readonly 'recording-state': {
 		readonly countInBeatsRemaining: number

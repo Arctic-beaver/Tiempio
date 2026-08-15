@@ -36,7 +36,7 @@ describe('studio project projections', () => {
 		assert.equal(projections.drums.swing, 0.08)
 		assert.equal(projections.drums.startTick, 0)
 		assert.equal(projections.drums.totalTicks, 3840)
-		assert.equal(projections.arrangement.sections.length, 4)
+		assert.equal(projections.arrangement.layers.flatMap((layer) => layer.instances).length, 11)
 		assert.equal(projections.arrangement.endTick, 153_600)
 		assert.equal(projections.sculpt.soundName, 'Glass')
 	})
@@ -173,7 +173,6 @@ describe('studio project projections', () => {
 	it('projects arrangement removal from the typed song-instance command', () => {
 		const session = new ProjectSession(createSeedProject())
 		const before = projectStudio(session.getSnapshot(), layerId('layer.bass'))
-		assert.ok(before.arrangement.layers[2]?.sections.includes('section.main'))
 		const bass = session.getSnapshot().project.layers.find((layer) => layer.id === 'layer.bass')
 		const main = session
 			.getSnapshot()
@@ -183,13 +182,24 @@ describe('studio project projections', () => {
 		assert.ok(bass)
 		assert.ok(main)
 		if (bass === undefined || main === undefined) return
+		assert.equal(
+			before.arrangement.layers
+				.find((layer) => layer.id === bass.id)
+				?.instances.some((instance) => instance.id === main.id),
+			true
+		)
 		session.dispatch({
 			type: 'song-instance.delete',
 			baseRevision: 0,
 			instanceId: main.id
 		})
 		const after = projectStudio(session.getSnapshot(), bass.id)
-		assert.equal(after.arrangement.layers[2]?.sections.includes('section.main'), false)
+		assert.equal(
+			after.arrangement.layers
+				.find((layer) => layer.id === bass.id)
+				?.instances.some((instance) => instance.id === main.id),
+			false
+		)
 	})
 
 	it('keeps empty-project details truthful', () => {

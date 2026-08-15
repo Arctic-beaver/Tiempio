@@ -2,7 +2,14 @@
 
 ## Status and authority
 
-**Status:** user-approved AS-TO-BE product and architecture baseline, 2026-08-13.
+**Status:** user-approved AS-TO-BE product and architecture baseline, 2026-08-13;
+implementation started from the completed Stage 9 baseline, 2026-08-15.
+
+**Integration branch:** `feature/linked-bricks-song-architecture`.
+
+The implementation sequence, completion record and current entry audit are maintained in
+[`STAGE-10-IMPLEMENTATION.md`](STAGE-10-IMPLEMENTATION.md). This document remains the product and
+architecture authority.
 
 This document is the semantic authority for composing a song from reusable musical bricks. The
 executable visual authority is
@@ -412,9 +419,10 @@ shared application scrollbar treatment.
 
 ## Target project schema
 
-The current schema combines source material and arrangement placement in `ProjectLayer.clips[]`.
-That boundary cannot implement linked instances correctly and must change before the composition UI
-is wired.
+Stage 9 completed the current-only cutover from `ProjectLayer.clips[]` to source material owned by
+`ProjectLayer` and arrangement placement owned by `ProjectDocument.song.instances[]`. Stage 10 must
+preserve that accepted authority while replacing the temporary flattened render-plan projection
+with referenced source programs and instances before the composition UI is wired.
 
 The target schema is conceptually:
 
@@ -504,6 +512,9 @@ it reaches the real-time callback.
 - A dangling source-layer reference is rejected on command and archive load.
 - Overlapping instances are allowed and mix predictably within engine voice ceilings.
 - A partial final cycle ends without changing tempo, pitch or source content.
+- A note sounding across a left-trim or split boundary preserves the audible result without a stuck
+  voice, duplicate attack or silent remainder; the scheduler owns the continuation policy and the
+  command never copies canonical source events.
 - Deleting a source with instances asks to delete its placements too or cancels; it never leaves
   dangling instances.
 - An explicit variation gets new source, note/event and instance IDs; an ordinary duplicate remains
@@ -549,7 +560,7 @@ canvas and performance recording. Stage 10 builds referenced scheduling, preview
 composition on those authorities. Stages 11–14 add starter content, personal audio, export and
 application-wide responsive adaptation; Stage 15 accepts the combined Desktop/Web product.
 
-The current non-main task branch is the integration branch unless the user selects another base.
+The Stage 10 integration branch is `feature/linked-bricks-song-architecture`.
 For this large change, each stage uses its own branch and is merged back only after its stage exit
 criteria pass.
 
@@ -583,6 +594,7 @@ events during ordinary placement.
 - version shared TypeScript/Rust render-plan schemas;
 - compile source programs and referenced song instances from one project revision;
 - schedule gapless cycles, source offsets, partial final cycles and overlaps in Rust;
+- preserve deterministic note lifetime at instance starts, left trims, splits and partial endings;
 - enforce plan and real-time ceilings without callback allocation;
 - run the same protocol fixtures against native and Web/WASM adapters.
 
@@ -767,6 +779,7 @@ does not redesign the model; it audits the combined result of Stages 0–14:
 | Personal audio | Sample instrument versus phrase is explicit; imported/captured phrase timing is fixed; recorder design is approved; assets, permissions, clocks, save/reopen and cleanup pass on both targets |
 | Audio export | Current revision/range captured once; valid PCM24/PCM16 WAV; reference/preview exclusion; native/Web parity and exact cancel cleanup |
 | UI | Approved screenshots plus reviewed ghost delta, constrained height, 200% zoom, keyboard actions and focus recovery |
+| Bundle growth | Stage-owned measured envelope and chunk placement for Desktop renderer, Web initial JavaScript, deferred application and Web shell output |
 
 Resource-intensive full validation must run sequentially under the repository's fail-fast lifecycle
 owner with one lock, bounded stage timeouts, heartbeats, signal handling and exact task-owned process

@@ -1,7 +1,6 @@
 import { cloneAndFreeze } from './immutable.js'
 import {
 	enginePatchModelVersion,
-	engineProtocolLimits,
 	engineRenderPlanVersion,
 	engineTicksPerQuarter,
 	validateEngineWireRenderPlan,
@@ -27,26 +26,22 @@ import {
 } from './model.js'
 import { validateProjectDocument } from './validation.js'
 
-export const renderPlanVersion = 4 as const
+export const renderPlanVersion = 5 as const
 
 export interface RenderPlanMidiEvent {
 	readonly durationTicks: number
-	readonly id: string
-	readonly instanceId: SongInstanceId
+	readonly id: NoteId
 	readonly pitch: number
-	readonly sourceEventId: NoteId
 	readonly startTick: number
 	readonly type: 'midi-note'
 	readonly velocity: number
 }
 
 export interface RenderPlanDrumEvent {
-	readonly id: string
+	readonly id: DrumEventId
 	readonly instrument: DrumInstrument
-	readonly instanceId: SongInstanceId
-	readonly sourceEventId: DrumEventId
+	readonly swingTicks: number
 	readonly startTick: number
-	readonly swing: number
 	readonly type: 'drum-hit'
 	readonly velocity: number
 }
@@ -54,10 +49,12 @@ export interface RenderPlanDrumEvent {
 export type RenderPlanEvent = RenderPlanMidiEvent | RenderPlanDrumEvent
 
 export interface RenderPlanLayer {
+	readonly cycleTicks: number
 	readonly events: readonly RenderPlanEvent[]
 	readonly gain: number
 	readonly id: LayerId
 	readonly pan: number
+	readonly songEnabled: boolean
 	readonly source:
 		| { readonly instrument: ResolvedSynthPatch; readonly type: 'synth' }
 		| {
@@ -68,8 +65,17 @@ export interface RenderPlanLayer {
 		  }
 }
 
+export interface RenderPlanSongInstance {
+	readonly durationTicks: number
+	readonly id: SongInstanceId
+	readonly sourceLayerId: LayerId
+	readonly sourceOffsetTicks: number
+	readonly startTick: number
+}
+
 export interface ProjectRenderPlan {
 	readonly endTick: number
+	readonly instances: readonly RenderPlanSongInstance[]
 	readonly key: ProjectKey
 	readonly layers: readonly RenderPlanLayer[]
 	readonly loop: ProjectLoop
@@ -144,79 +150,40 @@ function opaqueIdOrder(left: string, right: string): number {
 	return left < right ? -1 : left > right ? 1 : 0
 }
 
-function stableHash(value: string, seed: number): string {
-	let hash = seed >>> 0
-	for (let index = 0; index < value.length; index += 1) {
-		hash ^= value.charCodeAt(index)
-		hash = Math.imul(hash, 16_777_619)
+function layerEvents(layer: ProjectDocument['layers'][number]): readonly RenderPlanEvent[] {
+	if (layer.material.kind === 'midi') {
+		return layer.material.notes
+			.map((note) => ({
+				type: 'midi-note' as const,
+				id: note.id,
+				startTick: note.startTick,
+				durationTicks: note.durationTicks,
+				pitch: note.pitch,
+				velocity: note.velocity
+			}))
+			.sort(eventOrder)
 	}
-	return (hash >>> 0).toString(36)
-}
-
-function runtimeEventId(instanceId: string, sourceEventId: string, iteration: number): string {
-	const identity = `${instanceId}:${sourceEventId}`
-	return `event.${stableHash(identity, 2_166_136_261)}.${stableHash(identity, 3_332_777_319)}.${iteration.toString(36)}`
-}
-
-function layerEvents(
-	project: ProjectDocument,
-	layer: ProjectDocument['layers'][number]
-): readonly RenderPlanEvent[] | null {
-	const events: RenderPlanEvent[] = []
-	const instances = project.song.instances
-		.filter((instance) => instance.sourceLayerId === layer.id)
-		.sort((left, right) => left.startTick - right.startTick || opaqueIdOrder(left.id, right.id))
-	const material = layer.material
-	const cycleTicks = material.materialLengthTicks + material.tailRestTicks
-	if (cycleTicks <= 0) return events
-	for (const instance of instances) {
-		const sourceWindowEnd = instance.sourceOffsetTicks + instance.durationTicks
-		for (let iteration = 0; iteration * cycleTicks < sourceWindowEnd; iteration += 1) {
-			const cycleStart = iteration * cycleTicks
-			if (material.kind === 'midi') {
-				for (const note of material.notes) {
-					const sourceStart = cycleStart + note.startTick
-					if (sourceStart < instance.sourceOffsetTicks || sourceStart >= sourceWindowEnd)
-						continue
-					const startTick = instance.startTick + sourceStart - instance.sourceOffsetTicks
-					const durationTicks = Math.min(
-						note.durationTicks,
-						instance.startTick + instance.durationTicks - startTick
-					)
-					if (events.length === engineProtocolLimits.maxMusicalEvents) return null
-					events.push({
-						type: 'midi-note',
-						id: runtimeEventId(instance.id, note.id, iteration),
-						instanceId: instance.id,
-						sourceEventId: note.id,
-						startTick,
-						durationTicks,
-						pitch: note.pitch,
-						velocity: note.velocity
-					})
+	if (layer.material.kind === 'drum') {
+		const material = layer.material
+		const ticksPerStep = defaultTicksPerQuarter / material.pattern.stepsPerQuarter
+		return material.events
+			.map((event) => {
+				const startTick = event.step * ticksPerStep
+				return {
+					type: 'drum-hit' as const,
+					id: event.id,
+					startTick,
+					swingTicks:
+						Math.floor(startTick / (engineTicksPerQuarter / 4)) % 2 === 1
+							? Math.round((engineTicksPerQuarter / 4) * material.swing)
+							: 0,
+					instrument: event.instrument,
+					velocity: event.velocity
 				}
-			} else if (material.kind === 'drum') {
-				const ticksPerStep = defaultTicksPerQuarter / material.pattern.stepsPerQuarter
-				for (const event of material.events) {
-					const sourceStart = cycleStart + event.step * ticksPerStep
-					if (sourceStart < instance.sourceOffsetTicks || sourceStart >= sourceWindowEnd)
-						continue
-					if (events.length === engineProtocolLimits.maxMusicalEvents) return null
-					events.push({
-						type: 'drum-hit',
-						id: runtimeEventId(instance.id, event.id, iteration),
-						instanceId: instance.id,
-						sourceEventId: event.id,
-						startTick: instance.startTick + sourceStart - instance.sourceOffsetTicks,
-						swing: material.swing,
-						instrument: event.instrument,
-						velocity: event.velocity
-					})
-				}
-			}
-		}
+			})
+			.sort(eventOrder)
 	}
-	return events.sort(eventOrder)
+	return []
 }
 
 export function compileProjectRenderPlan(
@@ -257,22 +224,17 @@ export function compileProjectRenderPlan(
 	)
 	const hasSolo = playable.some((layer) => layer.solo)
 	const layers: RenderPlanLayer[] = []
-	for (const layer of playable
-		.filter((candidate) => !candidate.muted && (!hasSolo || candidate.solo))
-		.sort((left, right) => opaqueIdOrder(left.id, right.id))) {
-		const events = layerEvents(validation.project, layer)
-		if (events === null) {
-			return {
-				status: 'rejected',
-				code: 'INVALID_PROJECT',
-				message: `Layer ${layer.id} expands beyond the engine musical-event limit.`
-			}
-		}
+	for (const layer of playable.sort((left, right) => opaqueIdOrder(left.id, right.id))) {
+		const events = layerEvents(layer)
+		const authoredCycleTicks = layer.material.materialLengthTicks + layer.material.tailRestTicks
+		const cycleTicks = authoredCycleTicks > 0 ? authoredCycleTicks : defaultTicksPerQuarter * 4
 		if (layer.source.type === 'synth') {
 			layers.push({
 				id: layer.id,
 				gain: layer.gain,
 				pan: layer.pan,
+				songEnabled: !layer.muted && (!hasSolo || layer.solo),
+				cycleTicks,
 				source: { type: 'synth', instrument: layer.source.instrument.resolvedPatch },
 				events
 			})
@@ -289,6 +251,8 @@ export function compileProjectRenderPlan(
 			id: layer.id,
 			gain: layer.gain,
 			pan: layer.pan,
+			songEnabled: !layer.muted && (!hasSolo || layer.solo),
+			cycleTicks,
 			source: {
 				type: 'drum',
 				kitId: layer.source.kitId,
@@ -298,6 +262,17 @@ export function compileProjectRenderPlan(
 			events
 		})
 	}
+	const renderedLayerIds = new Set(layers.map((layer) => layer.id))
+	const instances = validation.project.song.instances
+		.filter((instance) => renderedLayerIds.has(instance.sourceLayerId))
+		.map((instance) => ({
+			id: instance.id,
+			sourceLayerId: instance.sourceLayerId,
+			startTick: instance.startTick,
+			durationTicks: instance.durationTicks,
+			sourceOffsetTicks: instance.sourceOffsetTicks
+		}))
+		.sort((left, right) => left.startTick - right.startTick || opaqueIdOrder(left.id, right.id))
 	const endTick = Math.max(
 		validation.project.transport.loop.endTick,
 		...validation.project.sections.map((section) => section.startTick + section.lengthTicks),
@@ -322,7 +297,8 @@ export function compileProjectRenderPlan(
 			meterMap: validation.project.transport.meterMap,
 			key: validation.project.transport.key,
 			loop: validation.project.transport.loop,
-			layers
+			layers,
+			instances
 		})
 	}
 }
@@ -348,6 +324,8 @@ export function compileEngineWireRenderPlan(
 					id: layer.id,
 					gain: layer.gain,
 					pan: layer.pan,
+					songEnabled: layer.songEnabled,
+					cycleTicks: layer.cycleTicks,
 					source: {
 						type: 'subtractive-synth' as const,
 						patch: compileEngineWireSynthPatch(layer.source.instrument)
@@ -371,6 +349,8 @@ export function compileEngineWireRenderPlan(
 				id: layer.id,
 				gain: layer.gain,
 				pan: layer.pan,
+				songEnabled: layer.songEnabled,
+				cycleTicks: layer.cycleTicks,
 				source: {
 					type: 'procedural-drums' as const,
 					patch: compileEngineWireDrumPatch(layer.source.patch)
@@ -381,12 +361,7 @@ export function compileEngineWireRenderPlan(
 								{
 									id: event.id,
 									startTick: event.startTick,
-									swingTicks:
-										Math.floor(event.startTick / (engineTicksPerQuarter / 4)) %
-											2 ===
-										1
-											? Math.round((engineTicksPerQuarter / 4) * event.swing)
-											: 0,
+									swingTicks: event.swingTicks,
 									instrument: event.instrument,
 									velocity: event.velocity
 								}
@@ -394,7 +369,8 @@ export function compileEngineWireRenderPlan(
 						: []
 				)
 			}
-		})
+		}),
+		instances: projectPlan.instances
 	})
 	const validation = validateEngineWireRenderPlan(plan)
 	if (!validation.ok) {

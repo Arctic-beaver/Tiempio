@@ -13,7 +13,8 @@ import {
 	noteId,
 	previewBassMacro,
 	ProjectSession,
-	ProjectSessionError
+	ProjectSessionError,
+	songInstanceId
 } from './index.js'
 
 function createBassSession(historyCapacity = 50): ProjectSession {
@@ -648,6 +649,96 @@ describe('ProjectSession', () => {
 			durationTicks: 480,
 			velocity: 80
 		})
+	})
+
+	it('trims, splits and explicitly varies linked instances without copying ordinary placements', () => {
+		const base = createProject({ projectId: 'project.linked-arrangement', title: 'Linked' })
+		const source = {
+			...createLayer({ id: 'layer.linked', name: 'Linked phrase', role: 'melody' }),
+			material: createMidiMaterial({
+				materialLengthTicks: 960,
+				notes: [
+					createMidiNote({
+						id: 'note.linked',
+						pitch: 64,
+						startTick: 120,
+						durationTicks: 480
+					})
+				]
+			})
+		}
+		const original = createSongInstance({
+			id: 'instance.linked',
+			sourceLayerId: source.id,
+			startTick: 100,
+			durationTicks: 1000,
+			sourceOffsetTicks: 50
+		})
+		const session = new ProjectSession({
+			...base,
+			layers: [source],
+			song: { instances: [original] }
+		})
+
+		session.dispatch({
+			type: 'song-instance.trim-left',
+			baseRevision: 0,
+			instanceId: original.id,
+			startTick: 200,
+			durationTicks: 900,
+			sourceOffsetTicks: 150
+		})
+		session.dispatch({
+			type: 'song-instance.split',
+			baseRevision: 1,
+			instanceId: original.id,
+			rightInstanceId: songInstanceId('instance.linked.right'),
+			splitOffsetTicks: 400
+		})
+		assert.deepEqual(session.getSnapshot().project.song.instances, [
+			{ ...original, startTick: 200, durationTicks: 400, sourceOffsetTicks: 150 },
+			{
+				...original,
+				id: 'instance.linked.right',
+				startTick: 600,
+				durationTicks: 500,
+				sourceOffsetTicks: 550
+			}
+		])
+
+		const variation = {
+			...source,
+			id: layerId('layer.linked.variation'),
+			name: 'Linked phrase variation',
+			material: createMidiMaterial({
+				materialLengthTicks: 960,
+				notes: [
+					createMidiNote({
+						id: 'note.linked.variation',
+						pitch: 64,
+						startTick: 120,
+						durationTicks: 480
+					})
+				]
+			})
+		}
+		session.dispatch({
+			type: 'layer.duplicate-as-variation',
+			baseRevision: 2,
+			sourceLayerId: source.id,
+			layer: variation,
+			instance: createSongInstance({
+				id: 'instance.linked.variation',
+				sourceLayerId: variation.id,
+				startTick: 1200,
+				durationTicks: 400
+			})
+		})
+		assert.equal(session.getSnapshot().project.layers.length, 2)
+		assert.equal(session.getSnapshot().project.song.instances.length, 3)
+		assert.equal(session.getSnapshot().project.layers[0]?.material.kind, 'midi')
+		assert.equal(session.getSnapshot().project.layers[1]?.material.kind, 'midi')
+		assert.equal(session.undo(3).project.layers.length, 1)
 	})
 
 	it('uses monotonic bounded undo/redo and clears redo after a new command', () => {

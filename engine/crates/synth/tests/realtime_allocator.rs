@@ -2,9 +2,9 @@ use allocation_counter::measure;
 use tiempio_engine_core::{
     EngineKernel, InstrumentLayerPlan, LayerSource, LoopRegion, MeterPoint, MidiNoteEvent,
     PATCH_MODEL_VERSION, PreparedPlan, RENDER_PLAN_VERSION, RenderPlan, RenderPlanRevision,
-    SynthAmplifierPatch, SynthExpressionPatch, SynthFilterPatch, SynthMovementPatch,
-    SynthOscillatorPatch, SynthPatch, SynthSecondaryOscillatorPatch, SynthWaveform,
-    TICKS_PER_QUARTER, TempoPoint,
+    SongInstancePlan, SynthAmplifierPatch, SynthExpressionPatch, SynthFilterPatch,
+    SynthMovementPatch, SynthOscillatorPatch, SynthPatch, SynthSecondaryOscillatorPatch,
+    SynthWaveform, TICKS_PER_QUARTER, TempoPoint,
 };
 use tiempio_engine_dsp::{DspConfiguration, StereoFrame};
 use tiempio_engine_synth::BassVoicePool;
@@ -78,6 +78,8 @@ fn plan(revision: u64) -> RenderPlan {
             id: "layer.bass".to_owned(),
             gain: 1.0,
             pan: 0.0,
+            song_enabled: true,
+            cycle_ticks: 3_840,
             source: LayerSource::Synth {
                 patch: patch(),
                 events: vec![MidiNoteEvent {
@@ -88,6 +90,13 @@ fn plan(revision: u64) -> RenderPlan {
                     velocity: 100,
                 }],
             },
+        }],
+        instances: vec![SongInstancePlan {
+            id: "instance.bass".to_owned(),
+            source_layer_id: "layer.bass".to_owned(),
+            start_tick: 0,
+            duration_ticks: 3_840,
+            source_offset_ticks: 0,
         }],
     }
 }

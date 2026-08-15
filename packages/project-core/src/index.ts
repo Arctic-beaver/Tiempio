@@ -11,6 +11,7 @@ export {
 	type ConfigureLayerSoundCommand,
 	type CreateProjectCommand,
 	type DeleteSongInstanceCommand,
+	type DuplicateLayerAsVariationCommand,
 	type DeleteNoteCommand,
 	type ExtendSourceMaterialCommand,
 	type FinalizeSourceNoteCommand,
@@ -24,6 +25,8 @@ export {
 	type ProjectCommandResult,
 	type ResizeNoteCommand,
 	type ResizeSongInstanceCommand,
+	type SplitSongInstanceCommand,
+	type TrimLeftSongInstanceCommand,
 	type SelectCharacterCommand,
 	type SetLayerPerformanceCommand,
 	type SetKeyCommand,
@@ -162,6 +165,7 @@ export {
 	type RenderPlanEvent,
 	type RenderPlanLayer,
 	type RenderPlanMidiEvent,
+	type RenderPlanSongInstance,
 	type RenderPlanResult
 } from './render-plan.js'
 export {
